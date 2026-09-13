@@ -1,0 +1,16 @@
+#text1{
+    font-size: 90px;
+    font-family: cursive;
+}
+
+#text2{
+    font-size: 70px;
+    font-family: Georgia, 'Times New Roman', Times, serif;
+}
+
+.butt3 {
+    font-size: 40px;
+    font-family: 'Courier New', Courier, monospace;
+    background-color: crimson;
+    color: rgb(255, 139, 139);
+}
