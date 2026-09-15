@@ -1,6 +1,7 @@
 console.log(document.getElementById("getusersform"));
 console.log("loaded")
 
+
 // 1. Select the form
 const form = document.getElementById('adduserform');
 
