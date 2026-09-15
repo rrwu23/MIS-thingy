@@ -1,8 +1,11 @@
+console.log(document.getElementById("getusersform"));
+console.log("loaded")
+
 // 1. Select the form
 const form = document.getElementById('adduserform');
 
 // 2. Listen for the submit event
-form.addEventListener('submit', async function(event) {
+form?.addEventListener('submit', async function(event) {
   // Prevent the default browser behavior (reloading the page)
   event.preventDefault(); 
 
@@ -33,5 +36,44 @@ form.addEventListener('submit', async function(event) {
   }
 });
 
-const form1 = document.getElementById('getuserform');
+const form1 = document.getElementById('getusersform');
 
+form1?.addEventListener('submit', async function (event) {
+    event.preventDefault();
+    console.log("hi there")
+
+    const params = new URLSearchParams({
+        name: form1.elements.namedItem('name').value.trim(),
+        supervisor: form1.elements.namedItem('supervisor').value.trim()
+    });
+
+    try {
+        const response = await fetch(
+            `http://api.rongrongwu.com/getuser?${params}`
+        );
+
+        if (!response.ok) {
+            console.error('Server error:', await response.text());
+            return;
+        }
+
+        const users = await response.json();
+        const results = document.getElementById('results');
+            results.replaceChildren(); // Clear previous results
+
+            if (users.length === 0) {
+                results.textContent = 'No users found.';
+            }
+
+            for (const user of users) {
+                const paragraph = document.createElement('p');
+
+                paragraph.textContent =
+                    `Name: ${user.name} | Balance: ${user.balance} | Supervisor: ${user.supervisor}`;
+
+                results.appendChild(paragraph);
+            }
+    } catch (error) {
+        console.error('Network error:', error);
+    }
+});

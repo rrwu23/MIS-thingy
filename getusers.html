@@ -4,11 +4,16 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Document</title>
+    <script src="app.js" defer></script>
 </head>
 <body>
     <form id = "getusersform">
     <label for="name">Account Name (blank for everyone):</label>
     <input type="text" id="name" name="name">
-    <button type="submit">Submit</button>
+    <label for="supervisor">Supervisor (blank for everyone)</label>
+    <input type="text" id="supervisor" name="supervisor"> 
+    <button type="submit">search</button>
+
+    <div id="results"></div>
 </body>
 </html>
