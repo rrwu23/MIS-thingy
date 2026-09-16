@@ -26,7 +26,7 @@ form?.addEventListener('submit', async function(event) {
     if (response.ok) {
       const result = await response.json(); // Assuming the server responds with JSON
       console.log('Success:', result);
-      if (response.message == "user already exists") {
+      if (result.message == "user already exists") {
           alert("user already exists")
       } else {
           alert('Form submitted successfully!');
