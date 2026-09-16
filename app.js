@@ -17,7 +17,7 @@ form?.addEventListener('submit', async function(event) {
 
   try {
     // 4. Send the request to your server
-    const response = await fetch('https://192.168.4.29:8000/adduser', {
+    const response = await fetch('https://api.rongrongwu.com/adduser', {
       method: 'POST', // Use POST to send data
       body: formData
     });
