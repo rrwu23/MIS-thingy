@@ -1,7 +1,6 @@
 console.log(document.getElementById("getusersform"));
 console.log("loaded")
 
-
 // 1. Select the form
 const form = document.getElementById('adduserform');
 
@@ -26,11 +25,7 @@ form?.addEventListener('submit', async function(event) {
     if (response.ok) {
       const result = await response.json(); // Assuming the server responds with JSON
       console.log('Success:', result);
-      if (result.message == "user already exists") {
-          alert("user already exists")
-      } else {
-          alert('Form submitted successfully!');
-      }
+      alert('Form submitted successfully!');
     } else {
       console.error("Validation error:", await response.json());
     }
@@ -80,5 +75,42 @@ form1?.addEventListener('submit', async function (event) {
             }
     } catch (error) {
         console.error('Network error:', error);
+    }
+});
+
+const adminForm = document.getElementById('addadminform');
+
+adminForm?.addEventListener('submit', async function (event) {
+    event.preventDefault();
+
+    // Validate that the two password fields match before sending anything
+    const password = adminForm.elements.namedItem('password').value;
+    const retypePassword = adminForm.elements.namedItem('retype_password').value;
+
+    if (password !== retypePassword) {
+        alert('Error: Passwords do not match.');
+        return;
+    }
+
+    const formData = new FormData(adminForm);
+
+    // retype_password is only used for validation, the server only needs password
+    formData.delete('retype_password');
+
+    try {
+        const response = await fetch('http://api.rongrongwu.com/addadmin', {
+            method: 'POST',
+            body: formData
+        });
+
+        if (response.ok) {
+            const result = await response.json();
+            console.log('Success:', result);
+            alert('Form submitted successfully!');
+        } else {
+            console.error('Validation error:', await response.json());
+        }
+    } catch (error) {
+        console.error('Network Error:', error);
     }
 });
