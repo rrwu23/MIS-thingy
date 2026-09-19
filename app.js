@@ -98,7 +98,7 @@ adminForm?.addEventListener('submit', async function (event) {
     formData.delete('retype_password');
 
     try {
-        const response = await fetch('http://api.rongrongwu.com/addadmin', {
+        const response = await fetch('https://api.rongrongwu.com/addadmin', {
             method: 'POST',
             body: formData
         });
