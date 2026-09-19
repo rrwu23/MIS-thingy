@@ -3,28 +3,41 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Document</title>
+    <title>App1 · Home</title>
     <link rel="stylesheet" href="styles.css">
 </head>
 <body>
-    <div id = "text1">hi
-    </div>
-    <div id = "text2">do you want to : 
-        <button type="button" onclick="window.location.href='/addaccount.html'" class="butt3">
-            Add account
-        </button>
-        or 
-        <button type="button" onclick="window.location.href='/getusers.html'" class="butt3">
-            Query accounts
-        </button>
-        or 
-        <button type="button" onclick="window.location.href='/add_admin.html'" class="butt3">
-            Add admin
-        </button>
-        or
-        <div class="butt3">
-            :(){:|:&};:
-        </div>
+    <div class="page">
+        <main class="card">
+            <header class="bar">
+                <span class="brand">
+                    <span class="brand__dot" aria-hidden="true"></span>App1
+                </span>
+                <span class="tag">Home</span>
+            </header>
+
+            <h1 class="hero__title">hi</h1>
+            <p class="hero__subtitle">do you want to&hellip;</p>
+
+            <nav class="actions" aria-label="Main actions">
+                <button type="button" class="btn btn--primary" onclick="window.location.href='/addaccount.html'">
+                    Add account
+                </button>
+                <button type="button" class="btn btn--primary" onclick="window.location.href='/getusers.html'">
+                    Query accounts
+                </button>
+                <button type="button" class="btn btn--primary" onclick="window.location.href='/add_admin.html'">
+                    Add admin
+                </button>
+            </nav>
+
+            <div class="chip" title="Not implemented — this is a shell fork bomb, please do not run it">
+                <span class="chip__icon" aria-hidden="true">&#9888;</span>
+                <code>:(){:|:&};:</code>
+            </div>
+
+            <p class="footnote">Static pages talking to <code>api.rongrongwu.com</code>.</p>
+        </main>
     </div>
 </body>
 </html>

@@ -3,17 +3,43 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Document</title>
+    <title>App1 · Query accounts</title>
+    <link rel="stylesheet" href="styles.css">
     <script src="app.js" defer></script>
 </head>
 <body>
-    <form id = "getusersform">
-    <label for="name">Account Name (blank for everyone):</label>
-    <input type="text" id="name" name="name">
-    <label for="supervisor">Supervisor (blank for everyone)</label>
-    <input type="text" id="supervisor" name="supervisor"> 
-    <button type="submit">search</button>
+    <div class="page">
+        <main class="card">
+            <header class="bar">
+                <a class="brand" href="/index.html">
+                    <span class="brand__dot" aria-hidden="true"></span>App1
+                </a>
+                <a class="tag" href="/index.html">&#8592; Home</a>
+            </header>
 
-    <div id="results"></div>
+            <h1 class="card__title">Query accounts</h1>
+            <p class="card__hint">Filter by account name and/or supervisor. Leave a field blank to match everyone.</p>
+
+            <form id="getusersform" class="form">
+                <div class="field">
+                    <label for="name">Account name <span class="hint">blank = everyone</span></label>
+                    <input type="text" id="name" name="name" placeholder="Jane Doe">
+                </div>
+
+                <div class="field">
+                    <label for="supervisor">Supervisor <span class="hint">blank = everyone</span></label>
+                    <input type="text" id="supervisor" name="supervisor" placeholder="Morgan Lee">
+                </div>
+
+                <div class="form__actions">
+                    <button type="submit" class="btn btn--primary">Search</button>
+                    <button type="reset" class="btn btn--ghost">Clear</button>
+                </div>
+            </form>
+
+            <div id="results" class="results" role="status" aria-live="polite"
+                 data-empty="No results yet — run a search to list accounts."></div>
+        </main>
+    </div>
 </body>
 </html>

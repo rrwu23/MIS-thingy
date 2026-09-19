@@ -3,20 +3,48 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Document</title>
+    <title>App1 · Add admin</title>
+    <link rel="stylesheet" href="styles.css">
     <script src="app.js" defer></script>
 </head>
 <body>
-    <form id = "addadminform">
-    <label for="admin_name">Admin name:</label>
-    <input type="text" id="admin_name" name="admin_name" required>
-    <label for="password">Password:</label>
-    <input type="password" id="password" name="password" required>
-    <label for="retype_password">Retype password:</label>
-    <input type="password" id="retype_password" name="retype_password" required>
-    <button type="submit">Submit</button>
+    <div class="page">
+        <main class="card">
+            <header class="bar">
+                <a class="brand" href="/index.html">
+                    <span class="brand__dot" aria-hidden="true"></span>App1
+                </a>
+                <a class="tag" href="/index.html">&#8592; Home</a>
+            </header>
 
-</form>
+            <h1 class="card__title">Add admin</h1>
+            <p class="card__hint">Creates an admin login. Both password fields must match.</p>
+
+            <form id="addadminform" class="form">
+                <div class="field">
+                    <label for="admin_name">Admin name</label>
+                    <input type="text" id="admin_name" name="admin_name" placeholder="alice"
+                           autocomplete="username" required>
+                </div>
+
+                <div class="field">
+                    <label for="password">Password</label>
+                    <input type="password" id="password" name="password" placeholder="••••••••"
+                           autocomplete="new-password" required>
+                </div>
+
+                <div class="field">
+                    <label for="retype_password">Retype password</label>
+                    <input type="password" id="retype_password" name="retype_password" placeholder="••••••••"
+                           autocomplete="new-password" required>
+                </div>
+
+                <div class="form__actions">
+                    <button type="submit" class="btn btn--primary">Submit</button>
+                    <button type="reset" class="btn btn--ghost">Clear</button>
+                </div>
+            </form>
+        </main>
+    </div>
 </body>
-
 </html>
