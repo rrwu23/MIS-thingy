@@ -69,7 +69,7 @@ form1?.addEventListener('submit', async function (event) {
                 const paragraph = document.createElement('p');
 
                 paragraph.textContent =
-                    `Name: ${user.name} | Balance: ${user.balance} | Supervisor: ${user.supervisor}`;
+                    `Name: ${user.name} | Supervisor: ${user.supervisor}`;
 
                 results.appendChild(paragraph);
             }
@@ -134,7 +134,9 @@ loginForm?.addEventListener('submit', async function (event) {
     try {
         const response = await fetch(LOGIN_URL, {
             method: 'POST',
+            credentials: "include",
             body: formData
+
         });
 
         // FastAPI replies with JSON for both success and error bodies
