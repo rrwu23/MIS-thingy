@@ -114,3 +114,68 @@ adminForm?.addEventListener('submit', async function (event) {
         console.error('Network Error:', error);
     }
 });
+
+// Admin login -> POST the form to the API login endpoint.
+// NOTE: as of writing, https://api.rongrongwu.com/openapi.json exposes only
+// GET /, POST /adduser, GET /getuser and POST /add-admin — there is no login
+// route deployed yet, so this posts to LOGIN_URL below. If the route ships
+// under a different path (e.g. /login-admin or /admin-login), change that one
+// constant and nothing else.
+const LOGIN_URL = 'https://api.rongrongwu.com/login';
+
+const loginForm = document.getElementById('loginadminform');
+
+loginForm?.addEventListener('submit', async function (event) {
+    event.preventDefault();
+
+    const formData = new FormData(loginForm);
+    const results = document.getElementById('loginresults');
+
+    try {
+        const response = await fetch(LOGIN_URL, {
+            method: 'POST',
+            body: formData
+        });
+
+        // FastAPI replies with JSON for both success and error bodies
+        const result = await response.json();
+
+        if (response.ok) {
+            console.log('Success:', result);
+            showLoginMessage(results, `Logged in as ${formData.get('admin_name')}.`, false);
+        } else {
+            console.error('Login error:', result);
+            showLoginMessage(results, `Login failed (${response.status}): ${describeError(result)}`, true);
+        }
+    } catch (error) {
+        console.error('Network Error:', error);
+        showLoginMessage(results, 'Network error — the login API could not be reached.', true);
+    }
+});
+
+// Replace the previous status line with a single message
+function showLoginMessage(results, text, isError) {
+    if (!results) return;
+
+    const paragraph = document.createElement('p');
+    paragraph.textContent = text;
+
+    if (isError) {
+        paragraph.className = 'results__error';
+    }
+
+    results.replaceChildren(paragraph);
+}
+
+// FastAPI errors: {"detail": "..."} or {"detail": [{"msg": "...", ...}]}
+function describeError(result) {
+    if (typeof result?.detail === 'string') {
+        return result.detail;
+    }
+
+    if (Array.isArray(result?.detail)) {
+        return result.detail.map((item) => item.msg).join('; ');
+    }
+
+    return 'the server rejected the credentials.';
+}

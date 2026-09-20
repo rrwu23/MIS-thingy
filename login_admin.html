@@ -1,0 +1,49 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>App1 · Admin login</title>
+    <link rel="stylesheet" href="styles.css">
+    <script src="app.js" defer></script>
+</head>
+<body>
+    <div class="page">
+        <main class="card">
+            <header class="bar">
+                <a class="brand" href="/index.html">
+                    <span class="brand__dot" aria-hidden="true"></span>App1
+                </a>
+                <a class="tag" href="/index.html">&#8592; Home</a>
+            </header>
+
+            <h1 class="card__title">Admin login</h1>
+            <p class="card__hint">Signs an admin in with the admin name and password made on the add admin page.</p>
+
+            <form id="loginadminform" class="form">
+                <div class="field">
+                    <label for="admin_name">Admin name</label>
+                    <input type="text" id="admin_name" name="admin_name" placeholder="alice"
+                           autocomplete="username" required>
+                </div>
+
+                <div class="field">
+                    <label for="password">Password</label>
+                    <input type="password" id="password" name="password" placeholder="••••••••"
+                           autocomplete="current-password" required>
+                </div>
+
+                <div class="form__actions">
+                    <button type="submit" class="btn btn--primary">Log in</button>
+                    <button type="reset" class="btn btn--ghost">Clear</button>
+                </div>
+            </form>
+
+            <div id="loginresults" class="results" role="status" aria-live="polite"
+                 data-empty="No login attempt yet — enter an admin name and password."></div>
+
+            <p class="footnote">Need a login first? <a class="tag" href="/add_admin.html">Add admin</a></p>
+        </main>
+    </div>
+</body>
+</html>

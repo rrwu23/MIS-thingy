@@ -1,7 +1,8 @@
 /* ==========================================================================
    App1 — shared stylesheet
    Theme: deep slate-teal canvas, cyan -> green accent gradient, glass cards.
-   Loaded by index.html, addaccount.html, getusers.html and add_admin.html.
+   Loaded by index.html, addaccount.html, getusers.html, add_admin.html and
+   login_admin.html.
    ========================================================================== */
 
 :root {
@@ -313,6 +314,11 @@ a.tag:hover {
     border: 1px solid var(--border);
     border-left: 3px solid var(--teal);
     border-radius: 0 var(--radius-sm) var(--radius-sm) 0;
+}
+
+.results > p.results__error {
+    background: linear-gradient(90deg, rgba(251, 113, 133, 0.16), rgba(251, 113, 133, 0.04));
+    border-left-color: var(--danger);
 }
 
 .results:empty::before {
