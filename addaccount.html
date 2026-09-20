@@ -18,7 +18,7 @@
             </header>
 
             <h1 class="card__title">Add account</h1>
-            <p class="card__hint">Creates a new account with an opening balance and a supervisor.</p>
+            <p class="card__hint">Creates a new account with a supervisor, an opening balance and a login password.</p>
 
             <form id="adduserform" class="form">
                 <div class="field">
@@ -35,6 +35,12 @@
                 <div class="field">
                     <label for="supervisor">Supervisor</label>
                     <input type="text" id="supervisor" name="supervisor" placeholder="Morgan Lee" required>
+                </div>
+
+                <div class="field">
+                    <label for="password">Password</label>
+                    <input type="password" id="password" name="password" placeholder="••••••••"
+                           autocomplete="new-password" required>
                 </div>
 
                 <div class="form__actions">
