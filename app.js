@@ -18,6 +18,7 @@ form?.addEventListener('submit', async function(event) {
     // 4. Send the request to your server
     const response = await fetch('https://api.rongrongwu.com/adduser', {
       method: 'POST', // Use POST to send data
+      credentials: "include", // Send the admin session cookie, else 401 "Not logged in"
       body: formData
     });
 
@@ -27,10 +28,14 @@ form?.addEventListener('submit', async function(event) {
         console.log('Success:', result);
         alert('Form submitted successfully!');
     } else {
-        if (await response.json().detail == "Not logged in"){
-            alert('login admin/signup before adding user');
+        // Read the body once: response.json() can only be read a single time,
+        // and response.json().detail reads .detail off the Promise instead.
+        const error = await response.json();
+
+        if (error.detail === "Not logged in") {
+            alert('log into admin account before adding user');
         }    
-        console.error("Validation error:", await response.json());
+        console.error("Validation error:", error);
     }
     
   } catch (error) {
@@ -103,6 +108,7 @@ adminForm?.addEventListener('submit', async function (event) {
     try {
         const response = await fetch('https://api.rongrongwu.com/add-admin', {
             method: 'POST',
+            credentials: "include", // Send the admin session cookie, else 401 "Not logged in"
             body: formData
         });
 
@@ -119,11 +125,10 @@ adminForm?.addEventListener('submit', async function (event) {
 });
 
 // Admin login -> POST the form to the API login endpoint.
-// NOTE: as of writing, https://api.rongrongwu.com/openapi.json exposes only
-// GET /, POST /adduser, GET /getuser and POST /add-admin — there is no login
-// route deployed yet, so this posts to LOGIN_URL below. If the route ships
-// under a different path (e.g. /login-admin or /admin-login), change that one
-// constant and nothing else.
+// POST /login is live and takes admin_name + password (see
+// https://api.rongrongwu.com/openapi.json). /adduser and /add-admin answer
+// 401 {"detail": "Not logged in"} until this login has stored the session
+// cookie, which is why every API call sends credentials: "include".
 const LOGIN_URL = 'https://api.rongrongwu.com/login';
 
 const loginForm = document.getElementById('loginadminform');
