@@ -23,16 +23,19 @@ form?.addEventListener('submit', async function(event) {
 
     // 5. Handle the server's response
     if (response.ok) {
-      const result = await response.json(); // Assuming the server responds with JSON
-      console.log('Success:', result);
-      alert('Form submitted successfully!');
+        const result = await response.json(); // Assuming the server responds with JSON
+        console.log('Success:', result);
+        alert('Form submitted successfully!');
     } else {
-      console.error("Validation error:", await response.json());
+        if (await response.json().detail == "Not logged in"){
+            alert('login admin/signup before adding user');
+        }    
+        console.error("Validation error:", await response.json());
     }
     
   } catch (error) {
-    // This catches network errors (e.g., the server is down or unreachable)
-    console.error('Network Error:', error);
+       // This catches network errors (e.g., the server is down or unreachable)
+       console.error('Network Error:', error);
   }
 });
 
