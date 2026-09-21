@@ -1,47 +1,52 @@
 /* ==========================================================================
    App1 — shared stylesheet
-   Theme: deep slate-teal canvas, cyan -> green accent gradient, glass cards.
-   Loaded by index.html, addaccount.html, getusers.html, add_admin.html and
-   login_admin.html.
+   Theme: light mint canvas, #21ffda signature accent, white glass cards.
+   The accent is used as-is for filled surfaces (buttons, the brand dot, card
+   hairlines, focus glows). Its deeper tints (--accent-deep, --gradient-ink)
+   carry thin text and 1px outlines, because plain #21ffda on a light canvas
+   would not be readable.
+   Loaded by index.html, addaccount.html, getusers.html, add_admin.html,
+   login_admin.html, transaction1.html and transaction-middle.html.
    ========================================================================== */
 
 :root {
-    /* accent ramp (cyan -> green) */
-    --cyan:       #22d3ee;
-    --teal:       #2dd4bf;
-    --green:      #34d399;
+    /* accent — the one brand colour */
+    --accent:      #21ffda;
+    --accent-deep: #067d6c;   /* darker tint of the accent, for text/outlines */
+    --accent-ink:  #04302b;   /* text that sits on top of the accent */
 
     /* canvas */
-    --bg:         #03191c;
-    --glow-1:     rgba(34, 211, 238, 0.16);
-    --glow-2:     rgba(52, 211, 153, 0.14);
-    --glow-3:     rgba(16, 185, 129, 0.13);
+    --bg:         #f2fffc;
+    --glow-1:     rgba(33, 255, 218, 0.50);
+    --glow-2:     rgba(33, 255, 218, 0.34);
+    --glow-3:     rgba(33, 255, 218, 0.24);
 
     /* surfaces */
-    --surface:    rgba(7, 38, 42, 0.72);
-    --surface-2:  rgba(10, 48, 52, 0.55);
-    --surface-3:  rgba(12, 58, 62, 0.78);
-    --border:     rgba(45, 212, 191, 0.20);
-    --border-hi:  rgba(45, 212, 191, 0.45);
-    --danger:     #fb7185;
+    --surface:    rgba(255, 255, 255, 0.88);
+    --surface-2:  rgba(240, 255, 251, 0.92);
+    --surface-3:  #ffffff;
+    --border:     rgba(6, 131, 113, 0.34);
+    --border-hi:  rgba(6, 131, 113, 0.80);
+    --danger:     #cf3352;
 
     /* text */
-    --text:       #e8fbf8;
-    --text-dim:   #a7cdc8;
-    --text-faint: #6f9b97;
+    --text:       #052e2a;
+    --text-dim:   #2f5c57;
+    --text-faint: #4f7873;
 
     /* effects */
-    --gradient:   linear-gradient(135deg, var(--cyan) 0%, var(--teal) 46%, var(--green) 100%);
-    --radius:     18px;
-    --radius-sm:  11px;
-    --shadow:     0 24px 60px rgba(0, 0, 0, 0.45);
-    --shadow-btn: 0 10px 24px rgba(16, 185, 129, 0.26);
-    --ring:       0 0 0 4px rgba(34, 211, 238, 0.22);
+    --gradient:     linear-gradient(135deg, var(--accent) 0%, #1af0d0 52%, #0ec7ab 100%);
+    --gradient-ink: linear-gradient(135deg, #089a83 0%, #067d6c 52%, #055b4d 100%);
+    --radius:       18px;
+    --radius-sm:    11px;
+    --shadow:       0 18px 44px rgba(5, 76, 68, 0.14);
+    --shadow-btn:   0 10px 24px rgba(6, 179, 154, 0.30);
+    --ring:         0 0 0 4px rgba(33, 255, 218, 0.45);
 
     --font: system-ui, -apple-system, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
     --mono: ui-monospace, SFMono-Regular, "SF Mono", Menlo, Consolas, monospace;
 
-    color-scheme: dark;
+    color-scheme: light;
 }
 
 * { box-sizing: border-box; }
@@ -116,7 +121,7 @@ body {
     height: 0.7rem;
     border-radius: 50%;
     background-image: var(--gradient);
-    box-shadow: 0 0 12px rgba(45, 212, 191, 0.8);
+    box-shadow: 0 0 14px rgba(33, 255, 218, 0.95);
 }
 
 .tag {
@@ -135,7 +140,7 @@ body {
 a.tag:hover {
     color: var(--text);
     border-color: var(--border-hi);
-    background: rgba(45, 212, 191, 0.1);
+    background: rgba(33, 255, 218, 0.22);
 }
 
 /* ------------------------------------------------------------- headings ---- */
@@ -145,7 +150,7 @@ a.tag:hover {
     font-weight: 800;
     line-height: 1.05;
     letter-spacing: -0.02em;
-    background-image: var(--gradient);
+    background-image: var(--gradient-ink);
     -webkit-background-clip: text;
     background-clip: text;
     color: transparent;
@@ -197,14 +202,14 @@ a.tag:hover {
 }
 
 .btn--primary {
-    color: #04272a;
+    color: var(--accent-ink);
     background-image: var(--gradient);
     box-shadow: var(--shadow-btn);
 }
 
 .btn--primary:hover {
     transform: translateY(-2px);
-    box-shadow: 0 14px 30px rgba(34, 211, 238, 0.34);
+    box-shadow: 0 14px 30px rgba(6, 179, 154, 0.38);
 }
 
 .btn--primary:active { transform: translateY(0); }
@@ -218,11 +223,11 @@ a.tag:hover {
 .btn--ghost:hover {
     color: var(--text);
     border-color: var(--border-hi);
-    background: rgba(45, 212, 191, 0.08);
+    background: rgba(33, 255, 218, 0.18);
 }
 
 .btn:focus-visible {
-    outline: 2px solid var(--cyan);
+    outline: 2px solid var(--accent-deep);
     outline-offset: 2px;
 }
 
@@ -235,8 +240,8 @@ a.tag:hover {
     padding: 0.5rem 0.85rem;
     font-size: 0.85rem;
     color: var(--text-faint);
-    background: rgba(251, 113, 133, 0.07);
-    border: 1px dashed rgba(251, 113, 133, 0.35);
+    background: rgba(207, 51, 82, 0.05);
+    border: 1px dashed rgba(207, 51, 82, 0.45);
     border-radius: 999px;
     cursor: help;
 }
@@ -282,12 +287,12 @@ a.tag:hover {
 .field input:focus {
     outline: none;
     background: var(--surface-3);
-    border-color: var(--teal);
+    border-color: var(--accent-deep);
     box-shadow: var(--ring);
 }
 
 .field input:invalid:not(:placeholder-shown) {
-    border-color: rgba(251, 113, 133, 0.55);
+    border-color: rgba(207, 51, 82, 0.55);
 }
 
 .form__actions {
@@ -310,14 +315,14 @@ a.tag:hover {
     margin: 0;
     padding: 0.8rem 1rem;
     font-size: 0.96rem;
-    background: linear-gradient(90deg, rgba(45, 212, 191, 0.14), rgba(16, 185, 129, 0.04));
+    background: linear-gradient(90deg, rgba(33, 255, 218, 0.30), rgba(33, 255, 218, 0.06));
     border: 1px solid var(--border);
-    border-left: 3px solid var(--teal);
+    border-left: 3px solid var(--accent-deep);
     border-radius: 0 var(--radius-sm) var(--radius-sm) 0;
 }
 
 .results > p.results__error {
-    background: linear-gradient(90deg, rgba(251, 113, 133, 0.16), rgba(251, 113, 133, 0.04));
+    background: linear-gradient(90deg, rgba(207, 51, 82, 0.18), rgba(207, 51, 82, 0.05));
     border-left-color: var(--danger);
 }
 
@@ -343,8 +348,8 @@ code {
     padding: 0.15rem 0.4rem;
     font-family: var(--mono);
     font-size: 0.9em;
-    color: var(--teal);
-    background: rgba(45, 212, 191, 0.1);
+    color: var(--accent-deep);
+    background: rgba(33, 255, 218, 0.13);
     border: 1px solid var(--border);
     border-radius: 6px;
 }
