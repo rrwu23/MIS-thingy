@@ -18,7 +18,7 @@
             </header>
 
             <h1 class="card__title">Transaction</h1>
-            <p class="card__hint">Enter the student username to start a transaction for that account.</p>
+            <p class="card__hint">Enter the student username to start a transaction for that account. Only a signed-in admin may open one, so the page asks the backend for permission as it loads.</p>
 
             <form id="transactionform" class="form">
                 <div class="field">
@@ -31,6 +31,11 @@
                     <a class="btn btn--primary" id="transactionnext" href="/transaction-middle.html">Next</a>
                 </div>
             </form>
+
+            <div id="transactionsession" class="results" role="status" aria-live="polite"
+                 data-empty="Asking the backend whether you are logged in&hellip;"></div>
+
+            <p class="footnote">Need a login first? <a class="tag" href="/login_admin.html">Admin login</a></p>
         </main>
     </div>
 </body>

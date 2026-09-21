@@ -231,6 +231,14 @@ a.tag:hover {
     outline-offset: 2px;
 }
 
+/* Next stays disabled while the backend is being asked for permission */
+.btn[aria-disabled="true"] {
+    opacity: 0.55;
+    box-shadow: none;
+    transform: none;
+    pointer-events: none;
+}
+
 /* non-interactive aside (home page easter egg) */
 .chip {
     display: inline-flex;
