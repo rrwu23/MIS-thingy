@@ -300,9 +300,10 @@ async function loadBonuses() {
             showBonusMessage(`The backend could not list the bonuses (${response.status}) — using the built-in list.`, true);
             return;
         }
-
-        const bonuses = bonusList(await response.json());
-
+        const bonus_json = await response.json()
+        console.log("response json: ", bonus_json)
+        const bonuses = bonusList(bonus_json);
+        console.log(bonuses)
         if (bonuses.length === 0) {
             setBonusEnabled(true);
             showBonusMessage('The backend returned no bonuses — using the built-in list.', true);
