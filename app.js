@@ -197,7 +197,7 @@ function describeError(result) {
 // 404 - so /getbonus follows the naming of /getuser, and the built-in list
 // already in the page stays in place until the backend answers. Change this one
 // constant when the real route lands.
-const BONUS_URL = 'https://api.rongrongwu.com/getbonus';
+const BONUS_URL = 'https://api.rongrongwu.com/reasons/bonus-bucks';
 
 const bonusSelect = document.getElementById('bonus');
 const bonusResults = document.getElementById('bonusresults');
@@ -288,6 +288,7 @@ async function loadBonuses() {
 
     try {
         const response = await fetch(BONUS_URL, {
+            method: "GET",
             credentials: 'include' // the bonus list is admin data
         });
 
