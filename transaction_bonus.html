@@ -1,0 +1,42 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>App1 · Select bonus</title>
+    <link rel="stylesheet" href="styles.css">
+    <script src="app.js" defer></script>
+</head>
+<body>
+    <div class="page">
+        <main class="card">
+            <header class="bar">
+                <a class="brand" href="/index.html">
+                    <span class="brand__dot" aria-hidden="true"></span>App1
+                </a>
+                <a class="tag" href="/index.html">&#8592; Home</a>
+            </header>
+
+            <section class="panel" aria-labelledby="bonustitle">
+                <h1 class="panel__title" id="bonustitle">Select bonus</h1>
+
+                <!-- These options are the fallback: app.js swaps them for the
+                     backend list as soon as /getbonus answers. -->
+                <select id="bonus" name="bonus" aria-label="Select bonus">
+                    <option value="" selected>Choose a bonus&hellip;</option>
+                    <option value="attendance">Attendance bonus</option>
+                    <option value="performance">Performance bonus</option>
+                    <option value="volunteer">Volunteer bonus</option>
+                    <option value="referral">Referral bonus</option>
+                    <option value="other">Other bonus</option>
+                </select>
+            </section>
+
+            <div id="bonusresults" class="results" role="status" aria-live="polite"
+                 data-empty="Asking the backend for the bonus list&hellip;"></div>
+
+            <p class="footnote">Wrong student? <a class="tag" href="/transaction-middle.html">&#8592; Back</a></p>
+        </main>
+    </div>
+</body>
+</html>

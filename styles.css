@@ -239,6 +239,62 @@ a.tag:hover {
     pointer-events: none;
 }
 
+/* ---------------------------------------------------------- acc. panel ---- */
+/* Big rounded panel filled with the accent, as sketched on the bonus page. */
+.panel {
+    display: grid;
+    align-content: start;
+    justify-items: center;
+    gap: clamp(2.5rem, 7vw, 4.5rem);
+    min-height: clamp(17rem, 42vw, 25rem);
+    padding: clamp(1.75rem, 5vw, 2.75rem) clamp(1.5rem, 5vw, 3rem) clamp(3rem, 9vw, 5rem);
+    background: var(--accent);
+    border: 1px solid var(--accent-deep);
+    border-radius: 28px;
+    box-shadow: var(--shadow);
+}
+
+.panel__title {
+    margin: 0;
+    font-size: clamp(1.1rem, 3.4vw, 1.4rem);
+    font-weight: 600;
+    letter-spacing: 0.02em;
+    text-transform: uppercase;
+    text-align: center;
+    color: var(--accent-ink);
+}
+
+/* the dropdown: pale rectangle, dark outline and hollow triangle (the sketch) */
+.panel select {
+    width: min(100%, 26rem);
+    padding: 0.65rem 2.5rem 0.65rem 1rem;
+    font-family: inherit;
+    font-size: 1rem;
+    color: var(--accent-ink);
+    background-color: rgba(255, 255, 255, 0.92);
+    border: 1.5px solid var(--accent-ink);
+    border-radius: 8px;
+    appearance: none;
+    background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 16 16'%3E%3Cpath d='M2.5 5.5h11L8 12z' fill='none' stroke='%2304302b' stroke-width='1.5' stroke-linejoin='round'/%3E%3C/svg%3E");
+    background-repeat: no-repeat;
+    background-position: right 1rem center;
+    background-size: 0.8rem;
+    cursor: pointer;
+}
+
+.panel select:hover { background-color: #ffffff; }
+
+/* stays disabled while the backend list is on its way */
+.panel select[aria-disabled="true"] {
+    opacity: 0.55;
+    pointer-events: none;
+}
+
+.panel select:focus-visible {
+    outline: 2px solid var(--accent-ink);
+    outline-offset: 3px;
+}
+
 /* non-interactive aside (home page easter egg) */
 .chip {
     display: inline-flex;

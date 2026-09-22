@@ -189,3 +189,133 @@ function describeError(result) {
 
     return 'the server rejected the credentials.';
 }
+
+// Bonus page ---------------------------------------------------------------
+// transaction_bonus.html fills its dropdown with every bonus the backend knows
+// about. No bonus route existed yet when this was written - every candidate
+// (/getbonus, /getbonuses, /bonuses, /bonus, /get-bonus, /allbonus) answers
+// 404 - so /getbonus follows the naming of /getuser, and the built-in list
+// already in the page stays in place until the backend answers. Change this one
+// constant when the real route lands.
+const BONUS_URL = 'https://api.rongrongwu.com/getbonus';
+
+const bonusSelect = document.getElementById('bonus');
+const bonusResults = document.getElementById('bonusresults');
+
+// Accepts the shapes the API might use: ["X"], [{"name": "X"}], {"bonuses": []},
+// {"data": []}, or a single object.
+function bonusList(payload) {
+    if (Array.isArray(payload)) {
+        return payload;
+    }
+
+    for (const key of ['bonuses', 'bonus', 'data', 'items']) {
+        if (Array.isArray(payload?.[key])) {
+            return payload[key];
+        }
+    }
+
+    return payload ? [payload] : [];
+}
+
+// Plain strings are used as they are, objects give up their name (or title,
+// label, id) and answer with their id when they have one.
+function bonusEntry(entry) {
+    if (entry === null || typeof entry !== 'object') {
+        return { label: String(entry), value: String(entry) };
+    }
+
+    const label = entry.name ?? entry.title ?? entry.label ?? entry.id;
+
+    return { label: String(label), value: String(entry.id ?? label) };
+}
+
+function makeOption(value, label, selected) {
+    const option = document.createElement('option');
+    option.value = value;
+    option.textContent = label;
+
+    if (selected) {
+        option.selected = true;
+    }
+
+    return option;
+}
+
+// Replaces the built-in options with the backend ones, keeping the placeholder
+// "choose a bonus" entry at the top.
+function fillBonusOptions(bonuses) {
+    if (!bonusSelect) return;
+
+    const placeholder = bonusSelect.options?.length ? bonusSelect.options[0].textContent : 'Choose a bonus…';
+    const options = [makeOption('', placeholder, true)];
+
+    for (const entry of bonuses) {
+        const { label, value } = bonusEntry(entry);
+        options.push(makeOption(value, label, false));
+    }
+
+    bonusSelect.replaceChildren(...options);
+}
+
+function setBonusEnabled(enabled) {
+    if (!bonusSelect) return;
+
+    if (enabled) {
+        bonusSelect.removeAttribute('aria-disabled');
+    } else {
+        bonusSelect.setAttribute('aria-disabled', 'true');
+    }
+}
+
+function showBonusMessage(text, isError) {
+    if (!bonusResults) return;
+
+    const paragraph = document.createElement('p');
+    paragraph.textContent = text;
+
+    if (isError) {
+        paragraph.className = 'results__error';
+    }
+
+    bonusResults.replaceChildren(paragraph);
+}
+
+async function loadBonuses() {
+    if (!bonusSelect) return; // only transaction_bonus.html has the dropdown
+
+    setBonusEnabled(false);
+
+    try {
+        const response = await fetch(BONUS_URL, {
+            credentials: 'include' // the bonus list is admin data
+        });
+
+        if (!response.ok) {
+            // 404 = the backend has no bonus route yet, so the built-in list the
+            // page ships with stays in the dropdown.
+            console.error('Bonus list error:', response.status, await response.text());
+            setBonusEnabled(true);
+            showBonusMessage(`The backend could not list the bonuses (${response.status}) — using the built-in list.`, true);
+            return;
+        }
+
+        const bonuses = bonusList(await response.json());
+
+        if (bonuses.length === 0) {
+            setBonusEnabled(true);
+            showBonusMessage('The backend returned no bonuses — using the built-in list.', true);
+            return;
+        }
+
+        fillBonusOptions(bonuses);
+        setBonusEnabled(true);
+        showBonusMessage(`Loaded ${bonuses.length} bonus${bonuses.length === 1 ? '' : 'es'} from the backend.`, false);
+    } catch (error) {
+        console.error('Network Error:', error);
+        setBonusEnabled(true);
+        showBonusMessage('Network error — the bonus list could not be loaded, using the built-in list.', true);
+    }
+}
+
+loadBonuses();
