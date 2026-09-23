@@ -327,9 +327,11 @@ function renderStudentList() {
     closeStudentList();
 
     if (studentListFailed) {
-        // No list to filter, so saying "nothing matches" would be a lie.
+        // No list to filter, so saying "nothing matches" would be a lie. The
+        // backend is asked again about the username when Next is pressed, so a
+        // name typed here can still be confirmed even without this list.
         setStudentHint(
-            'The account list could not be loaded — type the whole username and it will still be used.',
+            'The account list could not be loaded — the backend is asked again about the username when you press Next.',
             true
         );
         return;
