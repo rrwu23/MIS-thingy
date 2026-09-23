@@ -5,8 +5,11 @@
    hairlines, focus glows). Its deeper tints (--accent-deep, --gradient-ink)
    carry thin text and 1px outlines, because plain #21ffda on a light canvas
    would not be readable.
-   Loaded by index.html, addaccount.html, getusers.html, add_admin.html,
-   login_admin.html, transaction1.html and transaction-middle.html.
+   Typeface: Comfortaa for the whole UI, pulled from Google Fonts by the <head>
+   of every page (Comfortaa ships with no operating system, so the webfont is
+   the only way to get it). The system stack behind it in --font is just the
+   fallback shown while the webfont swaps in.
+   Loaded by every page in the project.
    ========================================================================== */
 
 :root {
@@ -43,7 +46,7 @@
     --shadow-btn:   0 10px 24px rgba(6, 179, 154, 0.30);
     --ring:         0 0 0 4px rgba(33, 255, 218, 0.45);
 
-    --font: system-ui, -apple-system, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+    --font: "Comfortaa", system-ui, -apple-system, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
     --mono: ui-monospace, SFMono-Regular, "SF Mono", Menlo, Consolas, monospace;
 
     color-scheme: light;
