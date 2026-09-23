@@ -192,42 +192,118 @@ function describeError(result) {
 
 // Bonus page ---------------------------------------------------------------
 // transaction_bonus.html fills its dropdown with every bonus the backend knows
-// about. No bonus route existed yet when this was written - every candidate
-// (/getbonus, /getbonuses, /bonuses, /bonus, /get-bonus, /allbonus) answers
-// 404 - so /getbonus follows the naming of /getuser, and the built-in list
-// already in the page stays in place until the backend answers. Change this one
-// constant when the real route lands.
+// about. /reasons/{slug} is the live route, and for the bonus-bucks slug it
+// answers with a plain map of name -> points, e.g.
+// {"Above & Beyond behaviour": 20, "Birthday Bonus": 100, "Exceptional effort": 10, ...}
+// The built-in list already in the page stays in place whenever the request
+// fails or comes back with nothing usable.
 const BONUS_URL = 'https://api.rongrongwu.com/reasons/bonus-bucks';
 
 const bonusSelect = document.getElementById('bonus');
 const bonusResults = document.getElementById('bonusresults');
 
-// Accepts the shapes the API might use: ["X"], [{"name": "X"}], {"bonuses": []},
-// {"data": []}, or a single object.
+// Fields a bonus object may use to carry its display name and its points,
+// most likely first.
+const BONUS_NAME_KEYS = ['name', 'title', 'label', 'id'];
+const BONUS_POINTS_KEYS = ['points', 'amount', 'value', 'score'];
+
+// First field that actually carries something, or null when none of them does.
+// Empty strings count as missing, so they never turn into blank options.
+function firstField(source, keys) {
+    for (const key of keys) {
+        const value = source?.[key];
+
+        if (value !== undefined && value !== null && value !== '') {
+            return value;
+        }
+    }
+
+    return null;
+}
+
+// The points an entry is worth as a number, or null when it has no usable one.
+function bonusPoints(entry) {
+    const field = firstField(entry, BONUS_POINTS_KEYS);
+
+    if (field === null) {
+        return null;
+    }
+
+    const points = Number(field);
+
+    return Number.isFinite(points) ? points : null;
+}
+
+// Accepts every shape the API has answered with so far:
+//   ["X"] / [{"name": "X", "points": 10}]                    -> used as is
+//   {"bonuses": []} / {"bonus": []} / {"data": []} / {"items": []}
+//                                                            -> the inner list
+//   {"Birthday Bonus": 100}                                   -> one entry per key
+//   {"name": "X", "points": 10} / "X"                         -> wrapped in an array
+//   null / undefined / ""                                     -> []
 function bonusList(payload) {
     if (Array.isArray(payload)) {
         return payload;
     }
 
+    if (payload === null || typeof payload !== 'object') {
+        return payload ? [payload] : [];
+    }
+
     for (const key of ['bonuses', 'bonus', 'data', 'items']) {
-        if (Array.isArray(payload?.[key])) {
-            return payload[key];
+        const nested = payload[key];
+
+        if (Array.isArray(nested)) {
+            return nested;
+        }
+
+        if (nested && typeof nested === 'object') {
+            return bonusList(nested); // {"bonuses": {"Birthday Bonus": 100}}
         }
     }
 
-    return payload ? [payload] : [];
+    // {"name": "X", "points": 10} - a single bonus object
+    if (firstField(payload, BONUS_NAME_KEYS) !== null) {
+        return [payload];
+    }
+
+    // {"Birthday Bonus": 100} - the live shape: a name -> points map. Object.keys
+    // keeps the backend's order, and the name doubles as the value the option
+    // reports, because the name is the key the backend knows.
+    return Object.keys(payload).map((name) => ({ id: name, name, points: payload[name] }));
 }
 
-// Plain strings are used as they are, objects give up their name (or title,
-// label, id) and answer with their id when they have one.
+// One element of the list -> the { label, value } pair an <option> needs:
+//   "Attendance bonus"                                    -> both the same
+//   {id: "attendance", name: "Attendance bonus"}           -> label reads nicely,
+//                                                            value is the id
+//   {id: "Birthday Bonus", name: "Birthday Bonus", points: 100}
+//                                                          -> label adds the points
+// Answers null when the entry carries nothing worth showing, so fillBonusOptions
+// can skip it instead of printing "undefined" into the dropdown.
 function bonusEntry(entry) {
     if (entry === null || typeof entry !== 'object') {
+        if (entry === undefined || entry === null || entry === '') {
+            return null;
+        }
+
         return { label: String(entry), value: String(entry) };
     }
 
-    const label = entry.name ?? entry.title ?? entry.label ?? entry.id;
+    const name = firstField(entry, BONUS_NAME_KEYS);
 
-    return { label: String(label), value: String(entry.id ?? label) };
+    if (name === null) {
+        return null;
+    }
+
+    const label = String(name);
+    const points = bonusPoints(entry);
+    const id = firstField(entry, ['id']);
+
+    return {
+        label: points === null ? label : `${label} (${points} ${points === 1 ? 'pt' : 'pts'})`,
+        value: String(id ?? label)
+    };
 }
 
 function makeOption(value, label, selected) {
@@ -243,19 +319,31 @@ function makeOption(value, label, selected) {
 }
 
 // Replaces the built-in options with the backend ones, keeping the placeholder
-// "choose a bonus" entry at the top.
+// "choose a bonus" entry at the top. Entries without a name are skipped, and
+// when nothing usable comes back the built-in list is left exactly as it is.
+// Accepts a raw payload too, and reports how many bonuses it filled in.
 function fillBonusOptions(bonuses) {
-    if (!bonusSelect) return;
+    if (!bonusSelect) return 0;
 
+    const list = Array.isArray(bonuses) ? bonuses : bonusList(bonuses);
     const placeholder = bonusSelect.options?.length ? bonusSelect.options[0].textContent : 'Choose a bonus…';
     const options = [makeOption('', placeholder, true)];
 
-    for (const entry of bonuses) {
-        const { label, value } = bonusEntry(entry);
-        options.push(makeOption(value, label, false));
+    for (const entry of list) {
+        const bonus = bonusEntry(entry);
+
+        if (bonus) {
+            options.push(makeOption(bonus.value, bonus.label, false));
+        }
+    }
+
+    if (options.length === 1) {
+        return 0; // placeholder only, so keep the built-in options
     }
 
     bonusSelect.replaceChildren(...options);
+
+    return options.length - 1;
 }
 
 function setBonusEnabled(enabled) {
@@ -304,15 +392,18 @@ async function loadBonuses() {
         console.log("response json: ", bonus_json)
         const bonuses = bonusList(bonus_json);
         console.log(bonuses)
-        if (bonuses.length === 0) {
+        const loaded = fillBonusOptions(bonuses);
+
+        // loaded === 0 means nothing usable came back, and fillBonusOptions has
+        // already left the built-in options in place.
+        if (loaded === 0) {
             setBonusEnabled(true);
-            showBonusMessage('The backend returned no bonuses — using the built-in list.', true);
+            showBonusMessage('The backend returned no usable bonuses — using the built-in list.', true);
             return;
         }
 
-        fillBonusOptions(bonuses);
         setBonusEnabled(true);
-        showBonusMessage(`Loaded ${bonuses.length} bonus${bonuses.length === 1 ? '' : 'es'} from the backend.`, false);
+        showBonusMessage(`Loaded ${loaded} bonus${loaded === 1 ? '' : 'es'} from the backend.`, false);
     } catch (error) {
         console.error('Network Error:', error);
         setBonusEnabled(true);
