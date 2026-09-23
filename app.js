@@ -190,22 +190,55 @@ function describeError(result) {
     return 'the server rejected the credentials.';
 }
 
-// Bonus page ---------------------------------------------------------------
-// transaction_bonus.html fills its dropdown with every bonus the backend knows
-// about. /reasons/{slug} is the live route, and for the bonus-bucks slug it
-// answers with a plain map of name -> points, e.g.
-// {"Above & Beyond behaviour": 20, "Birthday Bonus": 100, "Exceptional effort": 10, ...}
-// The built-in list already in the page stays in place whenever the request
-// fails or comes back with nothing usable.
-const BONUS_URL = 'https://api.rongrongwu.com/reasons/bonus-bucks';
+// Reason pages --------------------------------------------------------------
+// transaction_bonus.html, transaction_fines.html, transaction_salaries.html and
+// transaction_spending.html each show one dropdown of reasons that comes from the
+// backend. Every /reasons/{slug} route answers with the same shape - a plain map
+// of name -> points, negatives included:
+//   {"Bathroom expectation violation": -10, "Being rude / disrespectful": -15, ...}
+// A page says which list it wants with data-reason-type on its <select>, e.g.
+// data-reason-type="fines", and the built-in options it ships with stay in place
+// whenever the request fails or comes back with nothing usable.
+const REASON_SLUGS = {
+    bonus: 'bonus-bucks',
+    fines: 'bonura-bank-fines',
+    salaries: 'job-salaries',
+    spending: 'ways-to-spend-bonura-bucks'
+};
 
-const bonusSelect = document.getElementById('bonus');
-const bonusResults = document.getElementById('bonusresults');
+const REASONS_URL = 'https://api.rongrongwu.com/reasons';
 
-// Fields a bonus object may use to carry its display name and its points,
+// Protected route used to ask the backend whether this browser still holds an
+// admin session. The API has no "who am I" route, so this uses the same trick as
+// sessionstorage.js: POST /adduser with an empty body answers "Not logged in"
+// (401) before it ever looks at the body.
+//   401 {"detail": "Not logged in"} -> no admin session
+//   422 (or 2xx)                    -> only the empty body was rejected, so the
+//                                      session cookie was accepted. An empty body
+//                                      can never create a user, so the check
+//                                      changes nothing.
+const ADMIN_CHECK_URL = 'https://api.rongrongwu.com/adduser';
+
+// The student this transaction is for, stored by transaction1.html. Kept in sync
+// with STUDENT_USERNAME_KEY in sessionstorage.js.
+const STUDENT_KEY = 'student_username';
+
+// Where an approved-but-unsent transaction waits for the step that will POST it.
+const PENDING_KEY = 'pending_transaction';
+
+const reasonSelect = document.getElementById('reason');
+const reasonResults = document.getElementById('reasonresults');
+const reasonNext = document.getElementById('reasonnext');
+
+// Which reason list this page wants: the type comes from the page itself, the
+// slug from the map above, so no page has to know a URL.
+const reasonType = reasonSelect?.dataset.reasonType ?? 'bonus';
+const reasonSlug = REASON_SLUGS[reasonType];
+
+// Fields a reason object may use to carry its display name and its points,
 // most likely first.
-const BONUS_NAME_KEYS = ['name', 'title', 'label', 'id'];
-const BONUS_POINTS_KEYS = ['points', 'amount', 'value', 'score'];
+const REASON_NAME_KEYS = ['name', 'title', 'label', 'id'];
+const REASON_POINTS_KEYS = ['points', 'amount', 'value', 'score'];
 
 // First field that actually carries something, or null when none of them does.
 // Empty strings count as missing, so they never turn into blank options.
@@ -221,9 +254,10 @@ function firstField(source, keys) {
     return null;
 }
 
-// The points an entry is worth as a number, or null when it has no usable one.
-function bonusPoints(entry) {
-    const field = firstField(entry, BONUS_POINTS_KEYS);
+// The points a reason is worth as a number, or null when it has no usable one.
+// Negatives survive: the fine list comes back as -10, -15, and so on.
+function reasonPoints(entry) {
+    const field = firstField(entry, REASON_POINTS_KEYS);
 
     if (field === null) {
         return null;
@@ -241,7 +275,7 @@ function bonusPoints(entry) {
 //   {"Birthday Bonus": 100}                                   -> one entry per key
 //   {"name": "X", "points": 10} / "X"                         -> wrapped in an array
 //   null / undefined / ""                                     -> []
-function bonusList(payload) {
+function reasonList(payload) {
     if (Array.isArray(payload)) {
         return payload;
     }
@@ -258,12 +292,12 @@ function bonusList(payload) {
         }
 
         if (nested && typeof nested === 'object') {
-            return bonusList(nested); // {"bonuses": {"Birthday Bonus": 100}}
+            return reasonList(nested); // {"bonuses": {"Birthday Bonus": 100}}
         }
     }
 
-    // {"name": "X", "points": 10} - a single bonus object
-    if (firstField(payload, BONUS_NAME_KEYS) !== null) {
+    // {"name": "X", "points": 10} - a single reason object
+    if (firstField(payload, REASON_NAME_KEYS) !== null) {
         return [payload];
     }
 
@@ -279,9 +313,9 @@ function bonusList(payload) {
 //                                                            value is the id
 //   {id: "Birthday Bonus", name: "Birthday Bonus", points: 100}
 //                                                          -> label adds the points
-// Answers null when the entry carries nothing worth showing, so fillBonusOptions
+// Answers null when the entry carries nothing worth showing, so fillReasonOptions
 // can skip it instead of printing "undefined" into the dropdown.
-function bonusEntry(entry) {
+function reasonEntry(entry) {
     if (entry === null || typeof entry !== 'object') {
         if (entry === undefined || entry === null || entry === '') {
             return null;
@@ -290,18 +324,19 @@ function bonusEntry(entry) {
         return { label: String(entry), value: String(entry) };
     }
 
-    const name = firstField(entry, BONUS_NAME_KEYS);
+    const name = firstField(entry, REASON_NAME_KEYS);
 
     if (name === null) {
         return null;
     }
 
     const label = String(name);
-    const points = bonusPoints(entry);
+    const points = reasonPoints(entry);
     const id = firstField(entry, ['id']);
 
     return {
-        label: points === null ? label : `${label} (${points} ${points === 1 ? 'pt' : 'pts'})`,
+        // Math.abs so a single fine point reads "1 pt", not "1 pts".
+        label: points === null ? label : `${label} (${points} ${Math.abs(points) === 1 ? 'pt' : 'pts'})`,
         value: String(id ?? label)
     };
 }
@@ -319,21 +354,21 @@ function makeOption(value, label, selected) {
 }
 
 // Replaces the built-in options with the backend ones, keeping the placeholder
-// "choose a bonus" entry at the top. Entries without a name are skipped, and
-// when nothing usable comes back the built-in list is left exactly as it is.
-// Accepts a raw payload too, and reports how many bonuses it filled in.
-function fillBonusOptions(bonuses) {
-    if (!bonusSelect) return 0;
+// "choose one" entry at the top. Entries without a name are skipped, and when
+// nothing usable comes back the built-in list is left exactly as it is.
+// Accepts a raw payload too, and reports how many reasons it filled in.
+function fillReasonOptions(reasons) {
+    if (!reasonSelect) return 0;
 
-    const list = Array.isArray(bonuses) ? bonuses : bonusList(bonuses);
-    const placeholder = bonusSelect.options?.length ? bonusSelect.options[0].textContent : 'Choose a bonus…';
+    const list = Array.isArray(reasons) ? reasons : reasonList(reasons);
+    const placeholder = reasonSelect.options?.length ? reasonSelect.options[0].textContent : 'Choose one…';
     const options = [makeOption('', placeholder, true)];
 
     for (const entry of list) {
-        const bonus = bonusEntry(entry);
+        const reason = reasonEntry(entry);
 
-        if (bonus) {
-            options.push(makeOption(bonus.value, bonus.label, false));
+        if (reason) {
+            options.push(makeOption(reason.value, reason.label, false));
         }
     }
 
@@ -341,23 +376,37 @@ function fillBonusOptions(bonuses) {
         return 0; // placeholder only, so keep the built-in options
     }
 
-    bonusSelect.replaceChildren(...options);
+    reasonSelect.replaceChildren(...options);
 
     return options.length - 1;
 }
 
-function setBonusEnabled(enabled) {
-    if (!bonusSelect) return;
+// Sets the dropdown's greyed-out state, the attribute styles.css styles for
+// .panel select.
+function setReasonEnabled(enabled) {
+    if (!reasonSelect) return;
 
     if (enabled) {
-        bonusSelect.removeAttribute('aria-disabled');
+        reasonSelect.removeAttribute('aria-disabled');
     } else {
-        bonusSelect.setAttribute('aria-disabled', 'true');
+        reasonSelect.setAttribute('aria-disabled', 'true');
     }
 }
 
-function showBonusMessage(text, isError) {
-    if (!bonusResults) return;
+// Sets the Next button's greyed-out state, the same attribute styles.css styles
+// for .btn (transaction1.html's Next link uses it too).
+function setApproveEnabled(enabled) {
+    if (!reasonNext) return;
+
+    if (enabled) {
+        reasonNext.removeAttribute('aria-disabled');
+    } else {
+        reasonNext.setAttribute('aria-disabled', 'true');
+    }
+}
+
+function showReasonMessage(text, isError) {
+    if (!reasonResults) return;
 
     const paragraph = document.createElement('p');
     paragraph.textContent = text;
@@ -366,49 +415,188 @@ function showBonusMessage(text, isError) {
         paragraph.className = 'results__error';
     }
 
-    bonusResults.replaceChildren(paragraph);
+    reasonResults.replaceChildren(paragraph);
 }
 
-async function loadBonuses() {
-    if (!bonusSelect) return; // only transaction_bonus.html has the dropdown
+// Fetches /reasons/{slug} for this page, swaps the built-in options for the
+// backend ones, and hands back the sentence the page should show plus how many
+// reasons ended up in the dropdown. It does not write that message itself: the
+// page opener and the Next button share the one status line.
+async function loadReasons() {
+    if (!reasonSelect) return { count: 0, text: '', isError: false }; // pages without the dropdown
 
-    setBonusEnabled(false);
+    setReasonEnabled(false);
 
     try {
-        const response = await fetch(BONUS_URL, {
+        const response = await fetch(`${REASONS_URL}/${reasonSlug}`, {
             method: "GET",
-            credentials: 'include' // the bonus list is admin data
+            credentials: 'include' // the reason lists are admin data
         });
 
         if (!response.ok) {
-            // 404 = the backend has no bonus route yet, so the built-in list the
-            // page ships with stays in the dropdown.
-            console.error('Bonus list error:', response.status, await response.text());
-            setBonusEnabled(true);
-            showBonusMessage(`The backend could not list the bonuses (${response.status}) — using the built-in list.`, true);
-            return;
+            // 404 = wrong slug or no such route, so the built-in list the page
+            // ships with stays in the dropdown.
+            console.error('Reason list error:', response.status, await response.text());
+            setReasonEnabled(true);
+            return {
+                count: 0,
+                text: `The backend could not list /reasons/${reasonSlug} (${response.status}) — using the built-in list.`,
+                isError: true
+            };
         }
-        const bonus_json = await response.json()
-        console.log("response json: ", bonus_json)
-        const bonuses = bonusList(bonus_json);
-        console.log(bonuses)
-        const loaded = fillBonusOptions(bonuses);
 
-        // loaded === 0 means nothing usable came back, and fillBonusOptions has
+        const reason_json = await response.json()
+        console.log("response json: ", reason_json)
+        const reasons = reasonList(reason_json);
+        console.log(reasons)
+
+        const count = fillReasonOptions(reasons);
+        setReasonEnabled(true);
+
+        // count === 0 means nothing usable came back, and fillReasonOptions has
         // already left the built-in options in place.
-        if (loaded === 0) {
-            setBonusEnabled(true);
-            showBonusMessage('The backend returned no usable bonuses — using the built-in list.', true);
-            return;
+        if (count === 0) {
+            return {
+                count: 0,
+                text: `The backend returned no reasons from /reasons/${reasonSlug} — using the built-in list.`,
+                isError: true
+            };
         }
 
-        setBonusEnabled(true);
-        showBonusMessage(`Loaded ${loaded} bonus${loaded === 1 ? '' : 'es'} from the backend.`, false);
+        return {
+            count,
+            text: `Loaded ${count} reason${count === 1 ? '' : 's'} from /reasons/${reasonSlug}.`,
+            isError: false
+        };
     } catch (error) {
         console.error('Network Error:', error);
-        setBonusEnabled(true);
-        showBonusMessage('Network error — the bonus list could not be loaded, using the built-in list.', true);
+        setReasonEnabled(true);
+        return {
+            count: 0,
+            text: 'Network error — the reason list could not be loaded, using the built-in list.',
+            isError: true
+        };
     }
 }
 
-loadBonuses();
+// 'unknown' while the backend is being asked, then 'granted' or 'denied'.
+let permissionState = 'unknown';
+
+// Asks the backend whether this browser still holds an admin session. Answers
+// with the verdict and with the sentence the page should show for it.
+async function checkAdminPermission() {
+    try {
+        const response = await fetch(ADMIN_CHECK_URL, {
+            method: 'POST',
+            credentials: 'include', // send the admin session cookie
+            body: new FormData()    // empty body: cannot add an account
+        });
+
+        // 422 means /adduser only complained about the empty body, so the session
+        // cookie was accepted: the admin is logged in.
+        if (response.ok || response.status === 422) {
+            permissionState = 'granted';
+            return { granted: true, text: 'Admin login confirmed by the backend.', isError: false };
+        }
+
+        if (response.status === 401) {
+            permissionState = 'denied';
+            console.error('Admin check: the backend refused the request — not logged in.');
+            return {
+                granted: false,
+                text: 'Not logged in — the backend refused the request. Log into the admin account first.',
+                isError: true
+            };
+        }
+
+        console.error('Admin check error:', response.status, await response.text());
+        permissionState = 'denied';
+        return {
+            granted: false,
+            text: `Unexpected reply from the API (${response.status}) — cannot confirm your login.`,
+            isError: true
+        };
+    } catch (error) {
+        console.error('Network Error:', error);
+        permissionState = 'denied';
+        return {
+            granted: false,
+            text: 'Network error — the login check could not reach the API.',
+            isError: true
+        };
+    }
+}
+
+// Opening a reason page: ask for admin powers first, then fill the dropdown.
+// The one status line is shared, so both facts are put on it: whether the backend
+// accepted the session and what the dropdown ended up with. The line is styled as
+// an error if either half went wrong.
+async function openReasonPage() {
+    if (!reasonSelect) return; // every other page loads app.js for its own form only
+
+    if (!reasonSlug) {
+        setApproveEnabled(false);
+        setReasonEnabled(false);
+        showReasonMessage(`Unknown reason type "${reasonType}" — check data-reason-type on the <select>.`, true);
+        return;
+    }
+
+    setApproveEnabled(false);
+
+    const check = await checkAdminPermission();
+    setApproveEnabled(check.granted);
+
+    const list = await loadReasons();
+
+    showReasonMessage(`${check.text} ${list.text}`, check.isError || list.isError);
+}
+
+// Next: approving the transaction. The backend is asked for admin powers one more
+// time here, because the page may have been open since the first check and an
+// admin session can expire in between.
+async function approveReason() {
+    if (!reasonSelect) return;
+
+    if (!reasonSelect.value) {
+        showReasonMessage('Choose a reason before approving.', true);
+        return;
+    }
+
+    setApproveEnabled(false);
+    const check = await checkAdminPermission();
+
+    if (!check.granted) {
+        showReasonMessage(check.text, true);
+        return;
+    }
+
+    setApproveEnabled(true);
+
+    const option = reasonSelect.selectedOptions?.[0];
+    const transaction = {
+        student: sessionStorage.getItem(STUDENT_KEY) || '',
+        type: reasonType,
+        slug: reasonSlug,
+        reason: reasonSelect.value,
+        label: option ? option.textContent : reasonSelect.value
+    };
+
+    // Nothing is sent yet: openapi.json lists only /adduser, /add-admin, /getuser,
+    // /login and the /reasons routes, so there is no route that records a
+    // transaction. The approved choice is parked in sessionStorage for the step
+    // that will POST it, next to the student username transaction1.html stored.
+    sessionStorage.setItem(PENDING_KEY, JSON.stringify(transaction));
+    console.log('Approved, parked for the next step:', transaction);
+
+    const forStudent = transaction.student ? ` for ${transaction.student}` : '';
+    showReasonMessage(
+        `Approved "${transaction.label}"${forStudent} — parked for the next step: the API has no route that records a transaction yet, so nothing was sent.`,
+        false
+    );
+}
+
+reasonNext?.addEventListener('click', approveReason);
+
+// The page starts itself: ask the backend for admin powers, fill the dropdown,
+// then say on the one status line what happened.
+openReasonPage();

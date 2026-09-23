@@ -359,6 +359,82 @@ a.tag:hover {
     border-color: rgba(207, 51, 82, 0.55);
 }
 
+/* ------------------------------------------------- typing dropdown ---- */
+/* transaction1.html: the student field suggests account names while they are
+   typed. The list is a plain <ul> the script fills, laid over what is below it. */
+.combo { position: relative; }
+
+/* room on the right edge for the same hollow triangle as .panel select */
+.combo input {
+    padding-right: 2.6rem;
+    background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 16 16'%3E%3Cpath d='M2.5 5.5h11L8 12z' fill='none' stroke='%23067d6c' stroke-width='1.5' stroke-linejoin='round'/%3E%3C/svg%3E");
+    background-repeat: no-repeat;
+    background-position: right 0.95rem center;
+    background-size: 0.8rem;
+}
+
+.combo__list {
+    position: absolute;
+    z-index: 5;
+    top: calc(100% + 0.35rem);
+    right: 0;
+    left: 0;
+    max-height: 15rem;
+    margin: 0;
+    padding: 0.3rem;
+    overflow-y: auto;
+    list-style: none;
+    background: var(--surface-3);
+    border: 1px solid var(--border-hi);
+    border-radius: var(--radius-sm);
+    box-shadow: var(--shadow);
+}
+
+/* the script toggles the hidden attribute, so it has to win over any display rule
+   that lands on these two elements */
+.combo__list[hidden],
+.combo__hint[hidden] { display: none; }
+
+.combo__option {
+    display: flex;
+    align-items: baseline;
+    justify-content: space-between;
+    gap: 0.75rem;
+    padding: 0.5rem 0.7rem;
+    border-radius: 8px;
+    cursor: pointer;
+}
+
+.combo__option--active,
+.combo__option:hover { background: rgba(33, 255, 218, 0.26); }
+
+/* the letters the typed text lined up with */
+.combo__option mark {
+    font-weight: 650;
+    color: inherit;
+    background: transparent;
+    text-decoration: underline;
+    text-decoration-color: var(--accent-deep);
+    text-decoration-thickness: 2px;
+    text-underline-offset: 2px;
+}
+
+.combo__option-hint {
+    flex: 0 0 auto;
+    font-size: 0.78rem;
+    letter-spacing: 0.06em;
+    text-transform: uppercase;
+    color: var(--text-faint);
+}
+
+.combo__hint {
+    margin: 0;
+    font-size: 0.82rem;
+    color: var(--text-faint);
+}
+
+.combo__hint--error { color: var(--danger); }
+
 .form__actions {
     display: flex;
     flex-wrap: wrap;

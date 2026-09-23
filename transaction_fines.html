@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>App1 · Select bonus</title>
+    <title>App1 · Select fine</title>
     <link rel="stylesheet" href="styles.css">
     <script src="app.js" defer></script>
 </head>
@@ -18,18 +18,16 @@
             </header>
 
             <section class="panel" aria-labelledby="reasontitle">
-                <h1 class="panel__title" id="reasontitle">Select bonus</h1>
+                <h1 class="panel__title" id="reasontitle">Select fine</h1>
 
                 <!-- data-reason-type tells app.js which /reasons/{slug} list to
-                     ask for. These options are the fallback: they stay in the
-                     dropdown whenever the backend cannot answer. -->
-                <select id="reason" name="reason" data-reason-type="bonus" aria-label="Select bonus">
-                    <option value="" selected>Choose a bonus&hellip;</option>
-                    <option value="attendance">Attendance bonus</option>
-                    <option value="performance">Performance bonus</option>
-                    <option value="volunteer">Volunteer bonus</option>
-                    <option value="referral">Referral bonus</option>
-                    <option value="other">Other bonus</option>
+                     ask for: fines -> /reasons/bonura-bank-fines. The second
+                     option is the fallback, kept whenever the backend cannot
+                     answer. Fines are negative: the amounts shown come back as
+                     -5, -10, -15. -->
+                <select id="reason" name="reason" data-reason-type="fines" aria-label="Select fine">
+                    <option value="" selected>Choose a fine&hellip;</option>
+                    <option value="Other fine">Other fine</option>
                 </select>
 
                 <div class="form__actions">
@@ -40,7 +38,7 @@
             </section>
 
             <div id="reasonresults" class="results" role="status" aria-live="polite"
-                 data-empty="Asking the backend for the bonus list&hellip;"></div>
+                 data-empty="Asking the backend for the fine list&hellip;"></div>
 
             <p class="footnote">Wrong student? <a class="tag" href="/transaction-middle.html">&#8592; Back</a></p>
         </main>
