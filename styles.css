@@ -5,12 +5,10 @@
    hairlines, focus glows). Its deeper tints (--accent-deep, --gradient-ink)
    carry thin text and 1px outlines, because plain #21ffda on a light canvas
    would not be readable.
-   Typeface: Great Vibes everywhere, pulled from Google Fonts by the <head> of
-   every page (Great Vibes ships with no operating system, so the webfont is
-   the only way to get it). Great Vibes carries a single weight (400), so the
-   bold weights still worn by buttons, headings and the brand are synthesised
-   by the browser. The script stack behind it in --font is just the fallback
-   shown while the webfont swaps in.
+   Typeface: Comfortaa for the whole UI, pulled from Google Fonts by the <head>
+   of every page (Comfortaa ships with no operating system, so the webfont is
+   the only way to get it). The system stack behind it in --font is just the
+   fallback shown while the webfont swaps in.
    Loaded by every page in the project.
    ========================================================================== */
 
@@ -48,11 +46,11 @@
     --shadow-btn:   0 10px 24px rgba(6, 179, 154, 0.30);
     --ring:         0 0 0 4px rgba(33, 255, 218, 0.45);
 
-    --font: "Great Vibes", "Segoe Script", "Brush Script MT", cursive, serif;
-    /* the code face is Great Vibes too — <code> keeps its accent tint and
-       rounded chip so it still reads as code. The script stack behind it is
-       only a fallback. */
-    --mono: "Great Vibes", "Segoe Script", "Brush Script MT", cursive, serif;
+    --font: "Comfortaa", system-ui, -apple-system, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+    /* the code face is Comfortaa too — <code> keeps its accent tint and rounded
+       chip so it still reads as code. The monospace stack behind it is only a
+       fallback. */
+    --mono: "Comfortaa", ui-monospace, SFMono-Regular, "SF Mono", Menlo, Consolas, monospace;
 
     color-scheme: light;
 }
@@ -61,7 +59,7 @@
 
 /* Every element that carries text — divs, paragraphs, headings, lists, links,
    table cells, form controls, inline code and generated (::before/::after)
-   content — draws with Great Vibes. Stated explicitly instead of leaning on
+   content — draws with Comfortaa. Stated explicitly instead of leaning on
    inheritance from <body>, so no box can drift back to a system font. */
 *,
 *::before,
