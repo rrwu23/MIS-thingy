@@ -333,6 +333,11 @@ function reasonSlugFromType(type) {
         .replace(/^-+|-+$/g, '');
 }
 
+// Where an approved transaction is written: POST /transaction-record takes the whole
+// object as JSON (openapi.json: TransactionRecord wants student, type, slug and
+// reason, and accepts amount, date and memo as well).
+const RECORD_URL = 'https://api.rongrongwu.com/transaction-record';
+
 // Protected route used to ask the backend whether this browser still holds an
 // admin session. GET /current-admin answers the same question (the home page
 // lookup above uses it), but this check stays on the trick sessionstorage.js also
@@ -722,19 +727,59 @@ async function approveReason() {
         label: option ? option.textContent : reasonSelect.value
     };
 
-    // Nothing is sent yet: openapi.json lists only /adduser, /add-admin, /getuser,
-    // /login and the /reasons routes, so there is no route that records a
-    // transaction. The approved choice is parked in sessionStorage for the step
-    // that will POST it, next to the student username transaction1.html stored.
+    // The approved choice is parked next to the student username transaction1.html
+    // stored, and it is parked before anything is sent: the object kept in
+    // sessionStorage is the same one the request carries, so a send that fails loses
+    // nothing.
     sessionStorage.setItem(PENDING_KEY, JSON.stringify(transaction));
-    console.log('Approved, parked for the next step:', transaction);
+    console.log('Approved:', transaction);
 
     const forStudent = transaction.student ? ` for ${transaction.student}` : '';
-    showReasonMessage(
-        `Approved "${transaction.label}"${forStudent} — parked for the next step: the API has no route that records a transaction yet, so nothing was sent.`,
-        false
-    );
+
+    // POST /transaction-record writes it: the object goes as a whole, as JSON, with
+    // the two table columns (type and reason) in the backend's own spelling, and the
+    // admin session cookie travels with the request.
+    try {
+        const response = await fetch(RECORD_URL, {
+            method: 'POST',
+            credentials: 'include',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify(transaction)
+        });
+
+        // A refusal can answer with something that is not JSON, so the body is read
+        // once and never trusted to parse.
+        const result = await response.json().catch(() => null);
+
+        if (response.ok) {
+            console.log('Transaction recorded:', result);
+
+            // Recorded once is recorded: Next goes grey until another reason is
+            // chosen, so a second click cannot write the same transaction twice.
+            setApproveEnabled(false);
+            showReasonMessage(`Recorded "${transaction.label}"${forStudent} — the backend wrote the ${transaction.type} transaction.`, false);
+            return;
+        }
+
+        console.error('Transaction record error:', result);
+        showReasonMessage(`Nothing was recorded — the backend refused the transaction (${response.status}): ${describeError(result)}`, true);
+    } catch (error) {
+        console.error('Network Error:', error);
+        showReasonMessage('Network error — the transaction could not reach the API, so nothing was recorded.', true);
+    }
+
+    // A send that did not go through leaves Next live, so the same choice can be
+    // tried again.
+    setApproveEnabled(true);
 }
+
+// Choosing another reason is a different transaction, so it brings back the Next
+// button that a recorded or refused one left grey.
+reasonSelect?.addEventListener('change', function () {
+    if (reasonSelect.value) {
+        setApproveEnabled(true);
+    }
+});
 
 reasonNext?.addEventListener('click', approveReason);
 

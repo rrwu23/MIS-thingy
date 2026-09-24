@@ -2,8 +2,10 @@
 //
 // As the admin types into #student_username this file shows the accounts whose
 // name matches what has been typed so far, so a username never has to be
-// remembered exactly. The names come from GET /getuser, the public route the
-// query form in app.js also uses; it answers with one object per account:
+// remembered exactly. Only the logged-in admin's own students are offered: the
+// admin behind the session cookie is read from GET /current-admin, and the names
+// come from that admin's rows of GET /getuser, the route the query form in app.js
+// also uses, which answers with one object per account, supervisor included:
 //   [{"name": "Rongrong Wu", "password": "wwww", "supervisor": "d"}, ...]
 // The whole list is fetched once when the page opens and filtered in the
 // browser, because the route's own ?name= filter only matches a complete name
@@ -19,13 +21,23 @@
 // letters that matched are marked in the list, one mark per run of them.
 // Nothing is suggested while the field is empty, and the hint under the field
 // says when nothing matched, when the list was cut short, when only one account
-// is left, or when the account list could not be loaded.
+// is left, when the account list could not be loaded, or when the backend named no
+// admin to load it for.
 //
 // This file only writes the chosen name into the input. Saving it stays where it
 // was, in sessionstorage.js, which reads that same input when Next is clicked or
 // the form is submitted.
 
 const STUDENT_LIST_URL = 'https://api.rongrongwu.com/getuser';
+
+// Whose accounts the list may hold: GET /current-admin answers the admin behind the
+// session cookie (the route the home page's "Get current admin" button asks), and
+// every account offered here has to name that admin as its supervisor.
+const PICKER_ADMIN_URL = 'https://api.rongrongwu.com/current-admin';
+
+// Fields the GET /current-admin reply may carry the admin name in, most likely
+// first - the route is untyped, openapi.json only promises an object of strings.
+const PICKER_ADMIN_NAME_KEYS = ['admin_name', 'name', 'admin', 'username'];
 
 // How many accounts the open list shows at once; the hint says when there were
 // more, so a long list never runs off the page.
@@ -54,8 +66,26 @@ let studentAccounts = [];
 // of pretending nothing matched.
 let studentListFailed = false;
 
+// True when the backend named no admin to load the list for, so the hint can say
+// to log in instead of blaming the typing.
+let studentListNeedsLogin = false;
+
+// The admin this browser is signed in as, or '' when the backend names none. null
+// means the question has not been asked yet, so it is asked once.
+let pickerAdmin = null;
+
 // Position of the highlighted option inside the open list, -1 when none is.
 let studentActive = -1;
+
+// True when an account belongs to `admin`: its supervisor has to be that admin, the
+// only difference allowed being surrounding space. GET /getuser?supervisor= is an
+// exact match as well (checked live: ?supervisor=test-account answers three accounts
+// while ?supervisor=nonsense answers []), so the list and the check that follows it
+// agree on what may be offered. An account with no supervisor belongs to nobody,
+// which is why an unknown admin matches nothing at all.
+function supervisorIsAdmin(supervisor, admin) {
+    return Boolean(admin) && String(supervisor ?? '').trim() === admin;
+}
 
 // First field of an account that actually carries something, or null when none
 // of them does. Empty strings count as missing, so they never turn into blank
@@ -123,10 +153,10 @@ function studentAccount(entry) {
     };
 }
 
-// Replaces the account list with everything usable in the payload. Names are
-// de-duplicated case-insensitively and sorted, so the order the list shows is the
-// same on every keystroke.
-function fillStudentAccounts(payload) {
+// Replaces the account list with everything usable in the payload that belongs to
+// `admin`. Names are de-duplicated case-insensitively and sorted, so the order the
+// list shows is the same on every keystroke.
+function fillStudentAccounts(payload, admin) {
     const seen = new Set();
     const accounts = [];
 
@@ -134,6 +164,7 @@ function fillStudentAccounts(payload) {
         const account = studentAccount(entry);
 
         if (!account) continue;
+        if (!supervisorIsAdmin(account.supervisor, admin)) continue; // another admin's student
 
         const key = account.name.toLowerCase();
 
@@ -150,21 +181,93 @@ function fillStudentAccounts(payload) {
     return accounts.length;
 }
 
-// One public request when the page opens. The admin session is deliberately not
-// sent, exactly like the query form in app.js, because listing accounts needs no
-// cookie and the typing list should still work while an admin signs in.
+// Which admin this browser is signed in as, or '' when the backend will not name one
+// (401 with no session, or a reply with no name in it).
+async function loadPickerAdmin() {
+    if (pickerAdmin !== null) return pickerAdmin;
+
+    try {
+        const response = await fetch(PICKER_ADMIN_URL, {
+            method: 'GET',
+            credentials: 'include' // the admin session cookie
+        });
+
+        pickerAdmin = response.ok ? pickerAdminName(await response.json()) : '';
+    } catch (error) {
+        console.error('Current admin error:', error);
+        pickerAdmin = '';
+    }
+
+    console.log(pickerAdmin
+        ? `The typing list offers only the accounts of the admin "${pickerAdmin}".`
+        : 'The backend named no admin, so the typing list stays empty.');
+
+    return pickerAdmin;
+}
+
+// The admin name inside a GET /current-admin reply (an object of strings), or ''.
+function pickerAdminName(payload) {
+    if (typeof payload === 'string') {
+        return payload.trim();
+    }
+
+    if (payload === null || typeof payload !== 'object') {
+        return '';
+    }
+
+    for (const key of PICKER_ADMIN_NAME_KEYS) {
+        const value = payload[key];
+
+        if (typeof value === 'string' && value.trim()) {
+            return value.trim();
+        }
+    }
+
+    return '';
+}
+
+// One request for the admin and one for that admin's accounts, the session cookie
+// going with both. Without a named admin there is no way to tell whose students these
+// are, and offering every account would be the wrong answer, so the list stays empty
+// and the hint under the field says to log in.
 async function loadStudentAccounts() {
     if (!studentInput) return 0; // every other page that loads this file has no field
 
+    const admin = await loadPickerAdmin();
+
+    if (!admin) {
+        studentListNeedsLogin = true;
+        studentAccounts = [];
+        return 0;
+    }
+
     try {
-        const response = await fetch(STUDENT_LIST_URL);
+        const response = await fetch(`${STUDENT_LIST_URL}?${new URLSearchParams({ supervisor: admin })}`, {
+            method: 'GET',
+            credentials: 'include'
+        });
 
         if (!response.ok) {
             throw new Error(`GET /getuser answered ${response.status}`);
         }
 
-        const count = fillStudentAccounts(await response.json());
-        console.log(`Loaded ${count} student account(s) for the typing list.`);
+        let count = fillStudentAccounts(await response.json(), admin);
+
+        if (!count) {
+            // Nothing under that exact supervisor value. The whole list is asked once
+            // more and filtered here instead, which also covers a backend that ignores
+            // the filter: fillStudentAccounts() trusts the supervisor field, never the
+            // query, to decide whose account this is.
+            const all = await fetch(STUDENT_LIST_URL, { method: 'GET', credentials: 'include' });
+
+            if (!all.ok) {
+                throw new Error(`GET /getuser answered ${all.status}`);
+            }
+
+            count = fillStudentAccounts(await all.json(), admin);
+        }
+
+        console.log(`Loaded ${count} student account(s) of the admin "${admin}" for the typing list.`);
         return count;
     } catch (error) {
         console.error('Student list error:', error);
@@ -427,6 +530,16 @@ function renderStudentList() {
     }
 
     closeStudentList();
+
+    if (studentListNeedsLogin) {
+        // No admin, so there is no list this page may offer: saying "nothing matches"
+        // would point at the wrong thing.
+        setStudentHint(
+            'Not logged in — the list only shows the accounts of the logged-in admin. Log into the admin account, then reload this page.',
+            true
+        );
+        return;
+    }
 
     if (studentListFailed) {
         // No list to filter, so saying "nothing matches" would be a lie. The

@@ -2,21 +2,40 @@
 //
 // transaction1.html asks the backend whether this browser still holds an admin
 // login, and asks it again whether the typed student exists before it lets the
-// flow move on. The confirmed username is stored in sessionStorage, and the later
-// pages read that username back so every step knows which account is being
-// changed — and refuse to carry on when no student has been confirmed.
+// flow move on. That student has to be one of the logged-in admin's own accounts:
+// the admin behind the session cookie is read from GET /current-admin, and only an
+// account naming that admin as its supervisor can be confirmed, so no admin can
+// open a transaction for another admin's student. The confirmed username is stored
+// in sessionStorage, and the later pages read that username back so every step
+// knows which account is being changed — and refuse to carry on when no student has
+// been confirmed.
 // Loaded by transaction1.html and transaction-middle.html.
 
 const STUDENT_USERNAME_KEY = 'student_username';
 const TRANSACTION_NEXT_URL = '/transaction-middle.html';
 
 // Public account list, the route the typing picker in studentpicker.js also
-// loads. Its ?name= filter is an exact, case-sensitive lookup (checked live:
-// ?name=a answers the account "a", while ?name=A and ?name=Arm both answer []),
-// so the filtered call is the direct answer to "is this a student account?", and
-// the whole list is only fetched when that answered nothing, to still accept a
-// username that was typed in the wrong case.
+// loads. Its ?name= and ?supervisor= filters are exact, case-sensitive lookups
+// (checked live: ?name=a answers the account "a" while ?name=A and ?name=Arm answer
+// [], and ?name=a&supervisor=test-account answers that one account while
+// ?name=a&supervisor=d answers []), so the two filters together are the direct
+// answer to "is this a student of mine?", and the admin's own list is only fetched
+// when they answered nothing, to still accept a username typed in the wrong case.
 const STUDENT_ACCOUNTS_URL = 'https://api.rongrongwu.com/getuser';
+
+// Who the student has to belong to: GET /current-admin answers the admin behind the
+// session cookie — the route the home page's "Get current admin" button asks, and the
+// picker on this page asks it too — and every account this flow confirms has to name
+// that admin as its supervisor.
+const CURRENT_ADMIN_URL = 'https://api.rongrongwu.com/current-admin';
+
+// Fields the GET /current-admin reply may carry the admin name in, most likely
+// first — the route is untyped, openapi.json only promises an object of strings.
+const ADMIN_NAME_KEYS = ['admin_name', 'name', 'admin', 'username'];
+
+// Fields an account object may carry its supervisor in, most likely first — the same
+// order studentpicker.js reads them in, so both files agree on whose account this is.
+const SUPERVISOR_KEYS = ['supervisor', 'owner', 'manager'];
 
 // What the results block below the form says when the typed username is not an
 // account the backend knows — word for word what this flow was asked to show.
@@ -251,7 +270,17 @@ async function confirmStudent() {
     showSessionMessage(`Asking the backend whether "${username}" is a student account…`, false);
 
     try {
-        const account = await findStudentAccount(username);
+        const admin = await loggedInAdmin();
+
+        if (!admin) {
+            // No admin named, so there is no way to tell whose student this is and
+            // nothing may be confirmed — the same way the picker's list stays empty.
+            blockStudent(username, 'Not logged in — the backend named no admin for this session, and only the logged-in admin\'s own students may be used. Log into the admin account, then reload this page.');
+            forgetStudentUsername();
+            return;
+        }
+
+        const account = await findStudentAccount(username, admin);
 
         if (!account) {
             blockStudent(username, INVALID_STUDENT_MESSAGE);
@@ -290,13 +319,63 @@ function blockStudent(username, message) {
     showSessionMessage(message, true);
 }
 
-// The backend's own spelling of the typed username, or null when no account
-// carries it. The ?name= filter answers the exact username straight away; a name
-// typed in the wrong case comes back empty, because that filter is case-sensitive,
-// so the whole list is asked once before the username is called invalid.
-async function findStudentAccount(username) {
+// The admin behind the session cookie, or '' when the backend will not name one.
+// Asked once per page: the answer cannot change without a login, and the later pages
+// of the flow carry the confirmed student, not this.
+let currentAdmin = null;
+
+async function loggedInAdmin() {
+    if (currentAdmin !== null) return currentAdmin;
+
+    try {
+        const response = await fetch(CURRENT_ADMIN_URL, {
+            method: 'GET',
+            credentials: 'include' // the admin session cookie
+        });
+
+        currentAdmin = response.ok ? adminNameIn(await response.json()) : '';
+    } catch (error) {
+        console.error('Current admin error:', error);
+        currentAdmin = '';
+    }
+
+    console.log(currentAdmin
+        ? `Only the students of the admin "${currentAdmin}" can be confirmed here.`
+        : 'The backend named no admin, so no student can be confirmed here.');
+
+    return currentAdmin;
+}
+
+// The admin name inside a GET /current-admin reply (an object of strings), or ''.
+function adminNameIn(payload) {
+    if (typeof payload === 'string') {
+        return payload.trim();
+    }
+
+    if (payload === null || typeof payload !== 'object') {
+        return '';
+    }
+
+    for (const key of ADMIN_NAME_KEYS) {
+        const value = payload[key];
+
+        if (typeof value === 'string' && value.trim()) {
+            return value.trim();
+        }
+    }
+
+    return '';
+}
+
+// The backend's own spelling of the typed username, or null when `admin` has no
+// account by that name. The ?name= filter answers the exact username straight away
+// and the ?supervisor= filter keeps the answer to that admin's own rows; a name typed
+// in the wrong case comes back empty, because those filters are case-sensitive, so
+// the admin's list is asked once before the username is called invalid.
+async function findStudentAccount(username, admin) {
     const filtered = await studentNamesFromUrl(
-        `${STUDENT_ACCOUNTS_URL}?${new URLSearchParams({ name: username })}`
+        `${STUDENT_ACCOUNTS_URL}?${new URLSearchParams({ name: username, supervisor: admin })}`,
+        admin
     );
     const match = matchingStudentName(filtered, username);
 
@@ -304,17 +383,26 @@ async function findStudentAccount(username) {
         return match;
     }
 
-    return matchingStudentName(await studentNamesFromUrl(STUDENT_ACCOUNTS_URL), username);
+    return matchingStudentName(
+        await studentNamesFromUrl(`${STUDENT_ACCOUNTS_URL}?${new URLSearchParams({ supervisor: admin })}`, admin),
+        username
+    );
 }
 
-async function studentNamesFromUrl(url) {
-    const response = await fetch(url);
+// The names a URL lists that belong to `admin`, the session cookie going with the
+// request. studentNames() reads the supervisor field again, so an account that is not
+// this admin's can never be confirmed here, whatever the server filter answered.
+async function studentNamesFromUrl(url, admin) {
+    const response = await fetch(url, {
+        method: 'GET',
+        credentials: 'include'
+    });
 
     if (!response.ok) {
         throw new Error(`GET /getuser answered ${response.status}`);
     }
 
-    return studentNames(await response.json());
+    return studentNames(await response.json(), admin);
 }
 
 // The listed name that is the typed username once surrounding space and case are
@@ -331,16 +419,42 @@ function matchingStudentName(names, username) {
     return null;
 }
 
-// Every account name in a GET /getuser payload. The shapes accepted mirror
+// Every account name in a GET /getuser payload that belongs to `admin`: an entry only
+// counts when its supervisor is that admin, exact apart from surrounding space, so
+// another admin's student stays out even if the request came back with one — and with
+// no admin named, nothing may be used at all. The shapes accepted mirror
 // studentAccountList in studentpicker.js, because that endpoint is untyped:
-//   [{"name": "X"}]                                          -> used as is
-//   {"users": [...]} / {"accounts": [...]} / {"data": [...]}  -> the inner list
-//   {"name": "X"} / "X"                                      -> wrapped in an array
-//   null / undefined / ""                                    -> []
-function studentNames(payload) {
+//   [{"name": "X", "supervisor": "Y"}]                         -> used as is
+//   {"users": [...]} / {"accounts": [...]} / {"data": [...]}   -> the inner list
+//   {"name": "X", "supervisor": "Y"} / "X"                     -> wrapped in an array
+//   null / undefined / ""                                      -> []
+function studentNames(payload, admin) {
+    if (!admin) {
+        return []; // no admin to own them, so no account may be used
+    }
+
     return studentEntries(payload)
+        .filter((entry) => studentEntrySupervisor(entry) === admin)
         .map((entry) => studentEntryName(entry))
         .filter((name) => name !== null);
+}
+
+// The supervisor an account object names, trimmed; '' when it names none. The same
+// field order studentpicker.js reads, so both files agree on whose account this is.
+function studentEntrySupervisor(entry) {
+    if (entry === null || typeof entry !== 'object') {
+        return '';
+    }
+
+    for (const key of SUPERVISOR_KEYS) {
+        const value = entry[key];
+
+        if (value !== undefined && value !== null && value !== '') {
+            return String(value).trim();
+        }
+    }
+
+    return '';
 }
 
 function studentEntries(payload) {
