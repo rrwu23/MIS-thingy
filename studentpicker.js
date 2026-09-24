@@ -10,11 +10,13 @@
 // exactly (checked live: ?name=a answers just the account called "a"), so it
 // would answer nothing at all for a half-typed name.
 //
-// Matching runs on the initials of the typed text only: the typed letters have to
-// line up with the first letter of consecutive words of a name, so "rw" finds
-// "Rongrong Wu" and "ht" finds "hi there" (case-insensitive, and dots and spaces
-// in the query are ignored, so "r.w" works too). The letters that lined up are
-// marked in the list, one mark per initial, because they sit apart in the name.
+// Matching runs on the initials of the typed text only, and the initials of a name
+// are the first N letters of it — not just its first letter. What has been typed is
+// cut into parts (letters and digits make a part; dots, spaces and dashes split
+// them), and every part has to be the first letters of one word of a name, with the
+// words following each other: "rong" finds "Rongrong Wu", "rong w" and "rong.wu"
+// find it too, and "wu" or "w" find it by its last word (case-insensitive). The
+// letters that matched are marked in the list, one mark per run of them.
 // Nothing is suggested while the field is empty, and the hint under the field
 // says when nothing matched, when the list was cut short, when only one account
 // is left, or when the account list could not be loaded.
@@ -35,10 +37,10 @@ const STUDENT_LIST_LIMIT = 8;
 const STUDENT_NAME_KEYS = ['name', 'username', 'account', 'id'];
 const STUDENT_SUPERVISOR_KEYS = ['supervisor', 'owner', 'manager'];
 
-// One word inside a name, used to read the initials of that name out of it:
-// "Rongrong Wu" is two words, so its initials are "rw". Letters and digits make a
-// word, everything else (spaces, dots, dashes) splits them. Unicode classes, so an
-// accented name keeps its letter instead of being split around it.
+// One word inside a name, and one part of what has been typed: "Rongrong Wu" is two
+// words and so is "rong.wu". Letters and digits make a word, everything else
+// (spaces, dots, dashes) splits them. Unicode classes, so an accented name keeps
+// its letter instead of being split around it.
 const STUDENT_WORD_PATTERN = /\p{L}[\p{L}\p{N}]*/gu;
 
 const studentInput = document.getElementById('student_username');
@@ -171,48 +173,72 @@ async function loadStudentAccounts() {
     }
 }
 
-// The first letter of every word in a name, so the initials of that name can be
-// read out of it: "Rongrong Wu" gives [0, 9] and therefore the initials "rw".
-function studentInitialIndexes(name) {
-    const indexes = [];
-
-    for (const word of name.matchAll(STUDENT_WORD_PATTERN)) {
-        indexes.push(word.index);
-    }
-
-    return indexes;
+// Every word of a name with where it starts, so the first letters of a word can be
+// read out of it: "Rongrong Wu" gives [{ index: 0, text: "Rongrong" },
+// { index: 9, text: "Wu" }] and therefore the initials "rong" or "wu".
+function studentWords(name) {
+    return [...name.matchAll(STUDENT_WORD_PATTERN)].map((word) => ({
+        index: word.index,
+        text: word[0]
+    }));
 }
 
-// The indexes of the letters of a name that spell out `letters` as the initials of
-// consecutive words, or null when they do not line up anywhere. The run may start
-// at any word, so "w" finds "Rongrong Wu" and a name that begins with W alike.
-function matchStudentInitials(name, letters) {
-    const indexes = studentInitialIndexes(name);
+// The indexes of the letters of a name that the typed parts cover, or null when
+// they cover nothing. Every part has to be the first letters of one word — the
+// first N letters, not just the first one — and the words have to follow each
+// other, so "rong" finds "Rongrong Wu" and "rong w" does too, because a space says
+// the next word. The run of words may start at any word, so "w" and "wu" find
+// "Rongrong Wu" and a name that begins with W alike.
+function matchStudentInitials(name, parts) {
+    const words = studentWords(name);
 
-    for (let start = 0; start <= indexes.length - letters.length; start++) {
-        const lined = [...letters].every((letter, step) =>
-            name[indexes[start + step]].toLowerCase() === letter);
+    for (let start = 0; start <= words.length - parts.length; start++) {
+        const indexes = studentWordIndexes(words, start, parts);
 
-        if (lined) {
-            return indexes.slice(start, start + letters.length);
+        if (indexes) {
+            return indexes;
         }
     }
 
     return null;
 }
 
-// The accounts to offer for what has been typed, matched on the initials of the
-// names only: the typed letters have to line up with the first letter of
-// consecutive words, so "rw" finds "Rongrong Wu" and "ht" finds "hi there".
-// Anything that is not a letter or a digit is left out of the query, so "r.w" and
-// "r w" work like "rw". Accounts whose initials begin the name come first, the
-// rest after them, and both groups keep the alphabetical order of the list. Each
-// entry is { account, matchIndexes }, the indexes of the letters that lined up,
-// so the initials can be marked in the list.
-function matchStudentAccounts(query) {
-    const letters = query.toLowerCase().replace(/[^\p{L}\p{N}]+/gu, '');
+// The indexes the typed parts cover when they sit on the words beginning at
+// `start`, or null when any part is not the first letters of its word. The indexes
+// come out in order and next to each other inside a part, because a part is a run
+// of letters at the front of one word.
+function studentWordIndexes(words, start, parts) {
+    const indexes = [];
 
-    if (!letters) {
+    for (let step = 0; step < parts.length; step++) {
+        const word = words[start + step];
+        const head = word.text.slice(0, parts[step].length).toLowerCase();
+
+        if (head !== parts[step]) {
+            return null;
+        }
+
+        for (let letter = 0; letter < parts[step].length; letter++) {
+            indexes.push(word.index + letter);
+        }
+    }
+
+    return indexes;
+}
+
+// The accounts to offer for what has been typed, matched on the initials of the
+// names only: every part of what was typed has to be the first letters of one word
+// of a name, so "rong" finds "Rongrong Wu", "rong w" finds it as well, and "wu" or
+// "w" find it by its last word. Anything that is not a letter or a digit splits
+// what was typed into those parts, so "rong.wu" works like "rong wu". Accounts
+// whose initials begin the name come first, the rest after them, and both groups
+// keep the alphabetical order of the list. Each entry is { account, matchIndexes },
+// the indexes of the letters the typed text covered, so they can be marked in the
+// list.
+function matchStudentAccounts(query) {
+    const parts = query.toLowerCase().match(STUDENT_WORD_PATTERN) ?? [];
+
+    if (!parts.length) {
         return []; // nothing typed yet, nothing to suggest
     }
 
@@ -220,7 +246,7 @@ function matchStudentAccounts(query) {
     const rest = [];
 
     for (const account of studentAccounts) {
-        const matchIndexes = matchStudentInitials(account.name, letters);
+        const matchIndexes = matchStudentInitials(account.name, parts);
 
         if (!matchIndexes) continue;
 
@@ -230,11 +256,11 @@ function matchStudentAccounts(query) {
     return first.concat(rest);
 }
 
-// Text nodes with a <mark> around each matched initial, so the list shows which
-// letters of the name the typed initials lined up with. One mark per initial,
-// because the initials sit apart in the name, which is also why this cannot be a
-// single slice. Built as nodes rather than innerHTML, because the names come from
-// the backend.
+// Text nodes with a <mark> over the letters the typed text matched, so the list
+// shows which part of the name was typed. The matched letters sit next to each
+// other inside a word — "rong" is one run — but a typed part per word leaves a gap
+// between the runs, so "r w" is two, which is why this cannot be a single slice.
+// Built as nodes rather than innerHTML, because the names come from the backend.
 function markStudentMatch(name, matchIndexes) {
     const fragment = document.createDocumentFragment();
 
@@ -245,16 +271,16 @@ function markStudentMatch(name, matchIndexes) {
 
     let cursor = 0;
 
-    for (const index of [...matchIndexes].sort((a, b) => a - b)) {
-        if (index < cursor) continue; // a repeated index must not nest two marks
+    for (const [start, end] of studentMatchRuns(matchIndexes)) {
+        if (start < cursor) continue; // overlapping runs must not nest two marks
 
-        fragment.append(document.createTextNode(name.slice(cursor, index)));
+        fragment.append(document.createTextNode(name.slice(cursor, start)));
 
         const mark = document.createElement('mark');
-        mark.textContent = name[index];
+        mark.textContent = name.slice(start, end + 1);
         fragment.append(mark);
 
-        cursor = index + 1;
+        cursor = end + 1;
     }
 
     fragment.append(document.createTextNode(name.slice(cursor)));
@@ -262,7 +288,31 @@ function markStudentMatch(name, matchIndexes) {
     return fragment;
 }
 
-// One <li role="option">: the name with its typed initials marked, plus the
+// The matched indexes grouped into the runs they form, each run as its first and
+// last index: [0, 1, 2, 3, 9] gives [[0, 3], [9, 9]]. Indexes that repeat, or that
+// carry on inside a run, are folded in so one run is marked once.
+function studentMatchRuns(matchIndexes) {
+    const runs = [];
+
+    for (const index of [...matchIndexes].sort((a, b) => a - b)) {
+        const run = runs[runs.length - 1];
+
+        if (run && index <= run[1]) {
+            continue;
+        }
+
+        if (run && index === run[1] + 1) {
+            run[1] = index;
+            continue;
+        }
+
+        runs.push([index, index]);
+    }
+
+    return runs;
+}
+
+// One <li role="option">: the name with the matched letters marked, plus the
 // supervisor as a muted aside so two similar names can be told apart.
 function makeStudentOption(account, matchIndexes, index) {
     const option = document.createElement('li');
@@ -354,8 +404,9 @@ function setStudentActive(index, scroll) {
     }
 }
 
-// Fills the open list with the accounts whose initials match the typed text. The
-// list stays shut when there is nothing to show, and the hint says what happened.
+// Fills the open list with the accounts whose initials match the typed text: the
+// account name has to start with what was typed, word for word. The list stays shut
+// when there is nothing to show, and the hint says what happened.
 function renderStudentList() {
     if (!studentInput || !studentList) return;
 
@@ -393,7 +444,7 @@ function renderStudentList() {
     }
 
     setStudentHint(
-        `No account has the initials "${query}" — the list looks for initials only, so "rw" finds "Rongrong Wu". A full username is still checked when you press Next.`,
+        `No account has the initials "${query}" — the list looks at the first letters of a name only, so "rong" finds "Rongrong Wu". A full username is still checked when you press Next.`,
         false
     );
 }
