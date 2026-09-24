@@ -24,13 +24,22 @@
                 <h1 class="panel__title" id="reasontitle">Select fine</h1>
 
                 <!-- data-reason-type tells app.js which /reasons/{slug} list to
-                     ask for: fines -> /reasons/bonura-bank-fines. The second
-                     option is the fallback, kept whenever the backend cannot
-                     answer. Fines are negative: the amounts shown come back as
+                     ask for: it carries the type column value exactly, so "BONURA
+                     BANK FINES" asks for /reasons/bonura-bank-fines. The options
+                     below are the fallback, kept in the dropdown whenever the
+                     backend cannot answer; they are the exact reason column values,
+                     each one both the value and the text. The live list comes back
+                     with the amounts from the table's amount column, all negative:
                      -5, -10, -15. -->
-                <select id="reason" name="reason" data-reason-type="fines" aria-label="Select fine">
+                <select id="reason" name="reason" data-reason-type="BONURA BANK FINES" aria-label="Select fine">
                     <option value="" selected>Choose a fine&hellip;</option>
-                    <option value="Other fine">Other fine</option>
+                    <option value="Bathroom expectation violation">Bathroom expectation violation</option>
+                    <option value="Being rude / disrespectful">Being rude / disrespectful</option>
+                    <option value="Incomplete homework">Incomplete homework</option>
+                    <option value="Off-task behaviour">Off-task behaviour</option>
+                    <option value="Speaking out of turn">Speaking out of turn</option>
+                    <option value="Untimely socializing">Untimely socializing</option>
+                    <option value="Untucked chair">Untucked chair</option>
                 </select>
 
                 <div class="form__actions">

@@ -303,19 +303,35 @@ function describeCurrentAdmin(payload) {
 // transaction_bonus.html, transaction_fines.html, transaction_salaries.html and
 // transaction_spending.html each show one dropdown of reasons that comes from the
 // backend. Every /reasons/{slug} route answers with the same shape - a plain map
-// of name -> points, negatives included:
+// of reason -> amount, negatives included:
 //   {"Bathroom expectation violation": -10, "Being rude / disrespectful": -15, ...}
-// A page says which list it wants with data-reason-type on its <select>, e.g.
-// data-reason-type="fines", and the built-in options it ships with stay in place
-// whenever the request fails or comes back with nothing usable.
-const REASON_SLUGS = {
-    bonus: 'bonus-bucks',
-    fines: 'bonura-bank-fines',
-    salaries: 'job-salaries',
-    spending: 'ways-to-spend-bonura-bucks'
-};
-
+// Those keys are the `reason` column of the table, and they double as the value each
+// <option> reports, so the reason that leaves this page is the column's own text.
+// A page says which list it wants with data-reason-type on its <select>, and that
+// attribute carries the `type` column value exactly as the table spells it - the
+// full "JOB SALARIES", not a nickname:
+//   data-reason-type="JOB SALARIES"    ->    GET /reasons/job-salaries
+// The slug is built out of that value by reasonSlugFromType() and out of nothing
+// else, so the request can only ever ask for the type column's own list, and the
+// built-in options a page ships with stay in place whenever the request fails or
+// comes back with nothing usable.
 const REASONS_URL = 'https://api.rongrongwu.com/reasons';
+
+// The slug the API names a `type` column value by: everything lower case, every run
+// of anything that is not a letter or a digit turned into one hyphen.
+//   "JOB SALARIES"                -> "job-salaries"
+//   "BONUS BUCKS"                 -> "bonus-bucks"
+//   "BONURA BANK FINES"           -> "bonura-bank-fines"
+//   "WAYS TO SPEND BONURA BUCKS"  -> "ways-to-spend-bonura-bucks"
+// All four are routes openapi.json lists, and the raw type value is not one of them:
+// /reasons/JOB%20SALARIES answers 404 {"detail": "Unknown reason type: JOB SALARIES"}.
+function reasonSlugFromType(type) {
+    return String(type)
+        .trim()
+        .toLowerCase()
+        .replace(/[^\p{L}\p{N}]+/gu, '-')
+        .replace(/^-+|-+$/g, '');
+}
 
 // Protected route used to ask the backend whether this browser still holds an
 // admin session. GET /current-admin answers the same question (the home page
@@ -340,10 +356,11 @@ const reasonSelect = document.getElementById('reason');
 const reasonResults = document.getElementById('reasonresults');
 const reasonNext = document.getElementById('reasonnext');
 
-// Which reason list this page wants: the type comes from the page itself, the
-// slug from the map above, so no page has to know a URL.
-const reasonType = reasonSelect?.dataset.reasonType ?? 'bonus';
-const reasonSlug = REASON_SLUGS[reasonType];
+// Which reason list this page wants: the type comes from the page itself in the
+// table's own spelling, and the slug is read out of it right here, so no page has to
+// know a URL and no hand-written slug can drift away from the type column.
+const reasonType = reasonSelect?.dataset.reasonType?.trim() ?? '';
+const reasonSlug = reasonSlugFromType(reasonType);
 
 // Fields a reason object may use to carry its display name and its points,
 // most likely first.
@@ -411,20 +428,19 @@ function reasonList(payload) {
         return [payload];
     }
 
-    // {"Birthday Bonus": 100} - the live shape: a name -> points map. Object.keys
-    // keeps the backend's order, and the name doubles as the value the option
-    // reports, because the name is the key the backend knows.
-    return Object.keys(payload).map((name) => ({ id: name, name, points: payload[name] }));
+    // {"Birthday Bonus": 100} - the live shape: a reason -> amount map. Object.keys
+    // keeps the backend's order, and the key is the reason column value itself, which
+    // reasonEntry() hands to the <option> as its value.
+    return Object.keys(payload).map((name) => ({ name, points: payload[name] }));
 }
 
 // One element of the list -> the { label, value } pair an <option> needs:
-//   "Attendance bonus"                                    -> both the same
-//   {id: "attendance", name: "Attendance bonus"}           -> label reads nicely,
-//                                                            value is the id
-//   {id: "Birthday Bonus", name: "Birthday Bonus", points: 100}
-//                                                          -> label adds the points
-// Answers null when the entry carries nothing worth showing, so fillReasonOptions
-// can skip it instead of printing "undefined" into the dropdown.
+//   "Teacher Assistant"                          -> both the same
+//   {name: "Teacher Assistant", points: 65}       -> the label adds the amount
+// The value is always the reason itself - the reason column value the backend sent -
+// never a separate id, so the choice the page carries on with is exactly the text
+// the column holds. Answers null when the entry carries nothing worth showing, so
+// fillReasonOptions can skip it instead of printing "undefined" into the dropdown.
 function reasonEntry(entry) {
     if (entry === null || typeof entry !== 'object') {
         if (entry === undefined || entry === null || entry === '') {
@@ -442,12 +458,11 @@ function reasonEntry(entry) {
 
     const label = String(name);
     const points = reasonPoints(entry);
-    const id = firstField(entry, ['id']);
 
     return {
         // Math.abs so a single fine point reads "1 pt", not "1 pts".
         label: points === null ? label : `${label} (${points} ${Math.abs(points) === 1 ? 'pt' : 'pts'})`,
-        value: String(id ?? label)
+        value: label
     };
 }
 
@@ -658,7 +673,7 @@ async function openReasonPage() {
     if (!reasonSlug) {
         setApproveEnabled(false);
         setReasonEnabled(false);
-        showReasonMessage(`Unknown reason type "${reasonType}" — check data-reason-type on the <select>.`, true);
+        showReasonMessage(`Unknown reason type "${reasonType}" — data-reason-type on the <select> must be the table's type column value, e.g. "JOB SALARIES".`, true);
         return;
     }
 
@@ -694,6 +709,11 @@ async function approveReason() {
     setApproveEnabled(true);
 
     const option = reasonSelect.selectedOptions?.[0];
+
+    // The two table columns, spelled the way the table spells them: type is the
+    // page's data-reason-type (the type column value), slug is that same value as a
+    // URL, and reason is the option's value, which is the reason column text the
+    // backend sent. label is only what the eye saw, amounts included.
     const transaction = {
         student: sessionStorage.getItem(STUDENT_KEY) || '',
         type: reasonType,

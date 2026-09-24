@@ -24,13 +24,32 @@
                 <h1 class="panel__title" id="reasontitle">Select expense</h1>
 
                 <!-- data-reason-type tells app.js which /reasons/{slug} list to
-                     ask for: spending -> /reasons/ways-to-spend-bonura-bucks.
-                     The second option is the fallback, kept whenever the backend
-                     cannot answer. These are things a student can buy, so the
-                     amounts are what they cost: 2 up to 200. -->
-                <select id="reason" name="reason" data-reason-type="spending" aria-label="Select expense">
+                     ask for: it carries the type column value exactly, so "WAYS TO
+                     SPEND BONURA BUCKS" asks for
+                     /reasons/ways-to-spend-bonura-bucks. The options below are the
+                     fallback, kept in the dropdown whenever the backend cannot
+                     answer; they are the exact reason column values, each one both
+                     the value and the text. The live list comes back with the
+                     amounts from the table's amount column: 2 up to 200. -->
+                <select id="reason" name="reason" data-reason-type="WAYS TO SPEND BONURA BUCKS" aria-label="Select expense">
                     <option value="" selected>Choose an expense&hellip;</option>
-                    <option value="Other expense">Other expense</option>
+                    <option value="Add pencil">Add pencil</option>
+                    <option value="Colouring books">Colouring books</option>
+                    <option value="Dress up silly goose">Dress up silly goose</option>
+                    <option value="Extra computer time">Extra computer time</option>
+                    <option value="Homework pass">Homework pass</option>
+                    <option value="Ice cream">Ice cream</option>
+                    <option value="Movie">Movie</option>
+                    <option value="Pen pass">Pen pass</option>
+                    <option value="Phys. ed. game">Phys. ed. game</option>
+                    <option value="Popcorn Party">Popcorn Party</option>
+                    <option value="Prize Bin">Prize Bin</option>
+                    <option value="Pyjama Day">Pyjama Day</option>
+                    <option value="Swish or Miss">Swish or Miss</option>
+                    <option value="Toy">Toy</option>
+                    <option value="Toy car">Toy car</option>
+                    <option value="VIP desk (1 day)">VIP desk (1 day)</option>
+                    <option value="Yes Day (classroom)">Yes Day (classroom)</option>
                 </select>
 
                 <div class="form__actions">

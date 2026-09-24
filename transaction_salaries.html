@@ -24,13 +24,33 @@
                 <h1 class="panel__title" id="reasontitle">Select salary</h1>
 
                 <!-- data-reason-type tells app.js which /reasons/{slug} list to
-                     ask for: salaries -> /reasons/job-salaries. The second option
-                     is the fallback, kept whenever the backend cannot answer.
-                     These are classroom jobs and what each one pays, so the
-                     amounts are positive: 45 up to 75. -->
-                <select id="reason" name="reason" data-reason-type="salaries" aria-label="Select salary">
+                     ask for: it carries the type column value exactly, so "JOB
+                     SALARIES" asks for /reasons/job-salaries. The options below are
+                     the fallback, kept in the dropdown whenever the backend cannot
+                     answer; they are the exact reason column values, each one both
+                     the value and the text. The live list comes back with the
+                     amounts from the table's amount column, all positive: 45 up to
+                     75. -->
+                <select id="reason" name="reason" data-reason-type="JOB SALARIES" aria-label="Select salary">
                     <option value="" selected>Choose a salary&hellip;</option>
-                    <option value="Other salary">Other salary</option>
+                    <option value="Attendance Monitor">Attendance Monitor</option>
+                    <option value="Board Manager">Board Manager</option>
+                    <option value="Calendar Helper">Calendar Helper</option>
+                    <option value="Class Banker">Class Banker</option>
+                    <option value="Class Greeter">Class Greeter</option>
+                    <option value="Date Manager">Date Manager</option>
+                    <option value="Errand Leader">Errand Leader</option>
+                    <option value="Floor Cleaner">Floor Cleaner</option>
+                    <option value="Librarian">Librarian</option>
+                    <option value="Line Leader">Line Leader</option>
+                    <option value="Lunch Helper">Lunch Helper</option>
+                    <option value="Paper Collector">Paper Collector</option>
+                    <option value="Paper Passer">Paper Passer</option>
+                    <option value="Recycling Crew">Recycling Crew</option>
+                    <option value="Supplies Manager">Supplies Manager</option>
+                    <option value="Teacher Assistant">Teacher Assistant</option>
+                    <option value="Tech Crew">Tech Crew</option>
+                    <option value="Tidy Up Crew">Tidy Up Crew</option>
                 </select>
 
                 <div class="form__actions">
