@@ -534,6 +534,17 @@ async function checkAdminPermission() {
 async function openReasonPage() {
     if (!reasonSelect) return; // every other page loads app.js for its own form only
 
+    // A transaction is only ever for a student confirmed on transaction1.html, so
+    // without one the dropdown and the Next button stay switched off and the status
+    // line says where to go. This is what stops a type being opened straight from
+    // the URL with nobody behind it.
+    if (!sessionStorage.getItem(STUDENT_KEY)) {
+        setApproveEnabled(false);
+        setReasonEnabled(false);
+        showReasonMessage('No student was confirmed by the backend — go back to the transaction page and enter a username that exists.', true);
+        return;
+    }
+
     if (!reasonSlug) {
         setApproveEnabled(false);
         setReasonEnabled(false);
