@@ -190,6 +190,115 @@ function describeError(result) {
     return 'the server rejected the credentials.';
 }
 
+// Home page ------------------------------------------------------------------
+// index.html's "Get current admin" button answers one question: which admin is
+// this browser signed in as? GET /current-admin is the live route for it (listed
+// in https://api.rongrongwu.com/openapi.json), it takes the session cookie, and
+// without one it answers 401 {"detail": "Not logged in"} — checked live with
+// curl, exactly like the other protected routes. So the request sends
+// credentials: "include", the same as the login and add-admin forms above.
+const CURRENT_ADMIN_URL = 'https://api.rongrongwu.com/current-admin';
+
+// Fields the reply may carry the admin name in, most likely first — the route is
+// untyped, openapi.json only promises an object whose values are strings.
+const ADMIN_NAME_KEYS = ['admin_name', 'name', 'admin', 'username'];
+
+const currentAdminButton = document.getElementById('getcurrentadmin');
+
+currentAdminButton?.addEventListener('click', async function () {
+    const results = document.getElementById('currentadminresults');
+
+    // A second click while the backend is being asked would only repeat the same
+    // question, so the button goes grey and unclickable for the round trip, using
+    // the .btn[aria-disabled="true"] state styles.css already styles.
+    currentAdminButton.setAttribute('aria-disabled', 'true');
+    showCurrentAdminMessage(results, 'Asking the backend which admin is signed in…', false);
+
+    try {
+        const response = await fetch(CURRENT_ADMIN_URL, {
+            method: 'GET',
+            credentials: 'include' // send the admin session cookie
+        });
+
+        // FastAPI replies with JSON for both success and error bodies
+        const result = await response.json();
+
+        if (response.ok) {
+            console.log('Current admin:', result);
+            showCurrentAdminMessage(results, describeCurrentAdmin(result), false);
+        } else {
+            console.error('Current admin error:', result);
+            showCurrentAdminMessage(
+                results,
+                `No admin session (${response.status}): ${describeError(result)} — log in on the admin login page first.`,
+                true
+            );
+        }
+    } catch (error) {
+        console.error('Network Error:', error);
+        showCurrentAdminMessage(results, 'Network error — the current-admin API could not be reached.', true);
+    } finally {
+        currentAdminButton.removeAttribute('aria-disabled');
+    }
+});
+
+// Replace the previous status line under the home page buttons with a single
+// message — the same one-paragraph shape showLoginMessage and showReasonMessage
+// write into their own blocks.
+function showCurrentAdminMessage(results, text, isError) {
+    if (!results) return;
+
+    const paragraph = document.createElement('p');
+    paragraph.textContent = text;
+
+    if (isError) {
+        paragraph.className = 'results__error';
+    }
+
+    results.replaceChildren(paragraph);
+}
+
+// The 200 body is an object of strings whose fields openapi.json does not name,
+// so the answer is read defensively:
+//   {"admin_name": "alice"}                     -> "Signed in as alice."
+//   {"name": "alice"} / {"admin": …} / {"username": …}  -> the same
+//   {"admin_name": "alice", "bank": "Bonura's"} -> the name, then the extra fields
+//   "alice"                                     -> "Signed in as alice."
+//   [{"admin_name": "alice"}]                   -> one sentence per entry
+//   {} / null / a bare number                   -> the session was accepted, but
+//                                                  the reply names nobody
+function describeCurrentAdmin(payload) {
+    if (Array.isArray(payload)) {
+        return payload.length
+            ? payload.map((entry) => describeCurrentAdmin(entry)).join(' ')
+            : 'The backend accepted the session, but the reply names no admin.';
+    }
+
+    if (typeof payload === 'string') {
+        return payload ? `Signed in as ${payload}.` : 'The backend accepted the session, but the reply names no admin.';
+    }
+
+    if (payload === null || typeof payload !== 'object') {
+        return 'The backend accepted the session, but the reply names no admin.';
+    }
+
+    const adminName = firstField(payload, ADMIN_NAME_KEYS);
+    const details = Object.keys(payload)
+        .filter((key) => String(payload[key]) !== String(adminName))
+        .map((key) => `${key}: ${payload[key]}`)
+        .join(', ');
+
+    if (adminName === null) {
+        return details
+            ? `The backend accepted the session, but the reply names no admin — it says ${details}.`
+            : 'The backend accepted the session, but the reply names no admin.';
+    }
+
+    return details
+        ? `Signed in as ${adminName} (${details}).`
+        : `Signed in as ${adminName}.`;
+}
+
 // Reason pages --------------------------------------------------------------
 // transaction_bonus.html, transaction_fines.html, transaction_salaries.html and
 // transaction_spending.html each show one dropdown of reasons that comes from the
@@ -209,9 +318,10 @@ const REASON_SLUGS = {
 const REASONS_URL = 'https://api.rongrongwu.com/reasons';
 
 // Protected route used to ask the backend whether this browser still holds an
-// admin session. The API has no "who am I" route, so this uses the same trick as
-// sessionstorage.js: POST /adduser with an empty body answers "Not logged in"
-// (401) before it ever looks at the body.
+// admin session. GET /current-admin answers the same question (the home page
+// lookup above uses it), but this check stays on the trick sessionstorage.js also
+// uses, because it keeps one request: POST /adduser with an empty body answers
+// "Not logged in" (401) before it ever looks at the body.
 //   401 {"detail": "Not logged in"} -> no admin session
 //   422 (or 2xx)                    -> only the empty body was rejected, so the
 //                                      session cookie was accepted. An empty body

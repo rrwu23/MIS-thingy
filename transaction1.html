@@ -22,7 +22,7 @@
             </header>
 
             <h1 class="card__title">Transaction</h1>
-            <p class="card__hint">Enter the student username to start a transaction for that account &mdash; start typing and the matching accounts come up. Only a signed-in admin may open one, so the page asks the backend for permission as it loads, and asks it again about the student when you press Next.</p>
+            <p class="card__hint">Enter the student username to start a transaction for that account &mdash; start typing the initials of the name and the matching accounts come up, so <em>rw</em> finds <em>Rongrong Wu</em>. Only a signed-in admin may open one, so the page asks the backend for permission as it loads, and asks it again about the student when you press Next.</p>
 
             <form id="transactionform" class="form">
                 <div class="field">
@@ -30,12 +30,13 @@
 
                     <!-- Typing dropdown: studentpicker.js fills #studentlist with the
                          accounts from GET /getuser and filters it down to the ones
-                         matching what has been typed. The input keeps its id and name
-                         so sessionstorage.js reads it exactly as before; autocomplete
-                         is off so the browser's own suggestions cannot cover the list. -->
+                         whose initials match what has been typed (rw finds Rongrong
+                         Wu). The input keeps its id and name so sessionstorage.js
+                         reads it exactly as before; autocomplete is off so the
+                         browser's own suggestions cannot cover the list. -->
                     <div class="combo">
                         <input type="text" id="student_username" name="student_username"
-                               placeholder="jane.doe" autocomplete="off" required
+                               placeholder="rw or Rongrong Wu" autocomplete="off" required
                                role="combobox" aria-expanded="false" aria-controls="studentlist"
                                aria-autocomplete="list" aria-describedby="studenthint">
                         <ul id="studentlist" class="combo__list" role="listbox"

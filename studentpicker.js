@@ -10,11 +10,14 @@
 // exactly (checked live: ?name=a answers just the account called "a"), so it
 // would answer nothing at all for a half-typed name.
 //
-// Matching runs on the typed text: names that start with it come first, then the
-// names that merely contain it (both case-insensitive), and the letters that
-// lined up are marked in the list. Nothing is suggested while the field is
-// empty, and the hint under the field says when nothing matched, when the list
-// was cut short, or when the account list could not be loaded.
+// Matching runs on the initials of the typed text only: the typed letters have to
+// line up with the first letter of consecutive words of a name, so "rw" finds
+// "Rongrong Wu" and "ht" finds "hi there" (case-insensitive, and dots and spaces
+// in the query are ignored, so "r.w" works too). The letters that lined up are
+// marked in the list, one mark per initial, because they sit apart in the name.
+// Nothing is suggested while the field is empty, and the hint under the field
+// says when nothing matched, when the list was cut short, when only one account
+// is left, or when the account list could not be loaded.
 //
 // This file only writes the chosen name into the input. Saving it stays where it
 // was, in sessionstorage.js, which reads that same input when Next is clicked or
@@ -31,6 +34,12 @@ const STUDENT_LIST_LIMIT = 8;
 // which copes with the untyped /getuser payload too.
 const STUDENT_NAME_KEYS = ['name', 'username', 'account', 'id'];
 const STUDENT_SUPERVISOR_KEYS = ['supervisor', 'owner', 'manager'];
+
+// One word inside a name, used to read the initials of that name out of it:
+// "Rongrong Wu" is two words, so its initials are "rw". Letters and digits make a
+// word, everything else (spaces, dots, dashes) splits them. Unicode classes, so an
+// accented name keeps its letter instead of being split around it.
+const STUDENT_WORD_PATTERN = /\p{L}[\p{L}\p{N}]*/gu;
 
 const studentInput = document.getElementById('student_username');
 const studentList = document.getElementById('studentlist');
@@ -162,54 +171,100 @@ async function loadStudentAccounts() {
     }
 }
 
-// The accounts to offer for what has been typed, in the order they appear: whole
-// names that start with the text first, then the ones that merely contain it.
-// Each entry is { account, matchIndex }, so the matching letters can be marked.
-function matchStudentAccounts(query) {
-    const needle = query.trim().toLowerCase();
+// The first letter of every word in a name, so the initials of that name can be
+// read out of it: "Rongrong Wu" gives [0, 9] and therefore the initials "rw".
+function studentInitialIndexes(name) {
+    const indexes = [];
 
-    if (!needle) {
+    for (const word of name.matchAll(STUDENT_WORD_PATTERN)) {
+        indexes.push(word.index);
+    }
+
+    return indexes;
+}
+
+// The indexes of the letters of a name that spell out `letters` as the initials of
+// consecutive words, or null when they do not line up anywhere. The run may start
+// at any word, so "w" finds "Rongrong Wu" and a name that begins with W alike.
+function matchStudentInitials(name, letters) {
+    const indexes = studentInitialIndexes(name);
+
+    for (let start = 0; start <= indexes.length - letters.length; start++) {
+        const lined = [...letters].every((letter, step) =>
+            name[indexes[start + step]].toLowerCase() === letter);
+
+        if (lined) {
+            return indexes.slice(start, start + letters.length);
+        }
+    }
+
+    return null;
+}
+
+// The accounts to offer for what has been typed, matched on the initials of the
+// names only: the typed letters have to line up with the first letter of
+// consecutive words, so "rw" finds "Rongrong Wu" and "ht" finds "hi there".
+// Anything that is not a letter or a digit is left out of the query, so "r.w" and
+// "r w" work like "rw". Accounts whose initials begin the name come first, the
+// rest after them, and both groups keep the alphabetical order of the list. Each
+// entry is { account, matchIndexes }, the indexes of the letters that lined up,
+// so the initials can be marked in the list.
+function matchStudentAccounts(query) {
+    const letters = query.toLowerCase().replace(/[^\p{L}\p{N}]+/gu, '');
+
+    if (!letters) {
         return []; // nothing typed yet, nothing to suggest
     }
 
-    const starts = [];
-    const contains = [];
+    const first = [];
+    const rest = [];
 
     for (const account of studentAccounts) {
-        const index = account.name.toLowerCase().indexOf(needle);
+        const matchIndexes = matchStudentInitials(account.name, letters);
 
-        if (index < 0) continue;
+        if (!matchIndexes) continue;
 
-        (index === 0 ? starts : contains).push({ account, matchIndex: index });
+        (matchIndexes[0] === 0 ? first : rest).push({ account, matchIndexes });
     }
 
-    return starts.concat(contains);
+    return first.concat(rest);
 }
 
-// Text nodes with a <mark> around the matched letters, so the list shows which
-// part of the name the typed text lined up with. Built as nodes rather than
-// innerHTML, because the names come from the backend.
-function markStudentMatch(name, matchIndex, length) {
+// Text nodes with a <mark> around each matched initial, so the list shows which
+// letters of the name the typed initials lined up with. One mark per initial,
+// because the initials sit apart in the name, which is also why this cannot be a
+// single slice. Built as nodes rather than innerHTML, because the names come from
+// the backend.
+function markStudentMatch(name, matchIndexes) {
     const fragment = document.createDocumentFragment();
 
-    if (matchIndex < 0 || length <= 0) {
+    if (!matchIndexes?.length) {
         fragment.append(document.createTextNode(name));
         return fragment;
     }
 
-    const mark = document.createElement('mark');
-    mark.textContent = name.slice(matchIndex, matchIndex + length);
+    let cursor = 0;
 
-    fragment.append(document.createTextNode(name.slice(0, matchIndex)));
-    fragment.append(mark);
-    fragment.append(document.createTextNode(name.slice(matchIndex + length)));
+    for (const index of [...matchIndexes].sort((a, b) => a - b)) {
+        if (index < cursor) continue; // a repeated index must not nest two marks
+
+        fragment.append(document.createTextNode(name.slice(cursor, index)));
+
+        const mark = document.createElement('mark');
+        mark.textContent = name[index];
+        fragment.append(mark);
+
+        cursor = index + 1;
+    }
+
+    fragment.append(document.createTextNode(name.slice(cursor)));
 
     return fragment;
 }
 
-// One <li role="option">: the marked name, plus the supervisor as a muted aside
-// so two similar names can be told apart.
-function makeStudentOption(account, matchIndex, index, length) {
+// One <li role="option">: the name with its typed initials marked, plus the
+// supervisor as a muted aside so two similar names can be told apart.
+function makeStudentOption(account, matchIndexes, index) {
     const option = document.createElement('li');
     option.className = 'combo__option';
     option.id = `studentoption-${index}`;
@@ -219,7 +274,7 @@ function makeStudentOption(account, matchIndex, index, length) {
 
     const name = document.createElement('span');
     name.className = 'combo__option-name';
-    name.append(markStudentMatch(account.name, matchIndex, length));
+    name.append(markStudentMatch(account.name, matchIndexes));
     option.append(name);
 
     if (account.supervisor) {
@@ -299,8 +354,8 @@ function setStudentActive(index, scroll) {
     }
 }
 
-// Fills the open list with the accounts matching the typed text. The list stays
-// shut when there is nothing to show, and the hint says what happened.
+// Fills the open list with the accounts whose initials match the typed text. The
+// list stays shut when there is nothing to show, and the hint says what happened.
 function renderStudentList() {
     if (!studentInput || !studentList) return;
 
@@ -313,14 +368,10 @@ function renderStudentList() {
 
     if (shown.length) {
         studentList.replaceChildren(...shown.map((match, index) =>
-            makeStudentOption(match.account, match.matchIndex, index, query.length)));
+            makeStudentOption(match.account, match.matchIndexes, index)));
         openStudentList();
 
-        setStudentHint(
-            matches.length > shown.length
-                ? `Showing ${shown.length} of ${matches.length} matches — keep typing to narrow them down.`
-                : ''
-        );
+        setStudentHint(studentListHint(shown, matches.length));
         return;
     }
 
@@ -341,7 +392,25 @@ function renderStudentList() {
         return; // nothing typed and the list is fine: stay quiet
     }
 
-    setStudentHint(`No account matches "${query}".`, false);
+    setStudentHint(
+        `No account has the initials "${query}" — the list looks for initials only, so "rw" finds "Rongrong Wu". A full username is still checked when you press Next.`,
+        false
+    );
+}
+
+// What the hint says while the list is open: nothing when the list speaks for
+// itself, a count when it was cut short, and a nudge to pick when one account is
+// left — initials are not a username, so Next would refuse them on their own.
+function studentListHint(shown, total) {
+    if (total === 1) {
+        return `One account matches — press Enter or click "${shown[0].account.name}" to put that username in the field.`;
+    }
+
+    if (total > shown.length) {
+        return `Showing ${shown.length} of ${total} matches — keep typing the initials to narrow them down.`;
+    }
+
+    return '';
 }
 
 // Puts the chosen account name into the field, which is all sessionstorage.js
@@ -425,3 +494,4 @@ studentInput?.addEventListener('blur', closeStudentList);
 // The page starts itself: load the names once. From then on the list is filtered
 // in the browser, so typing never waits on the network.
 loadStudentAccounts();
+

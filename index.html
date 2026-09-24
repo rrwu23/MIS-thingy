@@ -8,6 +8,7 @@
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Comfortaa:wght@300..700&display=swap">
     <link rel="stylesheet" href="styles.css">
+    <script src="app.js" defer></script>
 </head>
 <body>
     <div class="page">
@@ -38,7 +39,13 @@
                 <button type="button" class="btn btn--primary" onclick="window.location.href='/transaction1.html'">
                     Transaction
                 </button>
+                <button type="button" id="getcurrentadmin" class="btn btn--primary">
+                    Get current admin
+                </button>
             </nav>
+
+            <div id="currentadminresults" class="results" role="status" aria-live="polite"
+                 data-empty="No admin looked up yet &mdash; press &ldquo;Get current admin&rdquo; to ask the backend which admin this browser is signed in as."></div>
 
             <p class="footnote">Static pages talking to <code>api.rongrongwu.com</code>.</p>
         </main>
