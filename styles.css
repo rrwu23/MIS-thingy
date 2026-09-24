@@ -360,8 +360,6 @@ a.tag:hover {
     transition: border-color 0.16s ease, box-shadow 0.16s ease, background-color 0.16s ease;
 }
 
-.field input::placeholder { color: var(--text-faint); }
-
 .field input:hover { border-color: var(--border-hi); }
 
 .field input:focus {
@@ -371,7 +369,12 @@ a.tag:hover {
     box-shadow: var(--ring);
 }
 
-.field input:invalid:not(:placeholder-shown) {
+/* A required field colours up only once it has the user's attention and is still
+   wrong. :user-invalid is the state that says just that — the old
+   ":not(:placeholder-shown)" trick needed a placeholder to test against, and the
+   fields no longer carry one. A browser too old to know the state simply leaves the
+   border alone, and its own validation bubble still explains what is missing. */
+.field input:user-invalid {
     border-color: rgba(207, 51, 82, 0.55);
 }
 
