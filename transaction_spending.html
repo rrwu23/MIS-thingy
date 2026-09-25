@@ -30,7 +30,10 @@
                      fallback, kept in the dropdown whenever the backend cannot
                      answer; they are the exact reason column values, each one both
                      the value and the text. The live list comes back with the
-                     amounts from the table's amount column: 2 up to 200. -->
+                     amounts from the table's amount column: 2 up to 200. Those are
+                     money out, so app.js signs them negative: the dropdown shows
+                     "(-2 pts)" and the transaction carries -2. A fallback option
+                     above has no amount at all, and nothing is invented for it. -->
                 <select id="reason" name="reason" data-reason-type="WAYS TO SPEND BONURA BUCKS" aria-label="Select expense">
                     <option value="" selected>Choose an expense&hellip;</option>
                     <option value="Add pencil">Add pencil</option>

@@ -51,8 +51,8 @@
                  data-empty="No admin looked up yet &mdash; press &ldquo;Get current admin&rdquo; to ask the backend which admin this browser is signed in as."></div>
 
             <!-- View students: app.js draws one bar per student of the logged-in
-                 admin here &mdash; balance up the y axis, ticked every 20, and the
-                 student name along the x axis. Hidden until the button is pressed. -->
+                 admin here &mdash; the bar is that student's balance and the name
+                 sits under it. Hidden until the button is pressed. -->
             <section id="studentchart" class="chart" aria-labelledby="studentcharttitle" hidden>
                 <h2 class="chart__title" id="studentcharttitle">Student balances</h2>
                 <p id="studentchartstatus" class="chart__status" role="status" aria-live="polite">
@@ -60,9 +60,7 @@
                 </p>
 
                 <div id="studentchartframe" class="chart__frame" hidden>
-                    <div id="studentchartscale" class="chart__scale" aria-hidden="true"></div>
                     <div id="studentchartplot" class="chart__plot"></div>
-                    <div class="chart__corner" aria-hidden="true"></div>
                     <div id="studentchartnames" class="chart__names"></div>
                 </div>
             </section>

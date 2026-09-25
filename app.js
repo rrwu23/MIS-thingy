@@ -315,8 +315,11 @@ function describeCurrentAdmin(payload) {
 const STUDENTS_URL = 'https://api.rongrongwu.com/getuser';
 const BALANCE_URL = 'https://api.rongrongwu.com/get-balance';
 
-// The y axis is ticked every 20 balance units, and the bars are drawn on that scale,
-// so every number beside the plot sits on the gridline it names.
+// The step the balance scale is laid out on: the axis runs from a multiple of it below
+// the lowest balance up to one above the highest, so the gridlines land on round
+// figures, the tallest bar never touches the ceiling, and a set of zero balances still
+// has a range to draw in. No number is written beside the axis — each bar carries its
+// own balance above it.
 const CHART_STEP = 20;
 
 // Fields an account object may carry its name and its supervisor in, most likely
@@ -328,7 +331,6 @@ const viewStudentsButton = document.getElementById('viewstudents');
 const studentChartSection = document.getElementById('studentchart');
 const studentChartStatus = document.getElementById('studentchartstatus');
 const studentChartFrame = document.getElementById('studentchartframe');
-const studentChartScale = document.getElementById('studentchartscale');
 const studentChartPlot = document.getElementById('studentchartplot');
 const studentChartNames = document.getElementById('studentchartnames');
 
@@ -385,7 +387,7 @@ viewStudentsButton?.addEventListener('click', async function () {
 
         const missing = rows.length - drawn.length;
         showChartStatus(
-            `${drawn.length} student${drawn.length === 1 ? '' : 's'} of the admin “${admin}” — balance up the y axis, ticked every ${CHART_STEP}, and the student name along the x axis.`
+            `${drawn.length} student${drawn.length === 1 ? '' : 's'} of the admin “${admin}” — the bar is the balance and the name sits under it.`
             + (missing
                 ? ` ${missing} balance${missing === 1 ? '' : 's'} could not be read, so ${missing === 1 ? 'that student is' : 'those students are'} not drawn.`
                 : ''),
@@ -414,14 +416,13 @@ function showChartStatus(text, isError) {
     studentChartStatus.className = isError ? 'chart__status chart__status--error' : 'chart__status';
 }
 
-// Drops the bars, the gridlines and the tick numbers of the chart drawn before, so a
-// second press cannot leave two charts stacked on each other.
+// Drops the bars, the gridlines and the names of the chart drawn before, so a second
+// press cannot leave two charts stacked on each other.
 function clearStudentChart() {
     if (studentChartFrame) {
         studentChartFrame.hidden = true;
     }
 
-    studentChartScale?.replaceChildren();
     studentChartPlot?.replaceChildren();
     studentChartNames?.replaceChildren();
 }
@@ -540,16 +541,16 @@ async function studentBalance(name) {
     return balance;
 }
 
-// Draws the bars on the scale the tick numbers describe. The axis runs from the
-// lowest balance (zero when every balance is positive) up to the highest, both
-// rounded out to a multiple of CHART_STEP, so every gridline carries a round number
-// and each label sits on the line it names:
-//   235 highest  -> 0, 20, 40, ... 240
-//   -10 lowest   -> -20, 0, 20, ... with the bars growing from the zero line
-// A bar is absolutely positioned inside its column and measured up from the bottom of
-// the plot, which is how a negative balance hangs below the zero line while positive
-// ones grow above it. Everything is built as nodes rather than innerHTML, because the
-// student names come from the backend.
+// Draws the bars on the scale described above: the axis runs from the lowest balance
+// (zero when every balance is positive) up to the highest, both rounded out to a
+// multiple of CHART_STEP.
+//   235 highest  -> 0 to 240
+//   -10 lowest   -> -20 to 240, the bars growing from the zero line
+// The gridlines are the only marks on that axis — no number is written beside them,
+// each bar carrying its own balance above it. A bar is absolutely positioned inside its
+// column and measured up from the bottom of the plot, which is how a negative balance
+// hangs below the zero line while positive ones grow above it. Everything is built as
+// nodes rather than innerHTML, because the student names come from the backend.
 function drawStudentChart(rows) {
     const balances = rows.map((row) => row.balance);
     const axisLow = Math.floor(Math.min(0, ...balances) / CHART_STEP) * CHART_STEP;
@@ -560,22 +561,14 @@ function drawStudentChart(rows) {
     const upTo = (value) => ((value - axisLow) / span) * 100;
 
     const gridlines = document.createDocumentFragment();
-    const ticks = document.createDocumentFragment();
 
     for (let value = axisLow; value <= axisHigh; value += CHART_STEP) {
         const gridline = document.createElement('div');
         gridline.className = value === 0 ? 'chart__gridline chart__gridline--zero' : 'chart__gridline';
         gridline.style.bottom = `${upTo(value)}%`;
         gridlines.append(gridline);
-
-        const tick = document.createElement('span');
-        tick.className = 'chart__tick';
-        tick.style.bottom = `${upTo(value)}%`;
-        tick.textContent = String(value);
-        ticks.append(tick);
     }
 
-    studentChartScale.replaceChildren(ticks);
     studentChartPlot.replaceChildren(gridlines);
 
     const bars = document.createElement('div');
@@ -612,7 +605,7 @@ function drawStudentChart(rows) {
     studentChartNames.replaceChildren(names);
     studentChartFrame.hidden = false;
 
-    console.log(`Drew ${rows.length} bar(s) on a y axis of ${axisLow} to ${axisHigh}, ticked every ${CHART_STEP}.`, rows);
+    console.log(`Drew ${rows.length} bar(s) on a y axis of ${axisLow} to ${axisHigh}, stepped every ${CHART_STEP}.`, rows);
 }
 
 // Reason pages --------------------------------------------------------------
@@ -762,13 +755,26 @@ function reasonList(payload) {
 // never a separate id, so the choice the page carries on with is exactly the text
 // the column holds. Answers null when the entry carries nothing worth showing, so
 // fillReasonOptions can skip it instead of printing "undefined" into the dropdown.
+// Transaction types that take money out of an account. The reason lists carry the
+// spending figures as what a student pays (2 up to 200) and the fines as negatives
+// already (-5, -10, -15), but a transaction of either kind moves the balance the
+// other way, so its amount is recorded negative either way. Salaries and bonuses add
+// to the balance and keep their sign.
+const DEBIT_TYPES = ['WAYS TO SPEND BONURA BUCKS', 'BONURA BANK FINES'];
+
+// One element of the list -> { label, value, points }, where label is the reason
+// column's own text and points is the figure the backend sent with it (null when it
+// sent none, which is what the page's built-in fallback list does):
+//   "Teacher Assistant"                       -> label and value "Teacher Assistant",
+//   {name: "Teacher Assistant", points: 65}     points 65
+// The figure is signed later, by type, in fillReasonOptions().
 function reasonEntry(entry) {
     if (entry === null || typeof entry !== 'object') {
         if (entry === undefined || entry === null || entry === '') {
             return null;
         }
 
-        return { label: String(entry), value: String(entry) };
+        return { label: String(entry), value: String(entry), points: null };
     }
 
     const name = firstField(entry, REASON_NAME_KEYS);
@@ -777,20 +783,58 @@ function reasonEntry(entry) {
         return null;
     }
 
-    const label = String(name);
-    const points = reasonPoints(entry);
-
-    return {
-        // Math.abs so a single fine point reads "1 pt", not "1 pts".
-        label: points === null ? label : `${label} (${points} ${Math.abs(points) === 1 ? 'pt' : 'pts'})`,
-        value: label
-    };
+    return { label: String(name), value: String(name), points: reasonPoints(entry) };
 }
 
-function makeOption(value, label, selected) {
+// The amount to record for a reason, signed by its type: negative for the types that
+// spend money, positive for the ones that add it. null when the reason carries no
+// figure at all — nothing is invented for it, and null is what the route's schema
+// allows.
+function signedAmount(points, type) {
+    if (typeof points !== 'number' || !Number.isFinite(points)) {
+        return null;
+    }
+
+    return DEBIT_TYPES.includes(type) ? -Math.abs(points) : Math.abs(points);
+}
+
+// "Teacher Assistant (65 pts)" / "Pen pass (-5 pts)": the reason and the amount that
+// will be recorded for it, spelled with the sign it will be recorded with, so the
+// dropdown cannot promise one thing while the transaction carries another.
+function amountLabel(reason, amount) {
+    if (amount === null) {
+        return reason;
+    }
+
+    // Math.abs so a single point reads "(-1 pt)", not "(-1 pts)".
+    return `${reason} (${amount} ${Math.abs(amount) === 1 ? 'pt' : 'pts'})`;
+}
+
+// The amount an <option> carries, as a number, or null when it carries none — which is
+// what the built-in list a page ships with looks like, its reasons having no figures to
+// go with them.
+function optionAmount(option) {
+    const value = option?.dataset?.amount;
+
+    if (value === undefined || value === '') {
+        return null;
+    }
+
+    const amount = Number(value);
+
+    return Number.isFinite(amount) ? amount : null;
+}
+
+// One <option>. The amount, when the reason came with one, is kept on the option so
+// that approving it ships exactly the figure the label shows.
+function makeOption(value, label, selected, amount) {
     const option = document.createElement('option');
     option.value = value;
     option.textContent = label;
+
+    if (amount !== null && amount !== undefined) {
+        option.dataset.amount = String(amount);
+    }
 
     if (selected) {
         option.selected = true;
@@ -814,7 +858,10 @@ function fillReasonOptions(reasons) {
         const reason = reasonEntry(entry);
 
         if (reason) {
-            options.push(makeOption(reason.value, reason.label, false));
+            // The figure is signed here, where the page's own type is known: spending
+            // and fines come out negative, salaries and bonuses stay positive.
+            const amount = signedAmount(reason.points, reasonType);
+            options.push(makeOption(reason.value, amountLabel(reason.label, amount), false, amount));
         }
     }
 
@@ -1031,15 +1078,18 @@ async function approveReason() {
 
     const option = reasonSelect.selectedOptions?.[0];
 
-    // The two table columns, spelled the way the table spells them: type is the
-    // page's data-reason-type (the type column value), slug is that same value as a
-    // URL, and reason is the option's value, which is the reason column text the
-    // backend sent. label is only what the eye saw, amounts included.
+    // The table columns, spelled the way the table spells them: type is the page's
+    // data-reason-type (the type column value), slug is that same value as a URL, and
+    // reason is the option's value, which is the reason column text the backend sent.
+    // amount is the figure that goes with that reason, negative for the two types that
+    // spend money, null when the reason carries no figure at all (the built-in fallback
+    // list of a page). label is only what the eye saw.
     const transaction = {
         student: sessionStorage.getItem(STUDENT_KEY) || '',
         type: reasonType,
         slug: reasonSlug,
         reason: reasonSelect.value,
+        amount: optionAmount(option),
         label: option ? option.textContent : reasonSelect.value
     };
 

@@ -496,9 +496,8 @@ a.tag:hover {
 
 /* -------------------------------------------------------------- chart ---- */
 /* index.html's "View students" button: one bar per student of the signed-in
-   admin — balance up the y axis, ticked every 20 by app.js, and the student name
-   along the x axis. The frame is a 2x2 grid: the tick numbers beside the plot,
-   the names under it, and an empty corner cell. */
+   admin — the bar is the balance, the name sits under it, and the axis carries
+   no numbers. The frame stacks the plot and the row of names below it. */
 .chart {
     --chart-height: 18rem;
     --chart-gap: 0.6rem;
@@ -527,27 +526,12 @@ a.tag:hover {
 
 .chart__frame {
     display: grid;
-    grid-template-columns: auto 1fr;
-    gap: 0 var(--chart-gap);
+    grid-template-columns: 1fr;
     margin-top: 1.6rem;
 }
 
 /* the class would otherwise win over the browser's own [hidden] rule */
 .chart__frame[hidden] { display: none; }
-
-/* the column of tick numbers, as tall as the plot beside it */
-.chart__scale { position: relative; }
-
-/* one number per gridline, centred on the line it names */
-.chart__tick {
-    position: absolute;
-    right: var(--chart-pad);
-    transform: translateY(50%);
-    font-size: 0.72rem;
-    font-weight: 600;
-    color: var(--text-faint);
-    white-space: nowrap;
-}
 
 .chart__plot {
     position: relative;

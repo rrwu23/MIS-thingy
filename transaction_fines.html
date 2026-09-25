@@ -30,7 +30,9 @@
                      backend cannot answer; they are the exact reason column values,
                      each one both the value and the text. The live list comes back
                      with the amounts from the table's amount column, all negative:
-                     -5, -10, -15. -->
+                     -5, -10, -15. Fines are money out, so app.js keeps them negative
+                     even if the backend ever sends one as a positive. A fallback
+                     option above has no amount at all, and nothing is invented. -->
                 <select id="reason" name="reason" data-reason-type="BONURA BANK FINES" aria-label="Select fine">
                     <option value="" selected>Choose a fine&hellip;</option>
                     <option value="Bathroom expectation violation">Bathroom expectation violation</option>
