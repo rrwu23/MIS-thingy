@@ -494,6 +494,135 @@ a.tag:hover {
     border-radius: var(--radius-sm);
 }
 
+/* -------------------------------------------------------------- chart ---- */
+/* index.html's "View students" button: one bar per student of the signed-in
+   admin — balance up the y axis, ticked every 20 by app.js, and the student name
+   along the x axis. The frame is a 2x2 grid: the tick numbers beside the plot,
+   the names under it, and an empty corner cell. */
+.chart {
+    --chart-height: 18rem;
+    --chart-gap: 0.6rem;
+    --chart-pad: 0.5rem;
+
+    margin-top: 1.9rem;
+    padding-top: 1.5rem;
+    border-top: 1px solid var(--border);
+}
+
+.chart__title {
+    margin: 0;
+    font-size: clamp(1.05rem, 3.2vw, 1.35rem);
+    font-weight: 700;
+    color: var(--text);
+}
+
+.chart__status {
+    margin: 0.7rem 0 0;
+    font-size: 0.92rem;
+    line-height: 1.45;
+    color: var(--text-dim);
+}
+
+.chart__status--error { color: var(--danger); }
+
+.chart__frame {
+    display: grid;
+    grid-template-columns: auto 1fr;
+    gap: 0 var(--chart-gap);
+    margin-top: 1.6rem;
+}
+
+/* the class would otherwise win over the browser's own [hidden] rule */
+.chart__frame[hidden] { display: none; }
+
+/* the column of tick numbers, as tall as the plot beside it */
+.chart__scale { position: relative; }
+
+/* one number per gridline, centred on the line it names */
+.chart__tick {
+    position: absolute;
+    right: var(--chart-pad);
+    transform: translateY(50%);
+    font-size: 0.72rem;
+    font-weight: 600;
+    color: var(--text-faint);
+    white-space: nowrap;
+}
+
+.chart__plot {
+    position: relative;
+    height: var(--chart-height);
+    border-left: 1px solid var(--border-hi);
+    border-bottom: 1px solid var(--border-hi);
+}
+
+.chart__gridline {
+    position: absolute;
+    left: 0;
+    right: 0;
+    border-top: 1px dashed var(--border);
+}
+
+/* the line balances are counted from */
+.chart__gridline--zero { border-top: 1px solid var(--border-hi); }
+
+.chart__bars {
+    position: absolute;
+    inset: 0;
+    display: flex;
+    align-items: stretch;
+    gap: var(--chart-gap);
+    padding: 0 var(--chart-pad);
+}
+
+.chart__bar-column { position: relative; flex: 1 1 0; }
+
+.chart__bar {
+    position: absolute;
+    left: 0;
+    right: 0;
+    margin: 0 auto;
+    width: min(100%, 3.5rem);
+    min-height: 3px;
+    border-radius: var(--radius-sm) var(--radius-sm) 0 0;
+    background-image: var(--gradient);
+    box-shadow: 0 6px 18px rgba(6, 179, 154, 0.28);
+}
+
+/* a balance below zero hangs under the zero line */
+.chart__bar--negative {
+    background-image: none;
+    background-color: var(--danger);
+    border-radius: 0 0 var(--radius-sm) var(--radius-sm);
+    box-shadow: none;
+}
+
+.chart__value {
+    position: absolute;
+    left: 0;
+    right: 0;
+    font-size: 0.76rem;
+    font-weight: 700;
+    text-align: center;
+    color: var(--text);
+}
+
+/* the names line up with their bars: same gap, same side padding */
+.chart__names {
+    display: flex;
+    gap: var(--chart-gap);
+    padding: var(--chart-pad) var(--chart-pad) 0;
+}
+
+.chart__name {
+    flex: 1 1 0;
+    font-size: 0.76rem;
+    line-height: 1.25;
+    text-align: center;
+    color: var(--text-dim);
+    overflow-wrap: anywhere;
+}
+
 /* ------------------------------------------------------------ footnote ---- */
 .footnote {
     margin: 1.6rem 0 0;

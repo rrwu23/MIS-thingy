@@ -299,6 +299,322 @@ function describeCurrentAdmin(payload) {
         : `Signed in as ${adminName}.`;
 }
 
+// index.html's "View students" button draws one bar per student of the admin behind
+// the session cookie: balance up the y axis, student name along the x axis. Three
+// live routes stand behind a chart, all of them taking the session cookie:
+//   GET /current-admin                -> which admin this browser is signed in as;
+//                                        401 {"detail": "Not logged in"} with no
+//                                        session, like every other protected route
+//   GET /getuser?supervisor=<admin>   -> that admin's students — the exact filter the
+//                                        transaction flow uses, so only this admin's
+//                                        rows come back
+//   GET /get-balance?student=<name>   -> {"user": "Rongrong Wu", "balance": 235},
+//                                        checked live; an unknown student answers 0
+//                                        rather than 404, which is why only names
+//                                        /getuser has listed are ever asked about
+const STUDENTS_URL = 'https://api.rongrongwu.com/getuser';
+const BALANCE_URL = 'https://api.rongrongwu.com/get-balance';
+
+// The y axis is ticked every 20 balance units, and the bars are drawn on that scale,
+// so every number beside the plot sits on the gridline it names.
+const CHART_STEP = 20;
+
+// Fields an account object may carry its name and its supervisor in, most likely
+// first — the same order the other pages read them in, the route being untyped.
+const STUDENT_NAME_KEYS = ['name', 'username', 'account', 'id'];
+const STUDENT_SUPERVISOR_KEYS = ['supervisor', 'owner', 'manager'];
+
+const viewStudentsButton = document.getElementById('viewstudents');
+const studentChartSection = document.getElementById('studentchart');
+const studentChartStatus = document.getElementById('studentchartstatus');
+const studentChartFrame = document.getElementById('studentchartframe');
+const studentChartScale = document.getElementById('studentchartscale');
+const studentChartPlot = document.getElementById('studentchartplot');
+const studentChartNames = document.getElementById('studentchartnames');
+
+// Pressing the button asks who is signed in first, then draws whatever that admin's
+// students and balances turn out to be. Anything that is not a chart is spelled out
+// on the status line above the plot.
+viewStudentsButton?.addEventListener('click', async function () {
+    viewStudentsButton.setAttribute('aria-disabled', 'true');
+    showChartSection();
+    clearStudentChart();
+    showChartStatus('Asking the backend which admin is signed in…', false);
+
+    try {
+        const response = await fetch(CURRENT_ADMIN_URL, {
+            method: 'GET',
+            credentials: 'include'
+        });
+        const result = await response.json().catch(() => null);
+        const admin = response.ok ? currentAdminNameIn(result) : '';
+
+        if (!admin) {
+            console.error('Student chart: the backend named no admin.', response.status, result);
+            showChartStatus('No admin session — the backend named no admin for this browser, and the chart only draws the students of the admin that is signed in. Log into the admin account, then press the button again.', true);
+            return;
+        }
+
+        showChartStatus(`Reading the students of “${admin}” and their balances…`, false);
+
+        const students = await adminStudents(admin);
+
+        if (!students.length) {
+            showChartStatus(`The backend lists no student with “${admin}” as their supervisor, so there is nothing to draw.`, true);
+            return;
+        }
+
+        // One request per student, all at once. A balance that cannot be read takes
+        // that student out of the chart rather than being drawn as a zero, and the
+        // status line says how many fell out.
+        const rows = await Promise.all(students.map(async (name) => ({
+            name,
+            balance: await studentBalance(name).catch((error) => {
+                console.error(`Balance of "${name}" could not be read:`, error);
+                return null;
+            })
+        })));
+        const drawn = rows.filter((row) => row.balance !== null);
+
+        if (!drawn.length) {
+            showChartStatus('No balance could be read for these students, so there is nothing to draw.', true);
+            return;
+        }
+
+        drawStudentChart(drawn);
+
+        const missing = rows.length - drawn.length;
+        showChartStatus(
+            `${drawn.length} student${drawn.length === 1 ? '' : 's'} of the admin “${admin}” — balance up the y axis, ticked every ${CHART_STEP}, and the student name along the x axis.`
+            + (missing
+                ? ` ${missing} balance${missing === 1 ? '' : 's'} could not be read, so ${missing === 1 ? 'that student is' : 'those students are'} not drawn.`
+                : ''),
+            false
+        );
+    } catch (error) {
+        console.error('Student chart error:', error);
+        showChartStatus('Network error — the students and their balances could not be read from the API.', true);
+    } finally {
+        viewStudentsButton.removeAttribute('aria-disabled');
+    }
+});
+
+// The chart block appears the moment the button is pressed, so the status line is
+// visible while the requests are out; the frame itself waits for real bars.
+function showChartSection() {
+    if (studentChartSection) {
+        studentChartSection.hidden = false;
+    }
+}
+
+function showChartStatus(text, isError) {
+    if (!studentChartStatus) return;
+
+    studentChartStatus.textContent = text;
+    studentChartStatus.className = isError ? 'chart__status chart__status--error' : 'chart__status';
+}
+
+// Drops the bars, the gridlines and the tick numbers of the chart drawn before, so a
+// second press cannot leave two charts stacked on each other.
+function clearStudentChart() {
+    if (studentChartFrame) {
+        studentChartFrame.hidden = true;
+    }
+
+    studentChartScale?.replaceChildren();
+    studentChartPlot?.replaceChildren();
+    studentChartNames?.replaceChildren();
+}
+
+// The admin name inside a GET /current-admin reply (an object of strings), or '' when
+// the reply names nobody. The chart needs the name itself, not the sentence
+// describeCurrentAdmin() builds for the status line above it.
+function currentAdminNameIn(payload) {
+    if (typeof payload === 'string') {
+        return payload.trim();
+    }
+
+    if (payload === null || typeof payload !== 'object') {
+        return '';
+    }
+
+    for (const key of ADMIN_NAME_KEYS) {
+        const value = payload[key];
+
+        if (typeof value === 'string' && value.trim()) {
+            return value.trim();
+        }
+    }
+
+    return '';
+}
+
+// The usernames GET /getuser lists for `admin`, sorted and de-duplicated. The
+// ?supervisor= filter is exact — checked live: ?supervisor=test-account answers that
+// admin's three accounts while ?supervisor=nonsense answers [] — and each row's own
+// supervisor field is read again here, so only this admin's students can reach the
+// chart, the same rule the transaction flow follows.
+async function adminStudents(admin) {
+    const response = await fetch(`${STUDENTS_URL}?${new URLSearchParams({ supervisor: admin })}`, {
+        method: 'GET',
+        credentials: 'include'
+    });
+
+    if (!response.ok) {
+        throw new Error(`GET /getuser answered ${response.status}`);
+    }
+
+    const names = new Set();
+
+    for (const row of studentRows(await response.json())) {
+        if (row.name && row.supervisor === admin) {
+            names.add(row.name);
+        }
+    }
+
+    return [...names].sort((a, b) => a.localeCompare(b, undefined, { sensitivity: 'base' }));
+}
+
+// Every account a GET /getuser payload carries, as { name, supervisor } with the
+// surrounding space trimmed off. The route is untyped, so the shapes accepted mirror
+// the readers in studentpicker.js and sessionstorage.js:
+//   [{"name": "X", "supervisor": "Y"}]                         -> used as is
+//   {"users": [...]} / {"accounts": [...]} / {"data": [...]}   -> the inner list
+//   {"name": "X", "supervisor": "Y"} / "X"                     -> wrapped in an array
+//   null / undefined / ""                                      -> []
+// A bare string names an account with no supervisor, so it can belong to no admin and
+// is dropped by the supervisor check above.
+function studentRows(payload) {
+    return studentEntries(payload).map((entry) => ({
+        name: String(firstField(entry, STUDENT_NAME_KEYS) ?? entry ?? '').trim(),
+        supervisor: String(firstField(entry, STUDENT_SUPERVISOR_KEYS) ?? '').trim()
+    }));
+}
+
+function studentEntries(payload) {
+    if (Array.isArray(payload)) {
+        return payload;
+    }
+
+    if (payload === null || typeof payload !== 'object') {
+        return payload ? [payload] : [];
+    }
+
+    for (const key of ['users', 'accounts', 'data', 'items']) {
+        const nested = payload[key];
+
+        if (Array.isArray(nested)) {
+            return nested;
+        }
+
+        if (nested && typeof nested === 'object') {
+            return studentEntries(nested);
+        }
+    }
+
+    return [payload];
+}
+
+// The balance GET /get-balance reports for one student, as a number. The reply is
+// {"user": "Rongrong Wu", "balance": 235} — checked live — and untyped beyond that,
+// so a numeric string is accepted too. Anything else is thrown rather than drawn as a
+// zero, because a zero is a real balance and a misread one is not.
+async function studentBalance(name) {
+    const response = await fetch(`${BALANCE_URL}?${new URLSearchParams({ student: name })}`, {
+        method: 'GET',
+        credentials: 'include'
+    });
+
+    if (!response.ok) {
+        throw new Error(`GET /get-balance answered ${response.status}`);
+    }
+
+    const payload = await response.json();
+    const value = payload?.balance ?? payload?.amount;
+    const balance = typeof value === 'string' ? Number(value.trim()) : value;
+
+    if (typeof balance !== 'number' || !Number.isFinite(balance)) {
+        throw new Error(`GET /get-balance sent no usable balance for "${name}"`);
+    }
+
+    return balance;
+}
+
+// Draws the bars on the scale the tick numbers describe. The axis runs from the
+// lowest balance (zero when every balance is positive) up to the highest, both
+// rounded out to a multiple of CHART_STEP, so every gridline carries a round number
+// and each label sits on the line it names:
+//   235 highest  -> 0, 20, 40, ... 240
+//   -10 lowest   -> -20, 0, 20, ... with the bars growing from the zero line
+// A bar is absolutely positioned inside its column and measured up from the bottom of
+// the plot, which is how a negative balance hangs below the zero line while positive
+// ones grow above it. Everything is built as nodes rather than innerHTML, because the
+// student names come from the backend.
+function drawStudentChart(rows) {
+    const balances = rows.map((row) => row.balance);
+    const axisLow = Math.floor(Math.min(0, ...balances) / CHART_STEP) * CHART_STEP;
+    const axisHigh = Math.max(Math.ceil(Math.max(0, ...balances) / CHART_STEP) * CHART_STEP, axisLow + CHART_STEP);
+    const span = axisHigh - axisLow;
+
+    // Where a balance sits on the plot, in per cent up from the axis bottom.
+    const upTo = (value) => ((value - axisLow) / span) * 100;
+
+    const gridlines = document.createDocumentFragment();
+    const ticks = document.createDocumentFragment();
+
+    for (let value = axisLow; value <= axisHigh; value += CHART_STEP) {
+        const gridline = document.createElement('div');
+        gridline.className = value === 0 ? 'chart__gridline chart__gridline--zero' : 'chart__gridline';
+        gridline.style.bottom = `${upTo(value)}%`;
+        gridlines.append(gridline);
+
+        const tick = document.createElement('span');
+        tick.className = 'chart__tick';
+        tick.style.bottom = `${upTo(value)}%`;
+        tick.textContent = String(value);
+        ticks.append(tick);
+    }
+
+    studentChartScale.replaceChildren(ticks);
+    studentChartPlot.replaceChildren(gridlines);
+
+    const bars = document.createElement('div');
+    bars.className = 'chart__bars';
+    const names = document.createDocumentFragment();
+
+    for (const row of rows) {
+        const column = document.createElement('div');
+        column.className = 'chart__bar-column';
+
+        // The balance is written above its bar and the name below the plot, so the bar
+        // itself carries no text and is hidden from a screen reader.
+        const value = document.createElement('span');
+        value.className = 'chart__value';
+        value.style.bottom = `calc(${upTo(Math.max(row.balance, 0))}% + 0.3rem)`;
+        value.textContent = String(row.balance);
+
+        const bar = document.createElement('div');
+        bar.className = row.balance < 0 ? 'chart__bar chart__bar--negative' : 'chart__bar';
+        bar.style.bottom = `${upTo(Math.min(row.balance, 0))}%`;
+        bar.style.height = `${(Math.abs(row.balance) / span) * 100}%`;
+        bar.setAttribute('aria-hidden', 'true');
+
+        column.append(value, bar);
+        bars.append(column);
+
+        const name = document.createElement('span');
+        name.className = 'chart__name';
+        name.textContent = row.name;
+        names.append(name);
+    }
+
+    studentChartPlot.append(bars);
+    studentChartNames.replaceChildren(names);
+    studentChartFrame.hidden = false;
+
+    console.log(`Drew ${rows.length} bar(s) on a y axis of ${axisLow} to ${axisHigh}, ticked every ${CHART_STEP}.`, rows);
+}
+
 // Reason pages --------------------------------------------------------------
 // transaction_bonus.html, transaction_fines.html, transaction_salaries.html and
 // transaction_spending.html each show one dropdown of reasons that comes from the

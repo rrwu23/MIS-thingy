@@ -42,10 +42,30 @@
                 <button type="button" id="getcurrentadmin" class="btn btn--primary">
                     Get current admin
                 </button>
+                <button type="button" id="viewstudents" class="btn btn--primary">
+                    View students
+                </button>
             </nav>
 
             <div id="currentadminresults" class="results" role="status" aria-live="polite"
                  data-empty="No admin looked up yet &mdash; press &ldquo;Get current admin&rdquo; to ask the backend which admin this browser is signed in as."></div>
+
+            <!-- View students: app.js draws one bar per student of the logged-in
+                 admin here &mdash; balance up the y axis, ticked every 20, and the
+                 student name along the x axis. Hidden until the button is pressed. -->
+            <section id="studentchart" class="chart" aria-labelledby="studentcharttitle" hidden>
+                <h2 class="chart__title" id="studentcharttitle">Student balances</h2>
+                <p id="studentchartstatus" class="chart__status" role="status" aria-live="polite">
+                    Press &ldquo;View students&rdquo; to draw the balances of the students that name the signed-in admin as their supervisor.
+                </p>
+
+                <div id="studentchartframe" class="chart__frame" hidden>
+                    <div id="studentchartscale" class="chart__scale" aria-hidden="true"></div>
+                    <div id="studentchartplot" class="chart__plot"></div>
+                    <div class="chart__corner" aria-hidden="true"></div>
+                    <div id="studentchartnames" class="chart__names"></div>
+                </div>
+            </section>
 
             <p class="footnote">Static pages talking to <code>api.rongrongwu.com</code>.</p>
         </main>
