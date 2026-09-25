@@ -299,9 +299,10 @@ function describeCurrentAdmin(payload) {
         : `Signed in as ${adminName}.`;
 }
 
-// index.html's "View students" button draws one bar per student of the admin behind
-// the session cookie: balance up the y axis, student name along the x axis. Three
-// live routes stand behind a chart, all of them taking the session cookie:
+// index.html's student balances chart draws one bar per student of the admin behind
+// the session cookie: balance up the y axis, the name under it. Nothing drives it —
+// it reads itself as the page opens and keeps itself up to date. Three live routes
+// stand behind a chart, all of them taking the session cookie:
 //   GET /current-admin                -> which admin this browser is signed in as;
 //                                        401 {"detail": "Not logged in"} with no
 //                                        session, like every other protected route
@@ -327,21 +328,39 @@ const CHART_STEP = 20;
 const STUDENT_NAME_KEYS = ['name', 'username', 'account', 'id'];
 const STUDENT_SUPERVISOR_KEYS = ['supervisor', 'owner', 'manager'];
 
-const viewStudentsButton = document.getElementById('viewstudents');
-const studentChartSection = document.getElementById('studentchart');
+// The chart keeps itself up to date: read once as the page opens, then again on this
+// timer and whenever the tab comes back to the front, so a balance changed in another
+// tab or on another device turns up here on its own.
+const CHART_REFRESH_MS = 30000;
+
 const studentChartStatus = document.getElementById('studentchartstatus');
 const studentChartFrame = document.getElementById('studentchartframe');
 const studentChartPlot = document.getElementById('studentchartplot');
 const studentChartNames = document.getElementById('studentchartnames');
+const studentChartStamp = document.getElementById('studentchartstamp');
 
-// Pressing the button asks who is signed in first, then draws whatever that admin's
-// students and balances turn out to be. Anything that is not a chart is spelled out
-// on the status line above the plot.
-viewStudentsButton?.addEventListener('click', async function () {
-    viewStudentsButton.setAttribute('aria-disabled', 'true');
-    showChartSection();
-    clearStudentChart();
-    showChartStatus('Asking the backend which admin is signed in…', false);
+// One read at a time: a slow answer must not pile up behind the next tick.
+let chartRefreshRunning = false;
+
+// True once the first read has been started, so the messages that explain the wait are
+// written on the page's first read only. A retry that fails the same way every half
+// minute has nothing new to say, and repeating itself would only talk over the live
+// region.
+let chartReadStarted = false;
+
+// Which admin is signed in, then that admin's students, then their balances — and the
+// bars. Anything that is not a chart is spelled out on the status line above the plot,
+// and the bars of the read before are dropped rather than left standing as if they were
+// current.
+async function refreshStudentChart() {
+    if (!studentChartPlot) return; // every other page loads app.js for its own form
+    if (chartRefreshRunning) return;
+
+    chartRefreshRunning = true;
+
+    if (!chartReadStarted) {
+        showChartStatus('Asking the backend which admin is signed in…', false);
+    }
 
     try {
         const response = await fetch(CURRENT_ADMIN_URL, {
@@ -353,15 +372,19 @@ viewStudentsButton?.addEventListener('click', async function () {
 
         if (!admin) {
             console.error('Student chart: the backend named no admin.', response.status, result);
-            showChartStatus('No admin session — the backend named no admin for this browser, and the chart only draws the students of the admin that is signed in. Log into the admin account, then press the button again.', true);
+            clearStudentChart();
+            showChartStatus('No admin session — the backend named no admin for this browser, and the chart only draws the students of the admin that is signed in. Log into the admin account; the chart picks it up on its own.', true);
             return;
         }
 
-        showChartStatus(`Reading the students of “${admin}” and their balances…`, false);
+        if (!chartReadStarted) {
+            showChartStatus(`Reading the students of “${admin}” and their balances…`, false);
+        }
 
         const students = await adminStudents(admin);
 
         if (!students.length) {
+            clearStudentChart();
             showChartStatus(`The backend lists no student with “${admin}” as their supervisor, so there is nothing to draw.`, true);
             return;
         }
@@ -379,6 +402,7 @@ viewStudentsButton?.addEventListener('click', async function () {
         const drawn = rows.filter((row) => row.balance !== null);
 
         if (!drawn.length) {
+            clearStudentChart();
             showChartStatus('No balance could be read for these students, so there is nothing to draw.', true);
             return;
         }
@@ -395,29 +419,40 @@ viewStudentsButton?.addEventListener('click', async function () {
         );
     } catch (error) {
         console.error('Student chart error:', error);
-        showChartStatus('Network error — the students and their balances could not be read from the API.', true);
+        clearStudentChart();
+        showChartStatus('Network error — the students and their balances could not be read from the API. The chart reads again by itself.', true);
     } finally {
-        viewStudentsButton.removeAttribute('aria-disabled');
+        chartRefreshRunning = false;
+        chartReadStarted = true;
+        stampStudentChart();
     }
-});
+}
 
-// The chart block appears the moment the button is pressed, so the status line is
-// visible while the requests are out; the frame itself waits for real bars.
-function showChartSection() {
-    if (studentChartSection) {
-        studentChartSection.hidden = false;
-    }
+// The line under the chart, outside the live region, so a clock ticking every half
+// minute is not read out to a screen reader.
+function stampStudentChart() {
+    if (!studentChartStamp) return;
+
+    studentChartStamp.textContent = `Last read at ${new Date().toLocaleTimeString()} — the chart refreshes every ${Math.round(CHART_REFRESH_MS / 1000)} seconds, and whenever you come back to this tab.`;
 }
 
 function showChartStatus(text, isError) {
     if (!studentChartStatus) return;
 
+    const className = isError ? 'chart__status chart__status--error' : 'chart__status';
+
+    // The same sentence a second time would only make the live region talk over itself:
+    // a read that found nothing new has nothing to announce.
+    if (studentChartStatus.textContent.trim() === text && studentChartStatus.className === className) {
+        return;
+    }
+
     studentChartStatus.textContent = text;
-    studentChartStatus.className = isError ? 'chart__status chart__status--error' : 'chart__status';
+    studentChartStatus.className = className;
 }
 
-// Drops the bars, the gridlines and the names of the chart drawn before, so a second
-// press cannot leave two charts stacked on each other.
+// Drops the bars, the gridlines and the names. A read that failed or came back empty
+// must not leave the chart of the read before standing as if it were current.
 function clearStudentChart() {
     if (studentChartFrame) {
         studentChartFrame.hidden = true;
@@ -425,6 +460,26 @@ function clearStudentChart() {
 
     studentChartPlot?.replaceChildren();
     studentChartNames?.replaceChildren();
+}
+
+// The page starts itself: read the chart as it opens, then keep reading it — on the
+// timer, and straight away whenever the tab comes back to the front, because a chart
+// nobody is looking at has no reason to be up to date. Pages without a chart (every
+// other page loads app.js for its own form) start nothing at all.
+if (studentChartPlot) {
+    refreshStudentChart();
+
+    setInterval(function () {
+        if (!document.hidden) {
+            refreshStudentChart();
+        }
+    }, CHART_REFRESH_MS);
+
+    document.addEventListener('visibilitychange', function () {
+        if (!document.hidden) {
+            refreshStudentChart();
+        }
+    });
 }
 
 // The admin name inside a GET /current-admin reply (an object of strings), or '' when

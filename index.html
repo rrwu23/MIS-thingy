@@ -42,27 +42,27 @@
                 <button type="button" id="getcurrentadmin" class="btn btn--primary">
                     Get current admin
                 </button>
-                <button type="button" id="viewstudents" class="btn btn--primary">
-                    View students
-                </button>
             </nav>
 
             <div id="currentadminresults" class="results" role="status" aria-live="polite"
                  data-empty="No admin looked up yet &mdash; press &ldquo;Get current admin&rdquo; to ask the backend which admin this browser is signed in as."></div>
 
-            <!-- View students: app.js draws one bar per student of the logged-in
-                 admin here &mdash; the bar is that student's balance and the name
-                 sits under it. Hidden until the button is pressed. -->
-            <section id="studentchart" class="chart" aria-labelledby="studentcharttitle" hidden>
+            <!-- The balances chart: app.js draws one bar per student of the admin
+                 this browser is signed in as — the bar is that student's balance and
+                 the name sits under it. It reads the backend as the page opens and
+                 keeps itself up to date, so there is no button for it. -->
+            <section id="studentchart" class="chart" aria-labelledby="studentcharttitle">
                 <h2 class="chart__title" id="studentcharttitle">Student balances</h2>
                 <p id="studentchartstatus" class="chart__status" role="status" aria-live="polite">
-                    Press &ldquo;View students&rdquo; to draw the balances of the students that name the signed-in admin as their supervisor.
+                    Reading the balances of the students of the admin this browser is signed in as&hellip;
                 </p>
 
                 <div id="studentchartframe" class="chart__frame" hidden>
                     <div id="studentchartplot" class="chart__plot"></div>
                     <div id="studentchartnames" class="chart__names"></div>
                 </div>
+
+                <p id="studentchartstamp" class="chart__stamp"></p>
             </section>
 
             <p class="footnote">Static pages talking to <code>api.rongrongwu.com</code>.</p>
