@@ -21,12 +21,21 @@
             </header>
 
             <h1 class="card__title">Add account</h1>
-            <p class="card__hint">Creates a new account with a supervisor, an opening balance and a login password.</p>
+            <p class="card__hint">Creates a new account with a supervisor, an opening balance and a login password. The student's account username has to be typed twice, so a typo cannot quietly make an account nobody can find.</p>
 
             <form id="adduserform" class="form">
                 <div class="field">
-                    <label for="name">Name</label>
+                    <label for="name">Name <span class="hint">the account's username</span></label>
                     <input type="text" id="name" name="name" autocomplete="name" required>
+                </div>
+
+                <!-- The safety check: app.js compares this with the Name field and
+                     only posts when the two agree, then drops retype_name from the
+                     request — /adduser takes name, initialbalance and password only. -->
+                <div class="field">
+                    <label for="retype_name">Retype student username <span class="hint">safety check</span></label>
+                    <input type="text" id="retype_name" name="retype_name"
+                           autocomplete="off" required>
                 </div>
 
                 <div class="field">

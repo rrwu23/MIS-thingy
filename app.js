@@ -4,13 +4,36 @@ console.log("loaded")
 // 1. Select the form
 const form = document.getElementById('adduserform');
 
+// The safety check on the add account page: the student's account username has to
+// be typed a second time, and the account is only created when both fields agree,
+// so a slip of the finger cannot quietly make an account nobody can find. The
+// account is looked up by its name, exact apart from space, so surrounding space
+// and case are ignored here — the same way the transaction flow compares a typed
+// username with the listed ones (matchingStudentName in sessionstorage.js).
+function sameUsername(first, second) {
+    return first.trim().toLowerCase() === second.trim().toLowerCase();
+}
+
 // 2. Listen for the submit event
 form?.addEventListener('submit', async function(event) {
   // Prevent the default browser behavior (reloading the page)
   event.preventDefault(); 
 
+  // Safety check before anything is sent: the username typed in Name has to come
+  // back exactly the same in Retype student username.
+  const usernameField = form.elements.namedItem('name');
+  const retypedUsernameField = form.elements.namedItem('retype_name');
+
+  if (retypedUsernameField && !sameUsername(usernameField.value, retypedUsernameField.value)) {
+      alert('Error: The two usernames do not match — the account was not created.');
+      return;
+  }
+
   // 3. Gather the form data
   const formData = new FormData(form);
+
+  // retype_name is only used for the safety check, the server only needs name
+  formData.delete('retype_name');
   
   // Convert the FormData into a standard JavaScript object
 
@@ -131,6 +154,24 @@ adminForm?.addEventListener('submit', async function (event) {
 // cookie, which is why every API call sends credentials: "include".
 const LOGIN_URL = 'https://api.rongrongwu.com/login';
 
+// Where a finished flow goes: the home page. The admin session lives in the
+// backend's cookie, not in the page, so the home page picks it up on its own as it
+// opens — it reads the signed-in admin and draws that admin's student chart.
+const HOME_URL = '/index.html';
+
+// How long a "logged in…" / "recorded…" status line stays up before the home page
+// replaces it. Long enough to read the sentence, short enough to feel like a step
+// forward rather than a wait.
+const REDIRECT_DELAY_MS = 900;
+
+// Sends the browser to the home page once the status line has had its moment, so
+// the sentence that says what just happened is not wiped out before it is read.
+function redirectHomeAfter(delayMs) {
+    window.setTimeout(function () {
+        window.location.href = HOME_URL;
+    }, delayMs);
+}
+
 const loginForm = document.getElementById('loginadminform');
 
 loginForm?.addEventListener('submit', async function (event) {
@@ -152,7 +193,11 @@ loginForm?.addEventListener('submit', async function (event) {
 
         if (response.ok) {
             console.log('Success:', result);
-            showLoginMessage(results, `Logged in as ${formData.get('admin_name')}.`, false);
+            showLoginMessage(results, `Logged in as ${formData.get('admin_name')} — taking you to the home page…`, false);
+
+            // A successful login is the session the home page reads, so the admin
+            // lands there instead of staying on the login form.
+            redirectHomeAfter(REDIRECT_DELAY_MS);
         } else {
             console.error('Login error:', result);
             showLoginMessage(results, `Login failed (${response.status}): ${describeError(result)}`, true);
@@ -1178,7 +1223,12 @@ async function approveReason() {
             // Recorded once is recorded: Next goes grey until another reason is
             // chosen, so a second click cannot write the same transaction twice.
             setApproveEnabled(false);
-            showReasonMessage(`Recorded "${transaction.label}"${forStudent} — the backend wrote the ${transaction.type} transaction.`, false);
+            showReasonMessage(`Recorded "${transaction.label}"${forStudent} — the backend wrote the ${transaction.type} transaction. Taking you to the home page…`, false);
+
+            // The transaction is done with this account, and the home page is where
+            // the balance it just changed is drawn, so the flow hands the admin back
+            // to it instead of leaving them on a form with nothing left to do.
+            redirectHomeAfter(REDIRECT_DELAY_MS);
             return;
         }
 
