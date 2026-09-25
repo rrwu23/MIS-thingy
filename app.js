@@ -433,7 +433,7 @@ async function refreshStudentChart() {
 function stampStudentChart() {
     if (!studentChartStamp) return;
 
-    studentChartStamp.textContent = `Last read at ${new Date().toLocaleTimeString()} — the chart refreshes every ${Math.round(CHART_REFRESH_MS / 1000)} seconds, and whenever you come back to this tab.`;
+    studentChartStamp.textContent = `Last read at ${new Date().toLocaleTimeString()}, chart refreshes whenever you come back to this tab.`;
 }
 
 function showChartStatus(text, isError) {
@@ -469,11 +469,11 @@ function clearStudentChart() {
 if (studentChartPlot) {
     refreshStudentChart();
 
-    setInterval(function () {
-        if (!document.hidden) {
-            refreshStudentChart();
-        }
-    }, CHART_REFRESH_MS);
+    // setInterval(function () {
+    //     if (!document.hidden) {
+    //         refreshStudentChart();
+    //     }
+    // }, CHART_REFRESH_MS); //NOT refreshing every 30 sec
 
     document.addEventListener('visibilitychange', function () {
         if (!document.hidden) {
