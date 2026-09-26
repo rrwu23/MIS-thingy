@@ -50,6 +50,12 @@ form?.addEventListener('submit', async function(event) {
         const result = await response.json(); // Assuming the server responds with JSON
         console.log('Success:', result);
         alert('Form submitted successfully!');
+
+        // The account is made, and the home page is where it shows up (its balance is
+        // drawn on the chart), so the admin is handed back there instead of being left
+        // on a filled-in form. The sentence above is read first: the redirect waits
+        // for the alert to be dismissed.
+        redirectHomeAfter(REDIRECT_DELAY_MS);
     } else {
         // Read the body once: response.json() can only be read a single time,
         // and response.json().detail reads .detail off the Promise instead.
@@ -1011,6 +1017,142 @@ function showReasonMessage(text, isError) {
     reasonResults.replaceChildren(paragraph);
 }
 
+// ------------------------------------------------------- the Y/N question ----
+// Approving a reason writes a transaction, and this app has no undo, so the choice
+// is put in front of the admin one last time: "confirm transaction, Y/N", answered
+// with two buttons. window.confirm() would answer OK/Cancel, which is not what the
+// flow asks for, so the question is a small dialog of its own, built on first use
+// and hidden again until it is needed. Nothing is sent while it is up, and the
+// object it names is exactly the object the request will carry, because both are
+// built from the same `transaction`.
+const CONFIRM_QUESTION = 'confirm transaction, Y/N';
+
+let confirmDialog = null;   // the overlay, built the first time anything is approved
+let confirmText = null;     // the sentence inside it: what is about to be written
+let confirmYes = null;      // the Y button, where the focus lands
+let confirmPending = null;  // { promise, resolve } of the question on screen
+
+// One of the two answers. Both are ordinary .btn buttons, so they look and behave
+// like every other button on the page.
+function confirmButton(label, variant, answer) {
+    const button = document.createElement('button');
+    button.type = 'button';
+    button.className = `btn ${variant}`;
+    button.textContent = label;
+    button.addEventListener('click', function () {
+        answerConfirmation(answer);
+    });
+
+    return button;
+}
+
+function buildConfirmDialog() {
+    const dialog = document.createElement('div');
+    dialog.className = 'confirm';
+    dialog.hidden = true;
+    dialog.setAttribute('role', 'dialog');
+    dialog.setAttribute('aria-modal', 'true');
+    dialog.setAttribute('aria-labelledby', 'confirmquestion');
+    dialog.setAttribute('aria-describedby', 'confirmtext');
+
+    const panel = document.createElement('div');
+    panel.className = 'confirm__panel';
+
+    const question = document.createElement('h2');
+    question.className = 'confirm__question';
+    question.id = 'confirmquestion';
+    question.textContent = CONFIRM_QUESTION;
+
+    const text = document.createElement('p');
+    text.className = 'confirm__text';
+    text.id = 'confirmtext';
+
+    const actions = document.createElement('div');
+    actions.className = 'confirm__actions';
+
+    confirmYes = confirmButton('Y', 'btn--primary', true);
+    actions.append(confirmYes, confirmButton('N', 'btn--ghost', false));
+
+    panel.append(question, text, actions);
+    dialog.append(panel);
+    document.body.append(dialog);
+
+    // Y and N work as keys too — the question says so — and Escape is the same
+    // answer as N, so the question can always be dismissed without a mouse. The
+    // listener lives on the document because the buttons are the only things inside
+    // the overlay and the keyboard may be anywhere.
+    document.addEventListener('keydown', function (event) {
+        if (dialog.hidden) return;
+
+        const key = event.key.toLowerCase();
+
+        if (key === 'y') {
+            answerConfirmation(true);
+        } else if (key === 'n' || key === 'escape') {
+            answerConfirmation(false);
+        }
+    });
+
+    confirmDialog = dialog;
+    confirmText = text;
+}
+
+// What the dialog says: the same facts the status line names after a recording, so
+// the admin sees the student, the reason and the amount before answering.
+function describeTransaction(transaction) {
+    const forStudent = transaction.student ? ` for ${transaction.student}` : '';
+    const amount = transaction.amount === null || transaction.amount === undefined
+        ? 'no amount'
+        : `amount ${transaction.amount}`;
+
+    return `${transaction.type} — "${transaction.label}"${forStudent}, ${amount}. Y writes it to the account, N drops it.`;
+}
+
+// Puts the question on screen and answers true for Y, false for N. A question
+// already up is the question that has to be answered, so a second call shares it
+// instead of stacking another one on top.
+function askConfirmation(transaction) {
+    if (confirmPending) {
+        return confirmPending.promise;
+    }
+
+    if (!confirmDialog) {
+        buildConfirmDialog();
+    }
+
+    confirmText.textContent = describeTransaction(transaction);
+    confirmDialog.hidden = false;
+    confirmYes.focus();
+
+    const pending = { promise: null, resolve: null };
+    pending.promise = new Promise(function (resolve) {
+        pending.resolve = resolve;
+    });
+    confirmPending = pending;
+
+    return pending.promise;
+}
+
+// Answers the question and takes it off the screen. The first answer is the answer:
+// once it is gone there is nothing left to resolve, so a second click or key cannot
+// change what was decided.
+function answerConfirmation(answer) {
+    const pending = confirmPending;
+
+    if (!pending) {
+        return;
+    }
+
+    confirmPending = null;
+    confirmDialog.hidden = true;
+
+    // The keyboard goes back to the flow's own button rather than being dropped on
+    // the body, so the admin can carry on without reaching for the mouse.
+    reasonNext?.focus();
+
+    pending.resolve(answer);
+}
+
 // Fetches /reasons/{slug} for this page, swaps the built-in options for the
 // backend ones, and hands back the sentence the page should show plus how many
 // reasons ended up in the dropdown. It does not write that message itself: the
@@ -1158,9 +1300,27 @@ async function openReasonPage() {
 // Next: approving the transaction. The backend is asked for admin powers one more
 // time here, because the page may have been open since the first check and an
 // admin session can expire in between.
+//
+// One approval runs at a time: while the Y/N question is up, a second click would
+// only put the same question up again, and one click is one answer.
+let approvalRunning = false;
+
 async function approveReason() {
     if (!reasonSelect) return;
+    if (approvalRunning) return;
 
+    approvalRunning = true;
+
+    try {
+        await runApproval();
+    } finally {
+        approvalRunning = false;
+    }
+}
+
+// The approval itself, split out so the one-at-a-time flag above covers every way
+// out of it — recorded, refused, unanswered or off the network.
+async function runApproval() {
     if (!reasonSelect.value) {
         showReasonMessage('Choose a reason before approving.', true);
         return;
@@ -1197,10 +1357,22 @@ async function approveReason() {
     // stored, and it is parked before anything is sent: the object kept in
     // sessionStorage is the same one the request carries, so a send that fails loses
     // nothing.
+    const forStudent = transaction.student ? ` for ${transaction.student}` : '';
+
+    // The Y/N question stands between the choice and the write: "confirm transaction,
+    // Y/N". It is asked about the very object the request will carry, and nothing is
+    // parked or posted until it is answered with Y, so a wrong student or a wrong
+    // reason cannot leave this page. N (the N button, the N key or Escape) drops the
+    // whole thing, and Next stays live so the same click can be tried again.
+    const confirmed = await askConfirmation(transaction);
+
+    if (!confirmed) {
+        showReasonMessage(`Nothing was recorded — the "${transaction.label}" transaction${forStudent} was not confirmed with Y.`, true);
+        return;
+    }
+
     sessionStorage.setItem(PENDING_KEY, JSON.stringify(transaction));
     console.log('Approved:', transaction);
-
-    const forStudent = transaction.student ? ` for ${transaction.student}` : '';
 
     // POST /transaction-record writes it: the object goes as a whole, as JSON, with
     // the two table columns (type and reason) in the backend's own spelling, and the

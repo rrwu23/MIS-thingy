@@ -331,6 +331,11 @@ a.tag:hover {
 /* --------------------------------------------------------------- forms ---- */
 .form { display: grid; gap: 1.15rem; }
 
+/* job_rotation.html: one .field per student in this grid — the student's name is the
+   label and their job's text box sits under it — so the page is a column of little
+   forms, one per student, in the order the students are listed. */
+.jobs { display: grid; gap: 1.15rem; }
+
 .field { display: grid; gap: 0.45rem; }
 
 .field label {
@@ -493,6 +498,61 @@ a.tag:hover {
     border: 1px dashed var(--border);
     border-radius: var(--radius-sm);
 }
+
+/* -------------------------------------------------------- Y/N confirm ---- */
+/* The reason pages ask "confirm transaction, Y/N" before they write anything: a
+   transaction moves a student's balance and this app has no undo, so the question
+   is put in front of the admin once more. app.js builds the overlay and toggles its
+   hidden attribute; it sits over the whole window until it is answered. */
+.confirm {
+    position: fixed;
+    inset: 0;
+    z-index: 20;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    padding: clamp(1rem, 4vw, 2.5rem);
+    background: rgba(5, 46, 42, 0.42);
+    backdrop-filter: blur(4px);
+    -webkit-backdrop-filter: blur(4px);
+}
+
+/* the script toggles the hidden attribute, so it has to win over the display rule
+   above — the same reason .combo__list[hidden] exists */
+.confirm[hidden] { display: none; }
+
+.confirm__panel {
+    width: min(100%, 26rem);
+    padding: clamp(1.4rem, 4.5vw, 2rem);
+    text-align: center;
+    background: var(--surface-3);
+    border: 1px solid var(--border-hi);
+    border-radius: var(--radius);
+    box-shadow: var(--shadow);
+}
+
+.confirm__question {
+    margin: 0 0 0.6rem;
+    font-size: clamp(1.05rem, 3.6vw, 1.3rem);
+    font-weight: 700;
+    letter-spacing: 0.02em;
+}
+
+.confirm__text {
+    margin: 0 0 1.4rem;
+    font-size: 0.94rem;
+    color: var(--text-dim);
+}
+
+.confirm__actions {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 0.75rem;
+}
+
+/* Y and N side by side, each half the panel — the two answers are equals, only one
+   of them writes. */
+.confirm__actions .btn { flex: 1 1 6rem; }
 
 /* -------------------------------------------------------------- chart ---- */
 /* index.html's "View students" button: one bar per student of the signed-in

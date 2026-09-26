@@ -1,0 +1,52 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>App1 · Job rotation</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Comfortaa:wght@300..700&display=swap">
+    <link rel="stylesheet" href="styles.css">
+    <script src="jobrotation.js" defer></script>
+</head>
+<body>
+    <div class="page">
+        <main class="card">
+            <header class="bar">
+                <a class="brand" href="/index.html">
+                    <span class="brand__dot" aria-hidden="true"></span>Bonura's Bank
+                </a>
+                <a class="tag" href="/index.html">&#8592; Home</a>
+            </header>
+
+            <h1 class="card__title">Job rotation</h1>
+            <p class="card__hint">Give each of your students a job and press Rotate to send the list. The students are listed in alphabetical order and the jobs are checked before anything leaves the page: a job that is not in the job list, or the same job given to two students, is reported to you and the list is held back.</p>
+
+            <form id="jobform" class="form">
+                <!-- One row per student, filled by jobrotation.js in alphabetical
+                     order: the student's name is the label and their job goes in the
+                     text box under it. Each box offers the job list read from
+                     /get-jobs as it is typed. -->
+                <div id="jobrows" class="jobs"></div>
+
+                <div class="form__actions">
+                    <button type="submit" class="btn btn--primary" id="rotate" aria-disabled="true">
+                        Rotate
+                    </button>
+                </div>
+            </form>
+
+            <div id="jobresults" class="results" role="status" aria-live="polite"
+                 data-empty="Reading your students and the job list&hellip;"></div>
+
+            <!-- The jobs read from /get-jobs, offered to every job box as suggestions.
+                 jobrotation.js fills it; while the route is not implemented it stays
+                 empty and the boxes behave as plain text boxes. -->
+            <datalist id="joblist"></datalist>
+
+            <p class="footnote">Need a login first? <a class="tag" href="/login_admin.html">Admin login</a></p>
+        </main>
+    </div>
+</body>
+</html>
