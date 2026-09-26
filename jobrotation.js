@@ -36,11 +36,11 @@
 //                                     answers 422 naming "students" and "jobs" as
 //                                     required before anything is written.
 //
-// Rotate is the confirm button: it checks the typing first, alerts the teacher with
-// every job that is wrong — one that is not in the job list (with the closest job the
-// list does have offered as a suggestion) and one that two students were both given —
-// and nothing is sent while any of them stands. A box left empty is not wrong: that
-// student is simply not given a job.
+// Rotate is the confirm button: it checks the typing first and alerts the teacher with
+// every job that is wrong — one that is not in the job list, with the closest job the
+// list does have offered as a suggestion — and nothing is sent while any of them stands.
+// A box left empty is not wrong: that student is simply not given a job. The same job on
+// two students is allowed and is sent as typed.
 //
 // This file is the page's own script, so the readers it needs are kept here rather
 // than shared: studentpicker.js and sessionstorage.js do the same, and no page ever
@@ -84,8 +84,11 @@ let jobBoxes = [];
 // The job names GET /get-jobs listed, sorted; [] when the route could not be read.
 let knownJobNames = [];
 
-// True once the students are on the page: nothing can be rotated before that.
-let studentsListed = false;
+// True once the students are on the page *and* the job list has been read (or could not
+// be): nothing may be rotated before that, because the check every job goes through runs
+// against that list. Rotate stays greyed out until this is true, and the flag is checked
+// as well, because Enter inside a box submits the form whatever the button looks like.
+let ready = false;
 
 // True while a send is in flight, so a second click or Enter cannot send the list
 // twice.
@@ -373,9 +376,11 @@ function setRotateEnabled(enabled) {
     }
 }
 
-// Everything wrong with the typed jobs, one sentence each, or [] when the list is
-// ready to be sent. A box left empty is not wrong: that student is simply not given a
-// job, and the status line says how many of them there were.
+// Every wrong job, one sentence each, or [] when the list is ready to be sent. The one
+// thing that can be wrong is a job the list /get-jobs answered with does not have — a
+// misspelling. A box left empty is not wrong: that student is simply not given a job,
+// and the status line says how many of them there were. The same job on two students is
+// allowed, so it is not read as a mistake here.
 function jobProblems(rows) {
     const problems = [];
 
@@ -383,10 +388,6 @@ function jobProblems(rows) {
         problems.push(row.suggestion
             ? `"${row.job}" (${row.student}) is not one of the jobs — did you mean "${row.suggestion}"?`
             : `"${row.job}" (${row.student}) is not one of the jobs — check the spelling.`);
-    }
-
-    for (const shared of sharedJobs(rows)) {
-        problems.push(`"${shared.job}" was given to more than one student: ${shared.students.join(', ')} — a job belongs to one student at a time.`);
     }
 
     return problems;
@@ -397,8 +398,8 @@ function jobProblems(rows) {
 // and surrounding space are ignored, and only the first spelling of a job counts as
 // the registered one.
 // Without a list to check against (the route answered 404, or nothing usable came
-// back) nothing here can be called misspelled, so this answers [] and the spelling
-// half of the check is skipped — which the status line says out loud.
+// back) nothing here can be called misspelled, so this answers [] and the check is
+// skipped entirely — which the status line says out loud.
 function unknownJobs(rows) {
     const listed = registeredJobs();
 
@@ -413,26 +414,6 @@ function unknownJobs(rows) {
             job: row.job,
             suggestion: closestJob(row.job, knownJobNames)
         }));
-}
-
-// The jobs more than one student was given, with the students named. The same job
-// twice is a mistake, because a job belongs to one student at a time. Comparison
-// ignores case and surrounding space, so "line leader" and "Line Leader" collide and
-// are reported together under the first spelling that was typed.
-function sharedJobs(rows) {
-    const byJob = new Map();
-
-    for (const row of rows) {
-        if (!row.job) continue;
-
-        const key = row.job.toLowerCase();
-        const entry = byJob.get(key) ?? { job: row.job, students: [] };
-
-        entry.students.push(row.student);
-        byJob.set(key, entry);
-    }
-
-    return [...byJob.values()].filter((entry) => entry.students.length > 1);
 }
 
 // The typed jobs, ready to send: the rows that carry a job, as the two parallel
@@ -516,8 +497,8 @@ function describeJobError(result) {
 // to POST /set-jobs as the two parallel arrays its body takes: the students that were
 // given a job, and the job each of them gets, in the same order.
 async function rotateJobs() {
-    if (!studentsListed) return; // no students on the page, so nothing to send
-    if (rotating) return;        // one send at a time, however fast the clicks or Enters
+    if (!ready) return;   // still reading, or nothing to send
+    if (rotating) return; // one send at a time, however fast the clicks or Enters
 
     const rows = readJobRows();
     const problems = jobProblems(rows);
@@ -607,12 +588,17 @@ async function openJobPage() {
     }
 
     buildJobRows(students);
-    studentsListed = true;
-    setRotateEnabled(true);
 
+    // The job list is read before Rotate goes live: the check that keeps a misspelled
+    // job off the backend needs it, so a Rotate pressed while it is still on its way
+    // would send the list unchecked. It is one request, and the status line below says
+    // what the page is doing while it waits.
     const list = await readJobList();
     knownJobNames = list.names ?? [];
     fillJobList(knownJobNames);
+
+    ready = true;
+    setRotateEnabled(true);
 
     const listed = students.length === 1
         ? '1 student'
@@ -622,7 +608,7 @@ async function openJobPage() {
         { text: `${listed} of "${admin}", in alphabetical order — type a job for each one and press Rotate.`, isError: false },
         list.read
             ? { text: `${knownJobNames.length} job${knownJobNames.length === 1 ? '' : 's'} read from /get-jobs; every typed job is checked against that list before anything is sent.`, isError: false }
-            : { text: `The typed jobs cannot be checked against /get-jobs — ${list.reason}. Misspellings are not caught without it, so only a job two students share is reported; the list is still sent when you press Rotate.`, isError: true }
+            : { text: `The typed jobs cannot be checked against /get-jobs — ${list.reason}. Misspellings are not caught without it, so the list is sent as typed when you press Rotate.`, isError: true }
     ]);
 }
 
