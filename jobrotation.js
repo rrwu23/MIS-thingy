@@ -8,15 +8,33 @@
 //                                     401 {"detail": "Not logged in"} with no session
 //   GET  /getuser?supervisor=<admin>  that admin's students — the exact filter the
 //                                     transaction flow and the home chart use, so only
-//                                     this admin's own accounts are ever listed
+//                                     this admin's own accounts are ever listed. The
+//                                     route has no response annotation to read
+//                                     (openapi.json declares "schema": {} for it), so
+//                                     its answer is taken as the array of accounts it
+//                                     actually answers with: [{"name": "Rongrong Wu",
+//                                     "password": "wwww", "supervisor": "d"}, ...].
 //   GET  /get-jobs                    the job list the typed jobs are checked against.
-//                                     Not implemented yet, so today it answers 404:
-//                                     the page says the spelling half of the check
-//                                     could not run instead of blocking on it.
-//   POST /newjobs                     where the list is sent. Also not implemented
-//                                     yet; the body is a JSON array of one
-//                                     { "student": ..., "job": ... } per student that
-//                                     was given a job, in the order they are listed.
+//                                     Annotated (openapi.json) as a map whose values
+//                                     are lists — {additionalProperties: [string] |
+//                                     [object of string|integer]} — and it answers both
+//                                     halves live:
+//                                       {"jobs": ["Attendance Monitor", ...],
+//                                        "content": [{"type": "JOB SALARIES",
+//                                                     "reason": "Attendance Monitor",
+//                                                     "amount": 65}, ...]}
+//                                     so jobNames() walks that map: every array value is
+//                                     a list of jobs, a string is a job's name, and an
+//                                     object's name is its reason column.
+//   POST /set-jobs                    where the list is sent. openapi.json names its
+//                                     body JobAssignments: two arrays of the same
+//                                     length, students[0] being the student jobs[0]
+//                                     belongs to. (The annotation also allows the same
+//                                     list as an array of StudentJob pairs —
+//                                     {"student": ..., "job": ...} — which this page
+//                                     does not use.) Checked live too: an empty body
+//                                     answers 422 naming "students" and "jobs" as
+//                                     required before anything is written.
 //
 // Rotate is the confirm button: it checks the typing first, alerts the teacher with
 // every job that is wrong — one that is not in the job list (with the closest job the
@@ -31,21 +49,24 @@
 const JOB_STUDENTS_URL = 'https://api.rongrongwu.com/getuser';
 const JOB_ADMIN_URL = 'https://api.rongrongwu.com/current-admin';
 const JOBS_URL = 'https://api.rongrongwu.com/get-jobs';
-const NEW_JOBS_URL = 'https://api.rongrongwu.com/newjobs';
+const SET_JOBS_URL = 'https://api.rongrongwu.com/set-jobs';
 
 // Fields the GET /current-admin reply may carry the admin name in, most likely first
 // — the route is untyped, openapi.json only promises an object of strings.
 const JOB_ADMIN_NAME_KEYS = ['admin_name', 'name', 'admin', 'username'];
 
-// Fields an account object may carry its username and its supervisor in, most likely
-// first — the same order app.js, sessionstorage.js and studentpicker.js read them in,
-// so every page agrees on whose account this is.
-const JOB_STUDENT_NAME_KEYS = ['name', 'username', 'account', 'id'];
-const JOB_STUDENT_SUPERVISOR_KEYS = ['supervisor', 'owner', 'manager'];
+// Where a GET /getuser account carries the student's name. The route answers the
+// accounts table's own columns — {"name": "Rongrong Wu", "password": "wwww",
+// "supervisor": "d"} — so `name` is the field; `student` is read as well, because that
+// is the name the annotated models in openapi.json give a student (StudentJob,
+// TransactionRecord).
+const JOB_STUDENT_NAME_KEYS = ['name', 'student'];
 
-// Fields a job object may carry its name in, most likely first — /get-jobs is untyped
-// too, and it may just as well answer with plain strings.
-const JOB_NAME_KEYS = ['job', 'name', 'title', 'label', 'id'];
+// Where one row of an annotated /get-jobs list carries the job's name, most likely
+// first. A row is either a plain string — the live "jobs" list — or an object of the
+// reasons table, whose reason column *is* the job's name. `type` is deliberately not
+// read: it says "JOB SALARIES" on every row, which is no job at all.
+const JOB_NAME_KEYS = ['reason', 'job', 'name'];
 
 // The datalist every job box points at by id.
 const JOB_LIST_ID = 'joblist';
@@ -155,11 +176,11 @@ function adminNameIn(payload) {
 }
 
 // The students of `admin`, alphabetically and without duplicates. An account only
-// counts when its own supervisor field names that admin, exactly apart from
-// surrounding space — the same rule the transaction flow and the home chart follow —
-// so another admin's student is never listed, and an account with no supervisor
-// belongs to nobody. GET /getuser?supervisor= filters on the backend as well (checked
-// live: an unknown supervisor answers []), so the two checks agree.
+// counts when its own supervisor field names that admin, exactly apart from surrounding
+// space — the same rule the transaction flow and the home chart follow — so another
+// admin's student is never listed, and an account with no supervisor belongs to nobody.
+// GET /getuser?supervisor= filters on the backend as well (checked live: an unknown
+// supervisor answers []), so the two checks agree.
 async function adminStudents(admin) {
     const response = await fetch(`${JOB_STUDENTS_URL}?${new URLSearchParams({ supervisor: admin })}`, {
         method: 'GET',
@@ -170,11 +191,20 @@ async function adminStudents(admin) {
         throw new Error(`GET /getuser answered ${response.status}`);
     }
 
+    // No response annotation to read, so the answer is taken as the array of account
+    // objects the route answers with — one row of the accounts table each. Anything
+    // else is a shape this page cannot list students from, and it says so.
+    const accounts = await response.json();
+
+    if (!Array.isArray(accounts)) {
+        throw new Error('the answer is not the array of accounts GET /getuser answers with');
+    }
+
     const names = new Set();
 
-    for (const account of accountEntries(await response.json())) {
-        const name = String(firstField(account, JOB_STUDENT_NAME_KEYS) ?? account ?? '').trim();
-        const supervisor = String(firstField(account, JOB_STUDENT_SUPERVISOR_KEYS) ?? '').trim();
+    for (const account of accounts) {
+        const name = accountNameIn(account);
+        const supervisor = String(account?.supervisor ?? '').trim();
 
         if (name && supervisor === admin) {
             names.add(name);
@@ -186,34 +216,19 @@ async function adminStudents(admin) {
     return [...names].sort((a, b) => a.localeCompare(b, undefined, { sensitivity: 'base' }));
 }
 
-// Every account in a GET /getuser payload, whatever wrapper it arrives in. The route
-// is untyped, so the shapes accepted mirror studentpicker.js and sessionstorage.js:
-//   [{"name": "X", "supervisor": "Y"}]                         -> used as is
-//   {"users": [...]} / {"accounts": [...]} / {"data": [...]}   -> the inner list
-//   {"name": "X", "supervisor": "Y"} / "X"                     -> wrapped in an array
-//   null / undefined / ""                                      -> []
-function accountEntries(payload) {
-    if (Array.isArray(payload)) {
-        return payload;
+// The student's name in one account of GET /getuser, trimmed: the name field of the
+// account object (see JOB_STUDENT_NAME_KEYS). A bare string names an account with
+// nothing else, so it is taken as it stands; anything else names nobody.
+function accountNameIn(account) {
+    if (typeof account === 'string') {
+        return account.trim();
     }
 
-    if (payload === null || typeof payload !== 'object') {
-        return payload ? [payload] : [];
+    if (account === null || typeof account !== 'object') {
+        return '';
     }
 
-    for (const key of ['users', 'accounts', 'data', 'items']) {
-        const nested = payload[key];
-
-        if (Array.isArray(nested)) {
-            return nested;
-        }
-
-        if (nested && typeof nested === 'object') {
-            return accountEntries(nested);
-        }
-    }
-
-    return [payload];
+    return String(firstField(account, JOB_STUDENT_NAME_KEYS) ?? '').trim();
 }
 
 // One row per student, in the order the students came back (alphabetical): the name
@@ -247,8 +262,8 @@ function buildJobRows(students) {
     jobRows.replaceChildren(...jobBoxes.map((box) => box.field));
 }
 
-// The registered jobs as suggestions behind every box. An empty list (the route is not
-// implemented yet) simply leaves the datalist empty.
+// The registered jobs as suggestions behind every box. An empty list — the route could
+// not be read, or it listed nothing — simply leaves the datalist empty.
 function fillJobList(names) {
     if (!jobSuggestions) return;
 
@@ -269,8 +284,9 @@ function readJobRows() {
 }
 
 // The job names GET /get-jobs answered, sorted and without duplicates, or [] when the
-// route could not be read (it does not exist yet, so today that is a 404) or answered
-// with nothing usable.
+// route could not be read or answered with nothing usable. A failed read is not the end
+// of the page — it only means the jobs cannot be checked for spelling, which the status
+// line says out loud.
 async function readJobList() {
     try {
         const response = await fetch(JOBS_URL, {
@@ -279,8 +295,6 @@ async function readJobList() {
         });
 
         if (!response.ok) {
-            // 404 = no such route yet, which is not a failure of this page: it only
-            // means the jobs cannot be checked for spelling.
             console.error('Job list error:', response.status, await response.text());
             return { read: false, reason: `the backend answered ${response.status}` };
         }
@@ -297,49 +311,53 @@ async function readJobList() {
 }
 
 // Every job name in a GET /get-jobs payload: trimmed, without duplicates, sorted
-// alphabetically. Accepts every shape the untyped route may answer with, mirroring the
-// readers in app.js and studentpicker.js:
-//   ["Line Leader", "Cabn Monitor"]                       -> used as is
-//   [{"job": "Line Leader"}] / [{"name": "Line Leader"}]  -> the named field
-//   {"jobs": [...]} / {"data": [...]} / {"items": [...]}  -> the inner list
-//   "Line Leader" / {"job": "Line Leader"}                -> wrapped in an array
-//   null / undefined / ""                                 -> []
+// alphabetically. The route is annotated (openapi.json) as a map whose values are
+// lists, each list holding either plain strings or objects of strings and numbers, and
+// it answers both halves live:
+//   {"jobs": ["Attendance Monitor", ...],
+//    "content": [{"type": "JOB SALARIES", "reason": "Attendance Monitor", "amount": 65}, ...]}
+// So the map is walked exactly as annotated — no wrapper key is guessed at: every value
+// that is an array is a list of jobs, whatever it is called, and both halves above end
+// up in one sorted, de-duplicated list.
 function jobNames(payload) {
     const names = new Set();
 
-    for (const entry of jobEntries(payload)) {
-        const name = String(firstField(entry, JOB_NAME_KEYS) ?? entry ?? '').trim();
+    for (const list of jobListsIn(payload)) {
+        for (const entry of list) {
+            const name = jobNameIn(entry);
 
-        if (name) {
-            names.add(name);
+            if (name) {
+                names.add(name);
+            }
         }
     }
 
     return [...names].sort((a, b) => a.localeCompare(b, undefined, { sensitivity: 'base' }));
 }
 
-function jobEntries(payload) {
-    if (Array.isArray(payload)) {
-        return payload;
+// Every list of jobs inside a GET /get-jobs payload: each value of the annotated map
+// that is an array. A payload that is not a map of lists holds none.
+function jobListsIn(payload) {
+    if (payload === null || typeof payload !== 'object' || Array.isArray(payload)) {
+        return [];
     }
 
-    if (payload === null || typeof payload !== 'object') {
-        return payload ? [payload] : [];
+    return Object.values(payload).filter((value) => Array.isArray(value));
+}
+
+// The job's name in one entry of such a list: a string entry *is* the name (the live
+// "jobs" list), and an object entry carries it in its own name field — the reason column
+// of the reasons table (see JOB_NAME_KEYS). Anything else names no job.
+function jobNameIn(entry) {
+    if (typeof entry === 'string') {
+        return entry.trim();
     }
 
-    for (const key of ['jobs', 'data', 'items']) {
-        const nested = payload[key];
-
-        if (Array.isArray(nested)) {
-            return nested;
-        }
-
-        if (nested && typeof nested === 'object') {
-            return jobEntries(nested);
-        }
+    if (entry === null || typeof entry !== 'object') {
+        return '';
     }
 
-    return [payload];
+    return String(firstField(entry, JOB_NAME_KEYS) ?? '').trim();
 }
 
 // Sets the Rotate button's greyed-out state, the same aria-disabled attribute
@@ -417,20 +435,20 @@ function sharedJobs(rows) {
     return [...byJob.values()].filter((entry) => entry.students.length > 1);
 }
 
-// The rows that carry a job, as the records /newjobs is sent: one
-// { "student": ..., "job": ... } per student that was given one, in the order the
-// students are listed. A job the list knows is sent in the list's own spelling, so a
-// lower-case "line leader" is stored as the registered "Line Leader"; without a list
-// to ask, the typed text is sent as it stands.
-function sendableJobs(rows) {
+// The typed jobs, ready to send: the rows that carry a job, as the two parallel
+// arrays the body of POST /set-jobs takes — openapi.json's JobAssignments — where
+// students[0] is the student jobs[0] belongs to, students[1] the student jobs[1]
+// belongs to, and so on. A job the list knows is sent in the list's own spelling, so a
+// lower-case "line leader" is stored as the registered "Line Leader"; if the list could
+// not be read, the typed text is sent as it stands.
+function jobAssignments(rows) {
     const listed = registeredJobs();
+    const assigned = rows.filter((row) => row.job);
 
-    return rows
-        .filter((row) => row.job)
-        .map((row) => ({
-            student: row.student,
-            job: listed.get(row.job.toLowerCase()) ?? row.job
-        }));
+    return {
+        students: assigned.map((row) => row.student),
+        jobs: assigned.map((row) => listed.get(row.job.toLowerCase()) ?? row.job)
+    };
 }
 
 // The registered job names as a lookup from the spelling to compare with to the
@@ -495,8 +513,8 @@ function describeJobError(result) {
 // Rotate: check the typing, then send. The check comes first, and while anything is
 // wrong the teacher is told exactly which jobs are wrong — in an alert, and again on
 // the status line under the form — and nothing leaves the page. A clean list is sent
-// to POST /newjobs as the JSON array of { student, job } records, one per student that
-// was given a job.
+// to POST /set-jobs as the two parallel arrays its body takes: the students that were
+// given a job, and the job each of them gets, in the same order.
 async function rotateJobs() {
     if (!studentsListed) return; // no students on the page, so nothing to send
     if (rotating) return;        // one send at a time, however fast the clicks or Enters
@@ -510,10 +528,11 @@ async function rotateJobs() {
         return;
     }
 
-    const jobs = sendableJobs(rows);
-    const blank = rows.length - jobs.length;
+    const assignments = jobAssignments(rows);
+    const count = assignments.students.length;
+    const blank = rows.length - count;
 
-    if (!jobs.length) {
+    if (!count) {
         alert('No job was typed, so there is nothing to send.');
         showJobMessage('No job was typed, so there is nothing to send.', true);
         return;
@@ -521,14 +540,14 @@ async function rotateJobs() {
 
     rotating = true;
     setRotateEnabled(false);
-    showJobMessage(`Sending ${jobs.length} job${jobs.length === 1 ? '' : 's'} to /newjobs…`, false);
+    showJobMessage(`Sending ${count} job${count === 1 ? '' : 's'} to /set-jobs…`, false);
 
     try {
-        const response = await fetch(NEW_JOBS_URL, {
+        const response = await fetch(SET_JOBS_URL, {
             method: 'POST',
             credentials: 'include', // the admin session cookie
             headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify(jobs)
+            body: JSON.stringify(assignments)
         });
 
         // A refusal can answer with something that is not JSON, so the body is read
@@ -538,17 +557,17 @@ async function rotateJobs() {
         if (response.ok) {
             console.log('Jobs sent:', result);
             showJobLines([
-                { text: `Sent ${jobs.length} job${jobs.length === 1 ? '' : 's'} to /newjobs${blank ? `, and left ${blank} student${blank === 1 ? '' : 's'} without one` : ''}.`, isError: false },
+                { text: `Sent ${count} job${count === 1 ? '' : 's'} to /set-jobs${blank ? `, and left ${blank} student${blank === 1 ? '' : 's'} without one` : ''}.`, isError: false },
                 { text: 'Correct a job and press Rotate again to send the list once more.', isError: false }
             ]);
             return;
         }
 
         console.error('Jobs error:', response.status, result);
-        showJobMessage(`Nothing was sent — /newjobs answered ${response.status} (${describeJobError(result)}).`, true);
+        showJobMessage(`Nothing was sent — /set-jobs answered ${response.status} (${describeJobError(result)}).`, true);
     } catch (error) {
         console.error('Network Error:', error);
-        showJobMessage('Network error — /newjobs could not be reached, so nothing was sent.', true);
+        showJobMessage('Network error — /set-jobs could not be reached, so nothing was sent.', true);
     } finally {
         rotating = false;
         setRotateEnabled(true);
