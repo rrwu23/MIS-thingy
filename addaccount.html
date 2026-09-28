@@ -21,7 +21,7 @@
             </header>
 
             <h1 class="card__title">Add account</h1>
-            <p class="card__hint">Creates a new account with a supervisor, an opening balance and a login password. The student's account username has to be typed twice, so a typo cannot quietly make an account nobody can find.</p>
+            <p class="card__hint">Creates a new account with a supervisor, a birthday, an opening balance and a login password. The student's account username has to be typed twice, so a typo cannot quietly make an account nobody can find.</p>
 
             <form id="adduserform" class="form">
                 <div class="field">
@@ -31,11 +31,25 @@
 
                 <!-- The safety check: app.js compares this with the Name field and
                      only posts when the two agree, then drops retype_name from the
-                     request — /adduser takes name, initialbalance and password only. -->
+                     request — the server is sent the account's own fields (name,
+                     birthday, initialbalance, password) and nothing else. -->
                 <div class="field">
                     <label for="retype_name">Retype student username <span class="hint">safety check</span></label>
                     <input type="text" id="retype_name" name="retype_name"
                            autocomplete="off" required>
+                </div>
+
+                <!-- The student's birthday, kept with the account. Unlike retype_name
+                     above this is real account data, so it is not dropped from the
+                     request — it leaves for /adduser with name, initialbalance and
+                     password. A date input is used rather than a free-text box because
+                     the browser hands the value over in the one shape a date column
+                     reads, YYYY-MM-DD, and offers a calendar instead of text that would
+                     have to be parsed. app.js caps it at today, so a birthday still to
+                     come cannot be picked or submitted. -->
+                <div class="field">
+                    <label for="birthday">Birthday <span class="hint">YYYY-MM-DD</span></label>
+                    <input type="date" id="birthday" name="birthday" required>
                 </div>
 
                 <div class="field">

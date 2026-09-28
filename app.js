@@ -14,6 +14,41 @@ function sameUsername(first, second) {
     return first.trim().toLowerCase() === second.trim().toLowerCase();
 }
 
+// Today as every date in this project is written: YYYY-MM-DD, the one shape an
+// <input type="date"> reports and a date column reads. The parts are read off the
+// local calendar by hand rather than with toISOString(), which works in UTC and
+// would name tomorrow for a few evening hours on this side of the world.
+function todayISO() {
+    const now = new Date();
+    const month = String(now.getMonth() + 1).padStart(2, '0');
+    const day = String(now.getDate()).padStart(2, '0');
+    return `${now.getFullYear()}-${month}-${day}`;
+}
+
+// The add account page's birthday check. A date input answers with YYYY-MM-DD, or
+// with an empty string when it could not make sense of what was typed, so the shape
+// is tested first and the day is then compared with today. Both sides are the same
+// shape, so a plain string compare settles it and no second Date has to be built;
+// the pattern is what keeps the compare honest if the field is ever typed by hand.
+// A birthday that has not happened yet is a typo, not a birthday, and is what the
+// empty string case covers too.
+const ISO_DATE = /^\d{4}-\d{2}-\d{2}$/;
+
+function isPastOrToday(value, today) {
+    return ISO_DATE.test(value) && value <= today;
+}
+
+// The birthday field, on the one page that has it (app.js is loaded by every page).
+// The date input is handed the same newest day the check below uses, as its max
+// attribute, so the calendar the browser opens has the coming days greyed out and the
+// browser's own validation explains them. The check still decides on submit, in case
+// a browser ignores the attribute or the page is driven by script instead of a click.
+const birthdayField = form?.elements.namedItem('birthday');
+
+if (birthdayField) {
+    birthdayField.max = todayISO(); // a birthday cannot lie in the future
+}
+
 // 2. Listen for the submit event
 form?.addEventListener('submit', async function(event) {
   // Prevent the default browser behavior (reloading the page)
@@ -29,10 +64,21 @@ form?.addEventListener('submit', async function(event) {
       return;
   }
 
+  // The birthday is checked here too, before anything is sent: it has to be a real
+  // day that has already arrived. The field points itself out on the way back, the
+  // way the browser would have, so the admin is not left hunting for the box.
+  if (birthdayField && !isPastOrToday(birthdayField.value, todayISO())) {
+      alert('Error: The birthday has to be a real date that is not in the future — the account was not created.');
+      birthdayField.focus();
+      return;
+  }
+
   // 3. Gather the form data
   const formData = new FormData(form);
 
-  // retype_name is only used for the safety check, the server only needs name
+  // retype_name is the one field here that is not account data — it only ever served
+  // the safety check above — so it is dropped and the request carries name, birthday,
+  // initialbalance and password, which is what /adduser is asked to store.
   formData.delete('retype_name');
   
   // Convert the FormData into a standard JavaScript object
