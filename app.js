@@ -130,8 +130,18 @@ form?.addEventListener('submit', async function(event) {
 // nothing about the body — so the card built for an account is filled from that
 // account's own keys, in the order the backend sends them. Every field the table
 // keeps is listed, and a field the backend starts sending later is listed too
-// instead of being dropped by a list of names written out here by hand.
+// instead of being dropped by a list of names written out here by hand — the
+// password being the one deliberate exception, skipped by ACCOUNT_HIDDEN_FIELDS
+// below.
 const GET_USERS_URL = 'https://api.rongrongwu.com/getuser';
+
+// Fields the query never shows, lower-cased. GET /getuser does answer each account's
+// own password (checked live: {"name": "hi there", "password": "hi", …}), and the
+// route is public, so it is the account's real login secret sitting in a public
+// reply. Showing a student's password on a lookup page would turn that into the point
+// of the page, so it is left out here: the rest of the account is still listed in
+// full, and nothing else on the row is touched.
+const ACCOUNT_HIDDEN_FIELDS = ['password'];
 
 const getUsersForm = document.getElementById('getusersform');
 
@@ -188,10 +198,10 @@ getUsersForm?.addEventListener('submit', async function (event) {
     }
 });
 
-// One account as a card: every field the account object carries, one line per field,
-// the field's own name as the label and its value after it. A field holding a nested
-// object or a list is written out as JSON, so nothing the backend sends is ever
-// printed as "[object Object]".
+// One account as a card: every field the account object carries except the hidden
+// ones, one line per field, the field's own name as the label and its value after it.
+// A field holding a nested object or a list is written out as JSON, so nothing the
+// backend sends is ever printed as "[object Object]".
 function accountCard(account) {
     const card = document.createElement('p');
 
@@ -201,10 +211,19 @@ function accountCard(account) {
     }
 
     for (const [key, value] of Object.entries(account)) {
+        if (hiddenAccountField(key)) continue;
+
         card.append(accountField(key, value));
     }
 
     return card;
+}
+
+// True for a field the query keeps off the page. The compare is done on the
+// lower-cased, space-trimmed name so "Password" or " password " cannot slip past the
+// one entry in ACCOUNT_HIDDEN_FIELDS.
+function hiddenAccountField(key) {
+    return ACCOUNT_HIDDEN_FIELDS.includes(String(key).trim().toLowerCase());
 }
 
 // One "Field: value" line inside an account card.
