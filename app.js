@@ -119,47 +119,144 @@ form?.addEventListener('submit', async function(event) {
   }
 });
 
-const form1 = document.getElementById('getusersform');
+// Query accounts page ----------------------------------------------------------
+// getusers.html's search form lists the accounts the two filters leave. Both are
+// exact, case-sensitive lookups and both are optional — checked live:
+// ?supervisor=test-account answers that admin's three accounts while
+// ?supervisor=nonsense answers [] — so a blank field matches everyone. Every row is
+// a plain object of account fields, the same shape the chart and the transaction
+// flow read (live: [{"name": "hi there", "password": "hi", "supervisor": "lagoon",
+// "birthday": "01/29"}, …]), and the route is untyped — openapi.json promises
+// nothing about the body — so the card built for an account is filled from that
+// account's own keys, in the order the backend sends them. Every field the table
+// keeps is listed, and a field the backend starts sending later is listed too
+// instead of being dropped by a list of names written out here by hand.
+const GET_USERS_URL = 'https://api.rongrongwu.com/getuser';
 
-form1?.addEventListener('submit', async function (event) {
+const getUsersForm = document.getElementById('getusersform');
+
+getUsersForm?.addEventListener('submit', async function (event) {
     event.preventDefault();
-    console.log("hi there")
 
+    // A blank field travels as an empty string, which GET /getuser reads as "no
+    // filter": both of its query parameters default to "".
     const params = new URLSearchParams({
-        name: form1.elements.namedItem('name').value.trim(),
-        supervisor: form1.elements.namedItem('supervisor').value.trim()
+        name: getUsersForm.elements.namedItem('name').value.trim(),
+        supervisor: getUsersForm.elements.namedItem('supervisor').value.trim()
     });
 
+    const results = document.getElementById('results');
+
+    // One search at a time: the button goes grey and unclickable for the round trip,
+    // the same .btn[aria-disabled="true"] state the home page's lookup uses.
+    const submitButton = getUsersForm.querySelector('button[type="submit"]');
+    submitButton?.setAttribute('aria-disabled', 'true');
+    showAccountMessage(results, 'Asking the backend which accounts match…', false);
+
     try {
-        const response = await fetch(
-            `https://api.rongrongwu.com/getuser?${params}`
-        );
+        const response = await fetch(`${GET_USERS_URL}?${params}`, {
+            method: 'GET',
+            credentials: 'include' // send the admin session cookie, like every other call
+        });
 
         if (!response.ok) {
             console.error('Server error:', await response.text());
+            showAccountMessage(results, `The backend answered ${response.status} — the accounts could not be listed.`, true);
             return;
         }
 
         const users = await response.json();
-        const results = document.getElementById('results');
-            results.replaceChildren(); // Clear previous results
+        const accounts = users === null ? [] : Array.isArray(users) ? users : [users];
 
-            if (users.length === 0) {
-                results.textContent = 'No users found.';
-            }
+        if (!accounts.length) {
+            showAccountMessage(results, 'No users found.', false);
+            return;
+        }
 
-            for (const user of users) {
-                const paragraph = document.createElement('p');
+        results.replaceChildren(); // Clear previous results
 
-                paragraph.textContent =
-                    `Name: ${user.name} | Supervisor: ${user.supervisor}`;
+        for (const account of accounts) {
+            results.append(accountCard(account));
+        }
 
-                results.appendChild(paragraph);
-            }
+        console.log(`Listed ${accounts.length} account(s).`, params.toString());
     } catch (error) {
         console.error('Network error:', error);
+        showAccountMessage(results, 'Network error — the accounts API could not be reached.', true);
+    } finally {
+        submitButton?.removeAttribute('aria-disabled');
     }
 });
+
+// One account as a card: every field the account object carries, one line per field,
+// the field's own name as the label and its value after it. A field holding a nested
+// object or a list is written out as JSON, so nothing the backend sends is ever
+// printed as "[object Object]".
+function accountCard(account) {
+    const card = document.createElement('p');
+
+    if (account === null || typeof account !== 'object') {
+        card.textContent = account === null || account === undefined ? '' : String(account);
+        return card;
+    }
+
+    for (const [key, value] of Object.entries(account)) {
+        card.append(accountField(key, value));
+    }
+
+    return card;
+}
+
+// One "Field: value" line inside an account card.
+function accountField(key, value) {
+    const line = document.createElement('span');
+    line.className = 'results__field';
+
+    const label = document.createElement('span');
+    label.className = 'results__field-label';
+    label.textContent = `${accountFieldLabel(key)}: `;
+
+    line.append(label, document.createTextNode(accountFieldValue(value)));
+
+    return line;
+}
+
+// A field's name as a person reads it: underscores and hyphens opened out into
+// spaces and the first letter capitalised, so "initialbalance" reads as
+// "Initialbalance" and a later "opening_balance" as "Opening balance", without a
+// table of names to keep in step with the backend.
+function accountFieldLabel(key) {
+    const words = String(key).replace(/[_-]+/g, ' ').trim();
+
+    return words ? words.charAt(0).toUpperCase() + words.slice(1) : 'Field';
+}
+
+// A field's value as text. Text, numbers and booleans are written as themselves, a
+// missing value as nothing at all, and anything structured as JSON — the only honest
+// way to show it on one line.
+function accountFieldValue(value) {
+    if (value === null || value === undefined) {
+        return '';
+    }
+
+    return typeof value === 'object' ? JSON.stringify(value) : String(value);
+}
+
+// Replace the previous results with a single message — the same one-paragraph shape
+// showLoginMessage, showCurrentAdminMessage and showReasonMessage write into their
+// own blocks, so an error is the red variant of the same card.
+function showAccountMessage(results, text, isError) {
+    if (!results) return;
+
+    const paragraph = document.createElement('p');
+    paragraph.textContent = text;
+
+    if (isError) {
+        paragraph.className = 'results__error';
+    }
+
+    results.replaceChildren(paragraph);
+}
 
 const adminForm = document.getElementById('addadminform');
 
@@ -601,6 +698,61 @@ function currentAdminNameIn(payload) {
 
     return '';
 }
+
+// Query accounts page: the Supervisor field's default.
+// getusers.html's Supervisor field carries the admin an account belongs to —
+// GET /getuser compares ?supervisor= with each row's own supervisor field — and the
+// name it wants is the one GET /current-admin answers for whoever holds the session
+// cookie. That filter is an exact, case-sensitive compare, so the field is filled
+// with the backend's own spelling of the signed-in admin rather than with anything
+// typed by hand or kept in the page: the query page opens on this admin's own
+// accounts, and the whole table is still one Clear away. Without a session the route
+// answers 401 {"detail": "Not logged in"}, which is not an error here — there is
+// simply no admin to fill in — so the field is left as the page left it.
+const getUsersSupervisorField = getUsersForm?.elements.namedItem('supervisor') ?? null;
+
+async function prefillSupervisorWithCurrentAdmin() {
+    if (!getUsersSupervisorField) return; // every other page loads app.js for its own form
+
+    try {
+        const response = await fetch(CURRENT_ADMIN_URL, {
+            method: 'GET',
+            credentials: 'include' // send the admin session cookie
+        });
+
+        if (!response.ok) {
+            console.log(`No admin session (${response.status}), so the Supervisor field is left blank.`);
+            return;
+        }
+
+        const admin = currentAdminNameIn(await response.json());
+
+        if (!admin) {
+            console.log('The backend named no admin, so the Supervisor field is left blank.');
+            return;
+        }
+
+        // Only while the field is still empty: an admin who has already started
+        // typing a name of their own must not have it replaced under their hands by
+        // a slower reply.
+        if (getUsersSupervisorField.value.trim()) {
+            console.log('The Supervisor field was already filled in, so it was left as typed.');
+            return;
+        }
+
+        getUsersSupervisorField.value = admin;
+        console.log(`Filled the Supervisor field with the admin behind the session: ${admin}`);
+    } catch (error) {
+        console.error('Current admin error:', error);
+    }
+}
+
+// Asked as the page opens, and only once: the answer cannot change without a login.
+// Nothing on the page waits for it — the search runs the same whether the field was
+// filled in or left blank.
+prefillSupervisorWithCurrentAdmin();
+
+
 
 // The usernames GET /getuser lists for `admin`, sorted and de-duplicated. The
 // ?supervisor= filter is exact — checked live: ?supervisor=test-account answers that

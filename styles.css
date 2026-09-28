@@ -490,6 +490,24 @@ a.tag:hover {
     border-left-color: var(--danger);
 }
 
+/* getusers.html: one card per account, and inside it one line per field — the query
+   lists every field the backend keeps on an account, so each line is that field's
+   own name in the accent ink and its value after it. The name is the quiet half of
+   the pair, which is why it is the smaller, deeper text. */
+.results__field {
+    display: block;
+    font-size: 0.92rem;
+}
+
+.results__field + .results__field {
+    margin-top: 0.3rem;
+}
+
+.results__field-label {
+    font-weight: 700;
+    color: var(--accent-deep);
+}
+
 .results:empty::before {
     content: attr(data-empty);
     padding: 1rem 1.1rem;
