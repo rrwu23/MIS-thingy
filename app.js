@@ -322,10 +322,13 @@ adminForm?.addEventListener('submit', async function (event) {
 // cookie, which is why every API call sends credentials: "include".
 const LOGIN_URL = 'https://api.rongrongwu.com/login';
 
-// Where a finished flow goes: the home page. The admin session lives in the
-// backend's cookie, not in the page, so the home page picks it up on its own as it
-// opens — it reads the signed-in admin and draws that admin's student chart.
-const HOME_URL = '/index.html';
+// Where a finished flow goes: the home page, home.html — the buttons and the balances
+// chart. It is *not* index.html: that one is only the front door, the sign-in card, so
+// sending a login or a finished transaction there would bounce the admin back to the
+// form they just filled in. The admin session lives in the backend's cookie, not in
+// the page, so the home page picks it up on its own as it opens — it reads the
+// signed-in admin and draws that admin's student chart.
+const HOME_URL = '/home.html';
 
 // How long a "logged in…" / "recorded…" status line stays up before the home page
 // replaces it. Long enough to read the sentence, short enough to feel like a step
@@ -403,8 +406,84 @@ function describeError(result) {
     return 'the server rejected the credentials.';
 }
 
+// Landing page ------------------------------------------------------------------
+// index.html is the card the app opens on: a username, a password and the two doors
+// under them. The admin door *is* the admin login — the very same POST /login, with
+// the same admin_name + password fields, that login_admin.html sends; entered here it
+// is simply asked for on the card the admin is already looking at. Nothing is
+// redirected once it succeeds, because the session lives in the backend's cookie and
+// not in a page; the line under the buttons says who is signed in and carries the way
+// on to the home page, which the admin can take whenever they are ready. The student
+// door has no route behind it yet, so it says that rather than pretending to sign
+// anyone in.
+const signInForm = document.getElementById('signinform');
+
+signInForm?.addEventListener('submit', async function (event) {
+    event.preventDefault();
+
+    const formData = new FormData(signInForm);
+    const results = document.getElementById('signinresults');
+
+    // One sign-in at a time: the submit button goes grey and unclickable for the round
+    // trip, using the .btn[aria-disabled="true"] state styles.css already styles — the
+    // same as the "Get current admin" button does.
+    const submitButton = signInForm.querySelector('button[type="submit"]');
+    submitButton?.setAttribute('aria-disabled', 'true');
+    showLoginMessage(results, 'Asking the backend to sign this admin in…', false);
+
+    try {
+        const response = await fetch(LOGIN_URL, {
+            method: 'POST',
+            credentials: "include", // keep the session cookie the login answers with
+            body: formData
+        });
+
+        // FastAPI replies with JSON for both success and error bodies
+        const result = await response.json();
+
+        if (response.ok) {
+            console.log('Success:', result);
+            showLoginMessage(results, `Signed in as ${formData.get('admin_name')}.`, false);
+
+            // The card holds nothing but the sign-in, so the sentence that names the
+            // admin carries the way on to the home page, where the buttons are.
+            results?.querySelector('p')?.append(' ', homePageLink());
+        } else {
+            console.error('Login error:', result);
+            showLoginMessage(results, `Sign in failed (${response.status}): ${describeError(result)}`, true);
+        }
+    } catch (error) {
+        console.error('Network Error:', error);
+        showLoginMessage(results, 'Network error — the login API could not be reached.', true);
+    } finally {
+        submitButton?.removeAttribute('aria-disabled');
+    }
+});
+
+// The student door: no student sign-in exists yet, so pressing it says so instead of
+// leaving a button that looks broken.
+const studentSignInButton = document.getElementById('studentsignin');
+
+studentSignInButton?.addEventListener('click', function () {
+    showLoginMessage(
+        document.getElementById('signinresults'),
+        'Student sign in is not ready yet — the student side has no login route. Use “Admin sign in” for the admin login.',
+        false
+    );
+});
+
+// The way on from the front door: the sign-in line under the card's buttons carries
+// this, because index.html itself is only the card — the buttons and the chart are on
+// the home page behind it.
+function homePageLink() {
+    const link = document.createElement('a');
+    link.href = HOME_URL;
+    link.textContent = 'Continue to the home page \u2192';
+    return link;
+}
+
 // Home page ------------------------------------------------------------------
-// index.html's "Get current admin" button answers one question: which admin is
+// home.html's "Get current admin" button answers one question: which admin is
 // this browser signed in as? GET /current-admin is the live route for it (listed
 // in https://api.rongrongwu.com/openapi.json), it takes the session cookie, and
 // without one it answers 401 {"detail": "Not logged in"} — checked live with
@@ -512,7 +591,7 @@ function describeCurrentAdmin(payload) {
         : `Signed in as ${adminName}.`;
 }
 
-// index.html's student balances chart draws one bar per student of the admin behind
+// home.html's student balances chart draws one bar per student of the admin behind
 // the session cookie: balance up the y axis, the name under it. Nothing drives it —
 // it reads itself as the page opens and keeps itself up to date. Three live routes
 // stand behind a chart, all of them taking the session cookie:

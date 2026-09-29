@@ -1,0 +1,80 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Bonura's Bank · Home</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Comfortaa:wght@300..700&display=swap">
+    <link rel="stylesheet" href="styles.css">
+    <script src="app.js" defer></script>
+</head>
+<body>
+    <!-- index.html is the front door: the sign-in card, and nothing else. This is the
+         page behind it — what the bank can do once somebody is in — so it is where the
+         card's sign-in line points and where every finished flow comes back to. The
+         brand at its top-left is this page, so it is not a link; the tag beside it is
+         the way back out to the card. -->
+    <div class="page">
+        <main class="card">
+            <header class="bar">
+                <span class="brand">
+                    <span class="brand__dot" aria-hidden="true"></span>Bonura's Bank
+                </span>
+                <a class="tag" href="/index.html">&#8592; Sign in</a>
+            </header>
+
+            <h1 class="hero__title">hi</h1>
+            <p class="hero__subtitle">do you want to&hellip;</p>
+
+            <nav class="actions" aria-label="Main actions">
+                <button type="button" class="btn btn--primary" onclick="window.location.href='/addaccount.html'">
+                    Add account
+                </button>
+                <button type="button" class="btn btn--primary" onclick="window.location.href='/getusers.html'">
+                    Query accounts
+                </button>
+                <button type="button" class="btn btn--primary" onclick="window.location.href='/add_admin.html'">
+                    Add admin
+                </button>
+                <button type="button" class="btn btn--primary" onclick="window.location.href='/login_admin.html'">
+                    Admin login
+                </button>
+                <button type="button" class="btn btn--primary" onclick="window.location.href='/transaction1.html'">
+                    Transaction
+                </button>
+                <button type="button" class="btn btn--primary" onclick="window.location.href='/job_rotation.html'">
+                    Rotate jobs
+                </button>
+                <button type="button" id="getcurrentadmin" class="btn btn--primary">
+                    Get current admin
+                </button>
+            </nav>
+
+            <div id="currentadminresults" class="results" role="status" aria-live="polite"
+                 data-empty="No admin looked up yet &mdash; press &ldquo;Get current admin&rdquo; to ask the backend which admin this browser is signed in as."></div>
+
+            <!-- The balances chart: app.js draws one bar per student of the admin
+                 this browser is signed in as — the bar is that student's balance and
+                 the name sits under it. It reads the backend as the page opens and
+                 keeps itself up to date, so there is no button for it. -->
+            <section id="studentchart" class="chart" aria-labelledby="studentcharttitle">
+                <h2 class="chart__title" id="studentcharttitle">Student balances</h2>
+                <p id="studentchartstatus" class="chart__status" role="status" aria-live="polite">
+                    Reading the balances of the students of the admin this browser is signed in as&hellip;
+                </p>
+
+                <div id="studentchartframe" class="chart__frame" hidden>
+                    <div id="studentchartplot" class="chart__plot"></div>
+                    <div id="studentchartnames" class="chart__names"></div>
+                </div>
+
+                <p id="studentchartstamp" class="chart__stamp"></p>
+            </section>
+
+            <p class="footnote">Static pages talking to <code>api.rongrongwu.com</code>.</p>
+        </main>
+    </div>
+</body>
+</html>

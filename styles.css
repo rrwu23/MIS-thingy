@@ -242,6 +242,26 @@ a.tag:hover {
     background: rgba(33, 255, 218, 0.18);
 }
 
+/* The dark filled button: the landing page's two doors. That card is filled with the
+   accent itself, so the ordinary accent button would disappear into it; this one is
+   the accent ink instead — the darkest tint of the same green — and lightens to the
+   accent deep on hover, like every other button here. */
+.btn--ink {
+    color: #f2fffc;
+    background: var(--accent-ink);
+    border-color: var(--accent-ink);
+    box-shadow: 0 10px 22px rgba(4, 48, 43, 0.26);
+}
+
+.btn--ink:hover {
+    background: var(--accent-deep);
+    border-color: var(--accent-deep);
+    transform: translateY(-2px);
+    box-shadow: 0 14px 28px rgba(4, 48, 43, 0.32);
+}
+
+.btn--ink:active { transform: translateY(0); }
+
 .btn:focus-visible {
     outline: 2px solid var(--accent-deep);
     outline-offset: 2px;
@@ -309,6 +329,130 @@ a.tag:hover {
 .panel select:focus-visible {
     outline: 2px solid var(--accent-ink);
     outline-offset: 3px;
+}
+
+/* -------------------------------------------------- landing sign-in card ---- */
+/* index.html is the card the bank opens on, and that card is the whole page: the
+   bank's name at its top-left, the username and password boxes across its middle and
+   the two sign-in doors along its foot. It is filled with the accent, so everything
+   standing on it — brand, boxes, buttons, status line — is drawn in the accent ink,
+   the darkest tint of the same colour, rather than in the light text the glass cards
+   use. The card is as tall as the window allows, which is what leaves the empty green
+   between the fields and the buttons the sketch shows. */
+.signin {
+    display: grid;
+    gap: clamp(1.5rem, 4.5vw, 2.5rem);
+    min-height: clamp(24rem, 72vh, 36rem);
+    padding: clamp(1.6rem, 5vw, 2.75rem);
+    background: var(--accent);
+    border: 1.5px solid var(--accent-deep);
+    border-radius: 34px;
+    box-shadow: var(--shadow);
+}
+
+.signin__brand {
+    margin: 0;
+    font-size: clamp(1.05rem, 3.2vw, 1.3rem);
+    font-weight: 700;
+    letter-spacing: 0.02em;
+    color: var(--accent-ink);
+}
+
+.signin__form {
+    display: grid;
+    align-content: start;
+    gap: clamp(1rem, 3.5vw, 1.6rem);
+}
+
+/* the box, the label that only the screen reader reads, and nothing else — the label
+   is a .sr-only box below, so this one is positioned to hold it */
+.signin__field { position: relative; }
+
+.signin__field input {
+    width: 100%;
+    padding: clamp(0.9rem, 2.6vw, 1.15rem) 1.15rem;
+    font-family: inherit;
+    font-size: clamp(1rem, 3vw, 1.15rem);
+    text-align: center;   /* the sketch centres the word inside the box */
+    color: var(--accent-ink);
+    background: rgba(255, 255, 255, 0.94);
+    border: 1.5px solid var(--accent-ink);
+    border-radius: 10px;
+    transition: border-color 0.16s ease, box-shadow 0.16s ease, background-color 0.16s ease;
+}
+
+.signin__field input::placeholder {
+    color: var(--text-faint);
+    opacity: 1;   /* Firefox dims placeholders of its own accord */
+}
+
+.signin__field input:hover { background: #ffffff; }
+
+/* The focus glow the form pages use is mint, which would wash out against the accent
+   card. On this card the ring is white, and a ring all the same. */
+.signin__field input:focus {
+    outline: none;
+    background: #ffffff;
+    border-color: var(--accent-ink);
+    box-shadow: 0 0 0 4px rgba(255, 255, 255, 0.65);
+}
+
+/* the same rule as the form pages: a box colours up once it has the user's attention
+   and is still wrong, never before */
+.signin__field input:user-invalid { border-color: var(--danger); }
+
+/* The two doors: one on each side of the card's foot, with the empty green between
+   the fields and them left to grow (margin-top: auto). */
+.signin__actions {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: clamp(0.9rem, 6vw, 3.5rem);
+    margin-top: auto;
+    padding-top: clamp(1rem, 4vw, 2rem);
+}
+
+/* The status line under the buttons, on the green: it borrows the white surface of the
+   fields so that it stays readable there, and an empty one shows nothing at all rather
+   than the dashed placeholder the other pages keep out. */
+.signin .results { margin-top: 0; }
+
+.signin .results > p {
+    color: var(--accent-ink);
+    background: rgba(255, 255, 255, 0.94);
+    border-color: var(--accent-ink);
+    border-radius: var(--radius-sm);
+}
+
+.signin .results > p.results__error {
+    background: rgba(255, 255, 255, 0.94);
+    border-left-color: var(--danger);
+}
+
+/* The status line also carries the link on to the home page once the sign-in has gone
+   through. On the white surface the line borrows, the deeper accent tint is what reads
+   as a link — the accent itself would disappear into it. */
+.signin .results > p a {
+    color: var(--accent-deep);
+    font-weight: 700;
+    text-decoration-thickness: 1.5px;
+    text-underline-offset: 3px;
+}
+
+.signin .results:empty::before { display: none; }
+
+/* A label nobody sees: the sign-in card names its boxes the way the sketch does, with
+   the word inside the box, so the real <label> is clipped to a point and left to the
+   screen reader instead of being read twice on the page. */
+.sr-only {
+    position: absolute;
+    width: 1px;
+    height: 1px;
+    margin: -1px;
+    padding: 0;
+    overflow: hidden;
+    clip-path: inset(50%);
+    white-space: nowrap;
+    border: 0;
 }
 
 /* non-interactive aside (home page easter egg) */
@@ -737,10 +881,13 @@ code {
         transition-duration: 0.01ms !important;
         animation-duration: 0.01ms !important;
     }
-    .btn--primary:hover { transform: none; }
+    .btn--primary:hover,
+    .btn--ink:hover { transform: none; }
 }
 
 @media (max-width: 30rem) {
     .form__actions .btn { flex: 1 1 100%; }
     .chip { width: 100%; justify-content: center; }
+    /* one door above the other, rather than two squeezed side by side */
+    .signin__actions { grid-template-columns: 1fr; }
 }
