@@ -1883,3 +1883,4 @@ otherForm?.addEventListener('submit', function (event) {
 // The page starts itself: ask the backend for admin powers, then say on the status line
 // what it answered.
 openOtherPage();
+
