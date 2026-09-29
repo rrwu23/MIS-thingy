@@ -47,6 +47,13 @@
                     <button type="reset" class="btn btn--ghost">Clear</button>
                 </div>
             </form>
+
+            <!-- The signup is sent to POST /add-admin by app.js, which posts admin_name
+                 and password once the two password fields above agree. Its answer lands
+                 here: the admin's name on the way out, or the reason nothing was created
+                 — a backend refusal, or no admin being signed in at all. -->
+            <div id="addadminresults" class="results" role="status" aria-live="polite"
+                 data-empty="No admin created yet — fill in both password fields and submit."></div>
         </main>
     </div>
 </body>

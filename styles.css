@@ -1,9 +1,9 @@
 /* ==========================================================================
    App1 — shared stylesheet
-   Theme: light mint canvas, #21ffda signature accent, white glass cards.
+   Theme: light green canvas, #21ff64 signature green accent, white glass cards.
    The accent is used as-is for filled surfaces (buttons, the brand dot, card
    hairlines, focus glows). Its deeper tints (--accent-deep, --gradient-ink)
-   carry thin text and 1px outlines, because plain #21ffda on a light canvas
+   carry thin text and 1px outlines, because plain #21ff64 on a light canvas
    would not be readable.
    Typeface: Comfortaa for the whole UI, pulled from Google Fonts by the <head>
    of every page (Comfortaa ships with no operating system, so the webfont is
@@ -14,37 +14,37 @@
 
 :root {
     /* accent — the one brand colour */
-    --accent:      #21ffda;
-    --accent-deep: #067d6c;   /* darker tint of the accent, for text/outlines */
-    --accent-ink:  #04302b;   /* text that sits on top of the accent */
+    --accent:      #21ff64;
+    --accent-deep: #067d32;   /* darker tint of the accent, for text/outlines */
+    --accent-ink:  #043014;   /* text that sits on top of the accent */
 
     /* canvas */
-    --bg:         #f2fffc;
-    --glow-1:     rgba(33, 255, 218, 0.50);
-    --glow-2:     rgba(33, 255, 218, 0.34);
-    --glow-3:     rgba(33, 255, 218, 0.24);
+    --bg:         #f2fff5;
+    --glow-1:     rgba(33, 255, 100, 0.50);
+    --glow-2:     rgba(33, 255, 100, 0.34);
+    --glow-3:     rgba(33, 255, 100, 0.24);
 
     /* surfaces */
     --surface:    rgba(255, 255, 255, 0.88);
-    --surface-2:  rgba(240, 255, 251, 0.92);
+    --surface-2:  rgba(240, 255, 244, 0.92);
     --surface-3:  #ffffff;
-    --border:     rgba(6, 131, 113, 0.34);
-    --border-hi:  rgba(6, 131, 113, 0.80);
+    --border:     rgba(6, 131, 52, 0.34);
+    --border-hi:  rgba(6, 131, 52, 0.80);
     --danger:     #cf3352;
 
     /* text */
-    --text:       #052e2a;
-    --text-dim:   #2f5c57;
-    --text-faint: #4f7873;
+    --text:       #052e13;
+    --text-dim:   #2f5c3e;
+    --text-faint: #4f785d;
 
     /* effects */
-    --gradient:     linear-gradient(135deg, var(--accent) 0%, #1af0d0 52%, #0ec7ab 100%);
-    --gradient-ink: linear-gradient(135deg, #089a83 0%, #067d6c 52%, #055b4d 100%);
+    --gradient:     linear-gradient(135deg, var(--accent) 0%, #1af061 52%, #0ec75e 100%);
+    --gradient-ink: linear-gradient(135deg, #089a47 0%, #067d32 52%, #055b30 100%);
     --radius:       18px;
     --radius-sm:    11px;
-    --shadow:       0 18px 44px rgba(5, 76, 68, 0.14);
-    --shadow-btn:   0 10px 24px rgba(6, 179, 154, 0.30);
-    --ring:         0 0 0 4px rgba(33, 255, 218, 0.45);
+    --shadow:       0 18px 44px rgba(5, 76, 29, 0.14);
+    --shadow-btn:   0 10px 24px rgba(6, 179, 69, 0.30);
+    --ring:         0 0 0 4px rgba(33, 255, 100, 0.45);
 
     --font: "Comfortaa", system-ui, -apple-system, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
     /* the code face is Comfortaa too — <code> keeps its accent tint and rounded
@@ -101,7 +101,7 @@ body {
     overflow: hidden;
 }
 
-/* cyan -> green hairline along the top edge of every card */
+/* green -> deeper green hairline along the top edge of every card */
 .card::before {
     content: "";
     position: absolute;
@@ -137,7 +137,7 @@ body {
     height: 0.7rem;
     border-radius: 50%;
     background-image: var(--gradient);
-    box-shadow: 0 0 14px rgba(33, 255, 218, 0.95);
+    box-shadow: 0 0 14px rgba(33, 255, 100, 0.95);
 }
 
 .tag {
@@ -156,28 +156,10 @@ body {
 a.tag:hover {
     color: var(--text);
     border-color: var(--border-hi);
-    background: rgba(33, 255, 218, 0.22);
+    background: rgba(33, 255, 100, 0.22);
 }
 
-/* ------------------------------------------------------------- headings ---- */
-.hero__title {
-    margin: 0.5rem 0 0.15rem;
-    font-size: clamp(2.75rem, 9vw, 4.25rem);
-    font-weight: 800;
-    line-height: 1.05;
-    letter-spacing: -0.02em;
-    background-image: var(--gradient-ink);
-    -webkit-background-clip: text;
-    background-clip: text;
-    color: transparent;
-}
-
-.hero__subtitle {
-    margin: 0 0 1.75rem;
-    font-size: clamp(1.05rem, 3vw, 1.3rem);
-    color: var(--text-dim);
-}
-
+/* ---------------------------------------------------------- card headings ---- */
 .card__title {
     margin: 0 0 0.35rem;
     font-size: clamp(1.6rem, 4.5vw, 2.05rem);
@@ -225,7 +207,7 @@ a.tag:hover {
 
 .btn--primary:hover {
     transform: translateY(-2px);
-    box-shadow: 0 14px 30px rgba(6, 179, 154, 0.38);
+    box-shadow: 0 14px 30px rgba(6, 179, 69, 0.38);
 }
 
 .btn--primary:active { transform: translateY(0); }
@@ -239,7 +221,7 @@ a.tag:hover {
 .btn--ghost:hover {
     color: var(--text);
     border-color: var(--border-hi);
-    background: rgba(33, 255, 218, 0.18);
+    background: rgba(33, 255, 100, 0.18);
 }
 
 /* The dark filled button: the landing page's two doors. That card is filled with the
@@ -247,17 +229,17 @@ a.tag:hover {
    the accent ink instead — the darkest tint of the same green — and lightens to the
    accent deep on hover, like every other button here. */
 .btn--ink {
-    color: #f2fffc;
+    color: #f2fff5;
     background: var(--accent-ink);
     border-color: var(--accent-ink);
-    box-shadow: 0 10px 22px rgba(4, 48, 43, 0.26);
+    box-shadow: 0 10px 22px rgba(4, 48, 20, 0.26);
 }
 
 .btn--ink:hover {
     background: var(--accent-deep);
     border-color: var(--accent-deep);
     transform: translateY(-2px);
-    box-shadow: 0 14px 28px rgba(4, 48, 43, 0.32);
+    box-shadow: 0 14px 28px rgba(4, 48, 20, 0.32);
 }
 
 .btn--ink:active { transform: translateY(0); }
@@ -311,7 +293,7 @@ a.tag:hover {
     border: 1.5px solid var(--accent-ink);
     border-radius: 8px;
     appearance: none;
-    background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 16 16'%3E%3Cpath d='M2.5 5.5h11L8 12z' fill='none' stroke='%2304302b' stroke-width='1.5' stroke-linejoin='round'/%3E%3C/svg%3E");
+    background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 16 16'%3E%3Cpath d='M2.5 5.5h11L8 12z' fill='none' stroke='%23043014' stroke-width='1.5' stroke-linejoin='round'/%3E%3C/svg%3E");
     background-repeat: no-repeat;
     background-position: right 1rem center;
     background-size: 0.8rem;
@@ -329,6 +311,145 @@ a.tag:hover {
 .panel select:focus-visible {
     outline: 2px solid var(--accent-ink);
     outline-offset: 3px;
+}
+
+/* --------------------------------------------------------- home page hub ---- */
+/* home.html, the page behind the front door: one card filled with the accent, like
+   the sign-in card below it. The bank's name sits at its top-left, the greeting and
+   the question under it, the four doors in two columns, and Sign out on its own at
+   the foot — the sketch, door for door. Because the card is the accent itself,
+   everything standing on it is drawn in the accent ink, and each door is a pale box
+   with a dark outline, the treatment .panel select gets.
+   The card is a column rather than a grid, which is what lets Sign out be pushed to
+   the foot with margin-top: auto without the doors stretching to fill the height. */
+.hub {
+    display: flex;
+    flex-direction: column;
+    gap: clamp(1.1rem, 3.2vw, 1.75rem);
+    min-height: clamp(26rem, 74vh, 38rem);
+    padding: clamp(1.6rem, 5vw, 2.75rem);
+    background: var(--accent);
+    border: 1.5px solid var(--accent-deep);
+    border-radius: 34px;
+    box-shadow: var(--shadow);
+}
+
+.hub__brand {
+    margin: 0;
+    font-size: clamp(1.05rem, 3.2vw, 1.3rem);
+    font-weight: 700;
+    letter-spacing: 0.02em;
+    color: var(--accent-ink);
+}
+
+/* the greeting and the question under it read as one block */
+.hub__hello { display: grid; gap: 0.2rem; }
+
+.hub__greeting,
+.hub__question {
+    margin: 0;
+    color: var(--accent-ink);
+}
+
+.hub__greeting { font-size: clamp(1.15rem, 3.6vw, 1.45rem); font-weight: 600; }
+
+.hub__question { font-size: clamp(1rem, 3vw, 1.15rem); }
+
+/* the four doors, two by two as the sketch draws them */
+.hub__actions {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: clamp(0.85rem, 3vw, 1.6rem);
+    margin-top: clamp(0.5rem, 2vw, 1rem);
+}
+
+/* A door: the pale box the panels use, standing on the accent with a dark outline
+   and the accent ink for its word. */
+.btn--door {
+    padding: clamp(1.05rem, 3.2vw, 1.45rem) 1.1rem;
+    color: var(--accent-ink);
+    background: rgba(255, 255, 255, 0.94);
+    border-width: 1.5px;
+    border-color: var(--accent-ink);
+    border-radius: 10px;
+    text-align: center;
+    box-shadow: 0 10px 22px rgba(4, 48, 20, 0.20);
+}
+
+.btn--door:hover {
+    background: #ffffff;
+    border-color: var(--accent-deep);
+    transform: translateY(-2px);
+    box-shadow: 0 14px 28px rgba(4, 48, 20, 0.26);
+}
+
+.btn--door:active { transform: translateY(0); }
+
+/* the ring the .btn rule draws is the deeper green, which would wash out against the
+   accent card — on the doors it is the accent ink, like their outline */
+.btn--door:focus-visible {
+    outline: 2px solid var(--accent-ink);
+    outline-offset: 3px;
+}
+
+/* The foot of the card: the rest of the bank's pages kept quiet on the left, and Sign
+   out on a row of its own, pushed to the right as the sketch draws it. A column rather
+   than one wrapped row, so the two can never end up sharing a line by accident. */
+.hub__foot {
+    display: flex;
+    flex-direction: column;
+    gap: 0.9rem;
+    margin-top: auto;
+}
+
+.hub__foot .btn { align-self: flex-end; }
+
+/* the rest of the bank's pages, quieter than the four doors */
+.hub__more {
+    display: flex;
+    align-items: center;
+    flex-wrap: wrap;
+    gap: 0.55rem;
+}
+
+.hub__more .tag {
+    color: var(--accent-ink);
+    border-color: var(--accent-ink);
+    background: rgba(255, 255, 255, 0.5);
+}
+
+.hub__more .tag:hover {
+    color: var(--accent-ink);
+    border-color: var(--accent-ink);
+    background: #ffffff;
+}
+
+/* The hub's status line, on the accent card: it borrows the white surface the doors
+   borrow so that it stays readable there, and an empty one takes no room at all —
+   the page as it opens is the sketch and nothing else. */
+.hub .results { margin-top: 0; }
+
+.hub .results:empty { display: none; }
+
+.hub .results > p {
+    color: var(--accent-ink);
+    background: rgba(255, 255, 255, 0.94);
+    border-color: var(--accent-ink);
+    border-radius: var(--radius-sm);
+}
+
+.hub .results > p.results__error {
+    background: rgba(255, 255, 255, 0.94);
+    border-left-color: var(--danger);
+}
+
+/* on the white surface the line borrows, the deeper accent tint is what reads as a
+   link — the accent itself would disappear into it */
+.hub .results > p a {
+    color: var(--accent-deep);
+    font-weight: 700;
+    text-decoration-thickness: 1.5px;
+    text-underline-offset: 3px;
 }
 
 /* -------------------------------------------------- landing sign-in card ---- */
@@ -388,7 +509,7 @@ a.tag:hover {
 
 .signin__field input:hover { background: #ffffff; }
 
-/* The focus glow the form pages use is mint, which would wash out against the accent
+/* The focus glow the form pages use is green, which would wash out against the accent
    card. On this card the ring is white, and a ring all the same. */
 .signin__field input:focus {
     outline: none;
@@ -588,7 +709,7 @@ a.tag:hover {
 }
 
 .combo__option--active,
-.combo__option:hover { background: rgba(33, 255, 218, 0.26); }
+.combo__option:hover { background: rgba(33, 255, 100, 0.26); }
 
 /* the letters the typed text lined up with */
 .combo__option mark {
@@ -637,7 +758,7 @@ a.tag:hover {
     margin: 0;
     padding: 0.8rem 1rem;
     font-size: 0.96rem;
-    background: linear-gradient(90deg, rgba(33, 255, 218, 0.30), rgba(33, 255, 218, 0.06));
+    background: linear-gradient(90deg, rgba(33, 255, 100, 0.30), rgba(33, 255, 100, 0.06));
     border: 1px solid var(--border);
     border-left: 3px solid var(--accent-deep);
     border-radius: 0 var(--radius-sm) var(--radius-sm) 0;
@@ -688,7 +809,7 @@ a.tag:hover {
     align-items: center;
     justify-content: center;
     padding: clamp(1rem, 4vw, 2.5rem);
-    background: rgba(5, 46, 42, 0.42);
+    background: rgba(5, 46, 19, 0.42);
     backdrop-filter: blur(4px);
     -webkit-backdrop-filter: blur(4px);
 }
@@ -731,9 +852,10 @@ a.tag:hover {
 .confirm__actions .btn { flex: 1 1 6rem; }
 
 /* -------------------------------------------------------------- chart ---- */
-/* index.html's "View students" button: one bar per student of the signed-in
-   admin — the bar is the balance, the name sits under it, and the axis carries
-   no numbers. The frame stacks the plot and the row of names below it. */
+/* home.html's "View students" door: one bar per student of the signed-in admin —
+   the bar is the balance, the name sits under it, and the axis carries no numbers.
+   The frame stacks the plot and the row of names below it, and the section stays
+   hidden until the door opens it (app.js toggles that). */
 .chart {
     --chart-height: 18rem;
     --chart-gap: 0.6rem;
@@ -742,6 +864,17 @@ a.tag:hover {
     margin-top: 1.9rem;
     padding-top: 1.5rem;
     border-top: 1px solid var(--border);
+}
+
+/* On the home page the chart stands on the accent card, so it borrows the white
+   surface the doors borrow: the bars, the gridlines, the names and the stamp keep the
+   light pages' colours and stay readable up there. */
+.hub .chart {
+    margin-top: 0;
+    padding: 1.15rem clamp(0.9rem, 3vw, 1.4rem);
+    background: rgba(255, 255, 255, 0.94);
+    border: 1.5px solid var(--accent-ink);
+    border-radius: var(--radius);
 }
 
 .chart__title {
@@ -806,7 +939,7 @@ a.tag:hover {
     min-height: 3px;
     border-radius: var(--radius-sm) var(--radius-sm) 0 0;
     background-image: var(--gradient);
-    box-shadow: 0 6px 18px rgba(6, 179, 154, 0.28);
+    box-shadow: 0 6px 18px rgba(6, 179, 69, 0.28);
 }
 
 /* a balance below zero hangs under the zero line */
@@ -868,7 +1001,7 @@ code {
     font-family: var(--mono);
     font-size: 0.9em;
     color: var(--accent-deep);
-    background: rgba(33, 255, 218, 0.13);
+    background: rgba(33, 255, 100, 0.13);
     border: 1px solid var(--border);
     border-radius: 6px;
 }
@@ -882,7 +1015,8 @@ code {
         animation-duration: 0.01ms !important;
     }
     .btn--primary:hover,
-    .btn--ink:hover { transform: none; }
+    .btn--ink:hover,
+    .btn--door:hover { transform: none; }
 }
 
 @media (max-width: 30rem) {
@@ -890,4 +1024,7 @@ code {
     .chip { width: 100%; justify-content: center; }
     /* one door above the other, rather than two squeezed side by side */
     .signin__actions { grid-template-columns: 1fr; }
+    /* the same once the doors and the quiet row run out of width */
+    .hub__actions { grid-template-columns: 1fr; }
+    .hub__foot .btn { align-self: stretch; }
 }

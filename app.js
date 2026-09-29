@@ -262,8 +262,8 @@ function accountFieldValue(value) {
 }
 
 // Replace the previous results with a single message — the same one-paragraph shape
-// showLoginMessage, showCurrentAdminMessage and showReasonMessage write into their
-// own blocks, so an error is the red variant of the same card.
+// showLoginMessage, showHomeMessage and showReasonMessage write into their own blocks,
+// so an error is the red variant of the same card.
 function showAccountMessage(results, text, isError) {
     if (!results) return;
 
@@ -277,27 +277,52 @@ function showAccountMessage(results, text, isError) {
     results.replaceChildren(paragraph);
 }
 
+// Add admin page ----------------------------------------------------------------
+// add_admin.html's form creates another admin login — the admin signup. POST /add-admin
+// is live and asks for exactly the two fields this form has, admin_name and password
+// (checked against https://api.rongrongwu.com/openapi.json), so the request below
+// carries those two and nothing else: retype_password is this page's own safety check
+// and is dropped from the body. The route answers 401 {"detail": "Not logged in"} until
+// an admin has signed in, because the session lives in the backend's cookie and not in
+// the page — which is why the request sends credentials: "include", and why a refused
+// signup is said out loud under the form instead of only being logged.
+const ADD_ADMIN_URL = 'https://api.rongrongwu.com/add-admin';
+
 const adminForm = document.getElementById('addadminform');
 
 adminForm?.addEventListener('submit', async function (event) {
     event.preventDefault();
 
-    // Validate that the two password fields match before sending anything
-    const password = adminForm.elements.namedItem('password').value;
-    const retypePassword = adminForm.elements.namedItem('retype_password').value;
+    const results = document.getElementById('addadminresults');
+
+    // Validate that the two password fields match before sending anything. The line
+    // under the form says the same thing as the alert, so the reason survives after the
+    // alert is dismissed.
+    const password = adminForm.elements.namedItem('password')?.value;
+    const retypePassword = adminForm.elements.namedItem('retype_password')?.value;
 
     if (password !== retypePassword) {
+        showAccountMessage(results, 'Error: the two passwords do not match — no admin was created.', true);
         alert('Error: Passwords do not match.');
         return;
     }
 
     const formData = new FormData(adminForm);
+    const adminName = formData.get('admin_name');
 
     // retype_password is only used for validation, the server only needs password
     formData.delete('retype_password');
 
+    const submitButton = adminForm.querySelector('button[type="submit"]');
+
+    // One signup at a time: the submit button goes grey and unclickable for the round
+    // trip, the way the landing card's sign-in does, so a second press cannot post the
+    // same admin twice.
+    submitButton?.setAttribute('aria-disabled', 'true');
+    showAccountMessage(results, `Asking the backend to create ${adminName}…`, false);
+
     try {
-        const response = await fetch('https://api.rongrongwu.com/add-admin', {
+        const response = await fetch(ADD_ADMIN_URL, {
             method: 'POST',
             credentials: "include", // Send the admin session cookie, else 401 "Not logged in"
             body: formData
@@ -306,12 +331,37 @@ adminForm?.addEventListener('submit', async function (event) {
         if (response.ok) {
             const result = await response.json();
             console.log('Success:', result);
+
+            // The admin exists now, and login_admin.html is where that login is used, so
+            // the sentence is read and then the home page takes over — the same finish
+            // the add account page gives a flow that has just succeeded.
+            showAccountMessage(results, `Admin ${adminName} created — taking you to the home page…`, false);
             alert('Form submitted successfully!');
+
+            // Deliberately not re-enabled on this path: the admin exists now, so a second
+            // press while the home page is on its way must not post the same one again.
+            redirectHomeAfter(REDIRECT_DELAY_MS);
         } else {
-            console.error('Validation error:', await response.json());
+            const error = await response.json();
+
+            // The one refusal this page causes on its own: no admin is signed in, so
+            // there is nobody allowed to make another admin. Said in words on the page,
+            // with the same wording the add account page uses, rather than left in the
+            // console where the admin who just pressed Submit cannot see it.
+            if (error.detail === 'Not logged in') {
+                showAccountMessage(results, 'Log into an admin account before adding an admin.', true);
+                alert('log into admin account before adding admin');
+            } else {
+                showAccountMessage(results, `The backend said no: ${describeError(error)}`, true);
+            }
+
+            console.error('Validation error:', error);
+            submitButton?.removeAttribute('aria-disabled');   // nothing was made: let them try again
         }
     } catch (error) {
+        showAccountMessage(results, 'The backend could not be reached — nothing was created.', true);
         console.error('Network Error:', error);
+        submitButton?.removeAttribute('aria-disabled');
     }
 });
 
@@ -426,7 +476,7 @@ signInForm?.addEventListener('submit', async function (event) {
 
     // One sign-in at a time: the submit button goes grey and unclickable for the round
     // trip, using the .btn[aria-disabled="true"] state styles.css already styles — the
-    // same as the "Get current admin" button does.
+    // same as the add-admin form and the sign-out door do.
     const submitButton = signInForm.querySelector('button[type="submit"]');
     submitButton?.setAttribute('aria-disabled', 'true');
     showLoginMessage(results, 'Asking the backend to sign this admin in…', false);
@@ -483,28 +533,39 @@ function homePageLink() {
 }
 
 // Home page ------------------------------------------------------------------
-// home.html's "Get current admin" button answers one question: which admin is
-// this browser signed in as? GET /current-admin is the live route for it (listed
-// in https://api.rongrongwu.com/openapi.json), it takes the session cookie, and
-// without one it answers 401 {"detail": "Not logged in"} — checked live with
-// curl, exactly like the other protected routes. So the request sends
-// credentials: "include", the same as the login and add-admin forms above.
+// home.html is the card behind the front door: a greeting that names the admin this
+// browser is signed in as, the four doors the sketch draws, and Sign out. Almost
+// everything on it starts from the same live route, GET /current-admin (listed in
+// https://api.rongrongwu.com/openapi.json): it takes the session cookie and answers
+// 401 {"detail": "Not logged in"} without one — checked live with curl, exactly like
+// the other protected routes. So the requests send credentials: "include", the same
+// as the login and add-admin forms above.
 const CURRENT_ADMIN_URL = 'https://api.rongrongwu.com/current-admin';
+
+// The front door, index.html — the sign-in card. That is where the browser belongs
+// once the session has been given up, or once it turns out there is none; HOME_URL
+// above is the same road the other way round.
+const SIGN_IN_URL = '/index.html';
+
+// The status line under the doors, where the hub says everything it has to say: a
+// greeting that could name nobody, Remove student with no route behind it, a Sign out
+// that did not go through.
+const homeStatus = document.getElementById('homestatus');
 
 // Fields the reply may carry the admin name in, most likely first — the route is
 // untyped, openapi.json only promises an object whose values are strings.
 const ADMIN_NAME_KEYS = ['admin_name', 'name', 'admin', 'username'];
 
-const currentAdminButton = document.getElementById('getcurrentadmin');
+// The greeting the card opens on, "Hi <admin name>". The name comes from the same
+// route the chart below starts from, and it is asked once as the page opens — the dots
+// in the page stand in until that answer arrives. A read that names nobody, a session
+// the backend refuses and a backend that cannot be reached are all said on the status
+// line under the doors, because a greeting stuck on dots would be the only thing the
+// admin saw.
+const homeAdminName = document.getElementById('homeadminname');
 
-currentAdminButton?.addEventListener('click', async function () {
-    const results = document.getElementById('currentadminresults');
-
-    // A second click while the backend is being asked would only repeat the same
-    // question, so the button goes grey and unclickable for the round trip, using
-    // the .btn[aria-disabled="true"] state styles.css already styles.
-    currentAdminButton.setAttribute('aria-disabled', 'true');
-    showCurrentAdminMessage(results, 'Asking the backend which admin is signed in…', false);
+async function refreshHomeGreeting() {
+    if (!homeAdminName) return; // every other page loads app.js for its own form
 
     try {
         const response = await fetch(CURRENT_ADMIN_URL, {
@@ -513,31 +574,55 @@ currentAdminButton?.addEventListener('click', async function () {
         });
 
         // FastAPI replies with JSON for both success and error bodies
-        const result = await response.json();
+        const result = await response.json().catch(() => null);
 
         if (response.ok) {
-            console.log('Current admin:', result);
-            showCurrentAdminMessage(results, describeCurrentAdmin(result), false);
-        } else {
-            console.error('Current admin error:', result);
-            showCurrentAdminMessage(
-                results,
-                `No admin session (${response.status}): ${describeError(result)} — log in on the admin login page first.`,
-                true
-            );
+            const admin = currentAdminNameIn(result);
+
+            if (admin) {
+                homeAdminName.textContent = admin;
+                return;
+            }
+
+            // The session was accepted, but the reply carries no name to greet: the
+            // reply itself is what the status line describes.
+            console.error('Home greeting: the backend named no admin.', response.status, result);
+            showHomeMessage(homeStatus, describeCurrentAdmin(result), true);
+            return;
         }
+
+        console.error('Home greeting error:', result);
+        showHomeMessage(
+            homeStatus,
+            `No admin session (${response.status}): ${describeError(result)} — sign in on the front door and this greeting names the admin by itself.`,
+            true
+        );
+        homeStatus?.querySelector('p')?.append(' ', signInPageLink());
     } catch (error) {
         console.error('Network Error:', error);
-        showCurrentAdminMessage(results, 'Network error — the current-admin API could not be reached.', true);
-    } finally {
-        currentAdminButton.removeAttribute('aria-disabled');
+        showHomeMessage(homeStatus, 'Network error — the current-admin API could not be reached, so the greeting cannot name anybody yet.', true);
     }
-});
+}
 
-// Replace the previous status line under the home page buttons with a single
-// message — the same one-paragraph shape showLoginMessage and showReasonMessage
-// write into their own blocks.
-function showCurrentAdminMessage(results, text, isError) {
+// The greeting is the home page's own read, so the home page starts it; every other
+// page loads app.js for its own form and starts nothing.
+if (homeAdminName) {
+    refreshHomeGreeting();
+}
+
+// The way back to the front door, for the hub's status line — the mirror of
+// homePageLink() above, which carries the way on the other way.
+function signInPageLink() {
+    const link = document.createElement('a');
+    link.href = SIGN_IN_URL;
+    link.textContent = 'Go to the sign-in card \u2192';
+    return link;
+}
+
+// Replace the previous status line under the doors with a single message — the same
+// one-paragraph shape showLoginMessage and showAccountMessage write into their own
+// blocks.
+function showHomeMessage(results, text, isError) {
     if (!results) return;
 
     const paragraph = document.createElement('p');
@@ -592,8 +677,9 @@ function describeCurrentAdmin(payload) {
 }
 
 // home.html's student balances chart draws one bar per student of the admin behind
-// the session cookie: balance up the y axis, the name under it. Nothing drives it —
-// it reads itself as the page opens and keeps itself up to date. Three live routes
+// the session cookie: balance up the y axis, the name under it. It is the section
+// behind the home page's "View students" door — hidden until that door is pressed, and
+// read again whenever the tab comes back to the front. Three live routes
 // stand behind a chart, all of them taking the session cookie:
 //   GET /current-admin                -> which admin this browser is signed in as;
 //                                        401 {"detail": "Not logged in"} with no
@@ -624,6 +710,10 @@ const STUDENT_SUPERVISOR_KEYS = ['supervisor', 'owner', 'manager'];
 // timer and whenever the tab comes back to the front, so a balance changed in another
 // tab or on another device turns up here on its own.
 const CHART_REFRESH_MS = 30000;
+
+// The section the "View students" door opens and closes — app.js is what shows it, so
+// the balances below are read only once somebody asks to see them.
+const studentChart = document.getElementById('studentchart');
 
 const studentChartStatus = document.getElementById('studentchartstatus');
 const studentChartFrame = document.getElementById('studentchartframe');
@@ -754,25 +844,105 @@ function clearStudentChart() {
     studentChartNames?.replaceChildren();
 }
 
-// The page starts itself: read the chart as it opens, then keep reading it — on the
-// timer, and straight away whenever the tab comes back to the front, because a chart
-// nobody is looking at has no reason to be up to date. Pages without a chart (every
-// other page loads app.js for its own form) start nothing at all.
-if (studentChartPlot) {
-    refreshStudentChart();
+// The chart is the home page's "View students" door: the section is part of home.html
+// but stays hidden until it is asked for, so the hub reads no balance nobody asked to
+// see. Pressing the door again puts the chart away; pressing it once more opens a fresh
+// look, which is why the wait is narrated again and the balances are read from scratch
+// rather than left as the read before had them.
+const viewStudentsButton = document.getElementById('viewstudents');
 
+viewStudentsButton?.addEventListener('click', function () {
+    if (!studentChart) return;
+
+    const opening = studentChart.hidden;
+
+    studentChart.hidden = !opening;
+    viewStudentsButton.setAttribute('aria-expanded', String(opening));
+
+    if (opening) {
+        chartReadStarted = false;
+        refreshStudentChart();
+    }
+});
+
+// While the chart is open it reads again whenever the tab comes back to the front, so a
+// balance changed in another tab or on another device turns up here on its own. A closed
+// chart, and every other page (which loads app.js for its own form), start nothing.
+if (studentChart) {
     // setInterval(function () {
-    //     if (!document.hidden) {
+    //     if (!document.hidden && !studentChart.hidden) {
     //         refreshStudentChart();
     //     }
     // }, CHART_REFRESH_MS); //NOT refreshing every 30 sec
 
     document.addEventListener('visibilitychange', function () {
-        if (!document.hidden) {
+        if (!document.hidden && !studentChart.hidden) {
             refreshStudentChart();
         }
     });
 }
+
+// The home page's other two doors ------------------------------------------------
+// "Remove student" has nothing behind it: https://api.rongrongwu.com/openapi.json
+// lists two student routes and neither of them takes a student away — POST /adduser
+// makes one and GET /getuser lists them, and there is no delete route at all. So the
+// door says that rather than looking broken, the way index.html's student door does.
+const removeStudentButton = document.getElementById('removestudent');
+
+removeStudentButton?.addEventListener('click', function () {
+    showHomeMessage(
+        homeStatus,
+        'Removing a student has no route on the backend yet — nothing was removed. The students of the admin who is signed in are behind “View students”.',
+        false
+    );
+});
+
+// Sign out: POST /logout is the live route for it (listed in
+// https://api.rongrongwu.com/openapi.json). Checked live with curl: it answers 200
+// {"message": "Admin logged out"} and a set-cookie that empties session_id with
+// Max-Age=0, so the session every other page leans on is gone by the time the answer
+// arrives — which is why the browser is handed back to the front door, where the
+// sign-in card is, once the sentence has been read.
+const LOGOUT_URL = 'https://api.rongrongwu.com/logout';
+
+const signOutButton = document.getElementById('signout');
+
+signOutButton?.addEventListener('click', async function () {
+    // One sign-out at a time: the button goes grey and unclickable for the round trip,
+    // the same as the forms on the other pages do.
+    signOutButton.setAttribute('aria-disabled', 'true');
+    showHomeMessage(homeStatus, 'Signing this admin out…', false);
+
+    try {
+        const response = await fetch(LOGOUT_URL, {
+            method: 'POST',
+            credentials: 'include' // carry the session cookie out with it
+        });
+
+        // FastAPI replies with JSON for both success and error bodies
+        const result = await response.json().catch(() => null);
+
+        if (response.ok) {
+            console.log('Logged out:', result);
+            showHomeMessage(homeStatus, 'Signed out — taking you back to the sign-in card…', false);
+
+            // Deliberately not re-enabled on this path: the session is gone, so a second
+            // press while the front door is on its way would only sign out nobody.
+            window.setTimeout(function () {
+                window.location.href = SIGN_IN_URL;
+            }, REDIRECT_DELAY_MS);
+            return;
+        }
+
+        console.error('Logout error:', result);
+        showHomeMessage(homeStatus, `Sign out failed (${response.status}): ${describeError(result)} — the session is still open.`, true);
+        signOutButton.removeAttribute('aria-disabled');   // nothing was given up: let them try again
+    } catch (error) {
+        console.error('Network Error:', error);
+        showHomeMessage(homeStatus, 'Network error — the sign-out API could not be reached, so this admin is still signed in.', true);
+        signOutButton.removeAttribute('aria-disabled');
+    }
+});
 
 // The admin name inside a GET /current-admin reply (an object of strings), or '' when
 // the reply names nobody. The chart needs the name itself, not the sentence

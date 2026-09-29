@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Bonura's Bank · Home</title>
+    <title>Bonura bank · Home</title>
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Comfortaa:wght@300..700&display=swap">
@@ -12,58 +12,51 @@
 </head>
 <body>
     <!-- index.html is the front door: the sign-in card, and nothing else. This is the
-         page behind it — what the bank can do once somebody is in — so it is where the
-         card's sign-in line points and where every finished flow comes back to. The
-         brand at its top-left is this page, so it is not a link; the tag beside it is
-         the way back out to the card. -->
+         page behind it — one card filled with the bank's green, the way the sketch
+         draws it: the bank's name, the greeting that names the admin who is signed in,
+         the four doors in two columns, and Sign out on its own at the foot. Every
+         finished flow in the app comes back here. -->
     <div class="page">
-        <main class="card">
-            <header class="bar">
-                <span class="brand">
-                    <span class="brand__dot" aria-hidden="true"></span>Bonura's Bank
-                </span>
-                <a class="tag" href="/index.html">&#8592; Sign in</a>
-            </header>
+        <main class="hub">
+            <h1 class="hub__brand">Bonura bank</h1>
 
-            <h1 class="hero__title">hi</h1>
-            <p class="hero__subtitle">do you want to&hellip;</p>
+            <!-- The greeting app.js fills in: "Hi <admin name>". GET /current-admin
+                 answers which admin holds this browser's session cookie, and the dots
+                 stand in until that answer arrives. A read that names nobody is
+                 explained on the status line under the doors, rather than left as a
+                 greeting stuck on dots. -->
+            <div class="hub__hello">
+                <p class="hub__greeting">Hi <span id="homeadminname">&hellip;</span></p>
+                <p class="hub__question">Would you like to:</p>
+            </div>
 
-            <nav class="actions" aria-label="Main actions">
-                <button type="button" class="btn btn--primary" onclick="window.location.href='/addaccount.html'">
-                    Add account
+            <!-- The four doors. Add transaction and Add student are pages of their own,
+                 so they are links; Remove student and View students are answered here by
+                 app.js. View students opens the balances section further down and the
+                 same door puts it away again. -->
+            <nav class="hub__actions" aria-label="What the bank can do">
+                <a class="btn btn--door" href="/transaction1.html">Add transaction</a>
+                <a class="btn btn--door" href="/addaccount.html">Add student</a>
+                <button type="button" id="removestudent" class="btn btn--door">
+                    Remove student
                 </button>
-                <button type="button" class="btn btn--primary" onclick="window.location.href='/getusers.html'">
-                    Query accounts
-                </button>
-                <button type="button" class="btn btn--primary" onclick="window.location.href='/add_admin.html'">
-                    Add admin
-                </button>
-                <button type="button" class="btn btn--primary" onclick="window.location.href='/login_admin.html'">
-                    Admin login
-                </button>
-                <button type="button" class="btn btn--primary" onclick="window.location.href='/transaction1.html'">
-                    Transaction
-                </button>
-                <button type="button" class="btn btn--primary" onclick="window.location.href='/job_rotation.html'">
-                    Rotate jobs
-                </button>
-                <button type="button" id="getcurrentadmin" class="btn btn--primary">
-                    Get current admin
+                <button type="button" id="viewstudents" class="btn btn--door"
+                        aria-expanded="false" aria-controls="studentchart">
+                    View students
                 </button>
             </nav>
 
-            <div id="currentadminresults" class="results" role="status" aria-live="polite"
-                 data-empty="No admin looked up yet &mdash; press &ldquo;Get current admin&rdquo; to ask the backend which admin this browser is signed in as."></div>
+            <!-- Everything the hub has to say: a greeting that could name nobody, Remove
+                 student with no route behind it, a Sign out that did not go through. -->
+            <p id="homestatus" class="results" role="status" aria-live="polite"></p>
 
-            <!-- The balances chart: app.js draws one bar per student of the admin
-                 this browser is signed in as — the bar is that student's balance and
-                 the name sits under it. It reads the backend as the page opens and
-                 keeps itself up to date, so there is no button for it. -->
-            <section id="studentchart" class="chart" aria-labelledby="studentcharttitle">
+            <!-- The students of the admin who is signed in — one bar per student, the bar
+                 being that student's balance and the name sitting under it. The section
+                 stays hidden until "View students" opens it, and app.js reads the
+                 balances then, so the hub reads nothing nobody asked to see. -->
+            <section id="studentchart" class="chart" aria-labelledby="studentcharttitle" hidden>
                 <h2 class="chart__title" id="studentcharttitle">Student balances</h2>
-                <p id="studentchartstatus" class="chart__status" role="status" aria-live="polite">
-                    Reading the balances of the students of the admin this browser is signed in as&hellip;
-                </p>
+                <p id="studentchartstatus" class="chart__status" role="status" aria-live="polite"></p>
 
                 <div id="studentchartframe" class="chart__frame" hidden>
                     <div id="studentchartplot" class="chart__plot"></div>
@@ -73,7 +66,18 @@
                 <p id="studentchartstamp" class="chart__stamp"></p>
             </section>
 
-            <p class="footnote">Static pages talking to <code>api.rongrongwu.com</code>.</p>
+            <!-- The rest of what the bank can do, kept quiet along the foot of the card
+                 so that the four doors the sketch draws stay the loud ones. -->
+            <div class="hub__foot">
+                <nav class="hub__more" aria-label="Everything else">
+                    <a class="tag" href="/getusers.html">Query accounts</a>
+                    <a class="tag" href="/job_rotation.html">Rotate jobs</a>
+                    <a class="tag" href="/add_admin.html">Add admin</a>
+                    <a class="tag" href="/login_admin.html">Admin login</a>
+                </nav>
+
+                <button type="button" id="signout" class="btn btn--door">Sign out</button>
+            </div>
         </main>
     </div>
 </body>
