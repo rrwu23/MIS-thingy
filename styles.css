@@ -10,6 +10,10 @@
    the only way to get it). The system stack behind it in --font is just the
    fallback shown while the webfont swaps in.
    Loaded by every page in the project.
+   Every page links this file as styles.css?v=N, and its own scripts the same way.
+   Bump N whenever the look or the behaviour changes: the host sends assets with
+   max-age=14400, so without a new URL a browser can go on painting a four-hour-old
+   copy — of this file or of app.js — while the HTML around it is already new.
    ========================================================================== */
 
 :root {
