@@ -679,9 +679,9 @@ function describeCurrentAdmin(payload) {
 }
 
 // students.html, the page behind the home page's "View students" door, lists one row
-// per student of the admin behind the session cookie: the student's name on the left,
-// the balance on their account on the right, and what those balances come to along the
-// foot of the table. Three live routes stand behind it, all of them taking the session
+// per student of the admin behind the session cookie: the student's name on the left and
+// the balance on their account on the right, and nothing below the last row — the table
+// is not added up. Three live routes stand behind it, all of them taking the session
 // cookie:
 //   GET /current-admin                -> which admin this browser is signed in as;
 //                                        401 {"detail": "Not logged in"} with no
@@ -706,7 +706,6 @@ const STUDENT_SUPERVISOR_KEYS = ['supervisor', 'owner', 'manager'];
 // only ever starts where there is a table to put an answer in.
 const rosterFrame = document.getElementById('rosterframe');
 const rosterRows = document.getElementById('rosterrows');
-const rosterTotal = document.getElementById('rostertotal');
 const rosterStatus = document.getElementById('rosterstatus');
 const rosterStamp = document.getElementById('rosterstamp');
 const rosterRefreshButton = document.getElementById('rosterrefresh');
@@ -754,8 +753,8 @@ async function refreshRoster() {
 
         // One request per student, all at once. A balance that cannot be read takes
         // that student's row off the table rather than being written as a zero, and the
-        // status line says how many fell out. The total along the foot is the sum of
-        // the rows that are standing, so it never counts a figure nobody read.
+        // status line says how many fell out, so the table never shows a figure nobody
+        // read.
         const rows = await Promise.all(students.map(async (name) => ({
             name,
             balance: await studentBalance(name).catch((error) => {
@@ -776,9 +775,9 @@ async function refreshRoster() {
         const missing = rows.length - drawn.length;
         showRosterMessage(
             rosterStatus,
-            `${drawn.length} student${drawn.length === 1 ? '' : 's'} of the admin “${admin}”, alphabetically — the balance on each account, and what the column comes to along the foot.`
+            `${drawn.length} student${drawn.length === 1 ? '' : 's'} of the admin “${admin}”, alphabetically — the balance on each account.`
             + (missing
-                ? ` ${missing} balance${missing === 1 ? '' : 's'} could not be read, so ${missing === 1 ? 'that student is' : 'those students are'} not in the table and not in the total.`
+                ? ` ${missing} balance${missing === 1 ? '' : 's'} could not be read, so ${missing === 1 ? 'that student is' : 'those students are'} not in the table.`
                 : ''),
             false
         );
@@ -794,15 +793,12 @@ async function refreshRoster() {
 }
 
 // Fills the table: one row per student, the name in the left column and the balance in
-// the right, then the foot of the table with what those balances come to. Every cell is
-// built as a node rather than with innerHTML, because the names come from the backend.
+// the right. Every cell is built as a node rather than with innerHTML, because the names
+// come from the backend.
 function drawRosterTable(rows) {
     const body = document.createDocumentFragment();
-    let total = 0;
 
     for (const row of rows) {
-        total += row.balance;
-
         const line = document.createElement('tr');
         line.className = 'roster__row';
 
@@ -824,30 +820,21 @@ function drawRosterTable(rows) {
 
     rosterRows.replaceChildren(body);
 
-    if (rosterTotal) {
-        rosterTotal.textContent = String(total);
-    }
-
     if (rosterFrame) {
         rosterFrame.hidden = false;
     }
 
-    console.log(`Listed ${rows.length} student(s), their balances coming to ${total}.`, rows);
+    console.log(`Listed ${rows.length} student(s) and their balances.`, rows);
 }
 
-// Drops the rows and the total, and hides the frame they stand in. A read that failed
-// or came back empty must not leave the table of the read before standing as if it were
-// current.
+// Drops the rows and hides the frame they stand in. A read that failed or came back empty
+// must not leave the table of the read before standing as if it were current.
 function clearRosterTable() {
     if (rosterFrame) {
         rosterFrame.hidden = true;
     }
 
     rosterRows?.replaceChildren();
-
-    if (rosterTotal) {
-        rosterTotal.textContent = '';
-    }
 }
 
 // The line beside the Refresh button, outside the live region, so a clock written there

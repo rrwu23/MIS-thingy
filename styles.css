@@ -18,7 +18,7 @@
    fallback shown while the webfont swaps in.
    Loaded by every page in the project.
    Every page links this file as styles.css?v=N, and its own scripts the same way, each
-   asset carrying its own N — this one is at 5. Bump the N of whichever file has
+   asset carrying its own N — this one is at 6. Bump the N of whichever file has
    changed, the stylesheet for a new look or a script for new behaviour: the host sends
    assets with max-age=14400, so without a new URL a browser can go on painting a
    four-hour-old copy — of this file or of app.js — while the HTML around it is
@@ -912,8 +912,8 @@ a.tag:hover {
 /* ------------------------------------------------------------- roster ---- */
 /* students.html, the page behind the hub's "View students" door: the students of the
    admin behind the session cookie, one row each, as the two-column table the sketch
-   draws — Student on the left, the balance on the right, and what those balances come
-   to along the foot. app.js fills the rows and unhides the frame they stand in.
+   draws — Student on the left, the balance on the right, and the last student's row
+   closing the table. app.js fills the rows and unhides the frame they stand in.
    The table is the pale surface the doors and the fields borrow, so the card's teal
    shows around it, and everything inside keeps the palette a pale surface gets: the
    header row is the accent ink with the card's own pale text on it, the hairlines are
@@ -973,8 +973,7 @@ a.tag:hover {
     border-top: 1px solid rgba(6, 131, 113, 0.28);
 }
 
-.roster__table tbody td + td,
-.roster__table tfoot th + td { border-left: 1px solid rgba(6, 131, 113, 0.28); }
+.roster__table tbody td + td { border-left: 1px solid rgba(6, 131, 113, 0.28); }
 
 /* Every other student in a tint of the accent, so the eye can follow a long name
    across to its balance; the row under the pointer a shade stronger. */
@@ -1004,16 +1003,6 @@ a.tag:hover {
    .roster__table tbody td, which carries more weight than a class on its own and would
    otherwise keep the minus sign the same ink as every other balance. */
 .roster__table td.roster__amount--negative { color: var(--danger); }
-
-/* the foot of the table: the total, under a heavier rule than the rows carry */
-.roster__table tfoot th,
-.roster__table tfoot td {
-    font-size: 0.95rem;
-    font-weight: 700;
-    color: var(--accent-ink);
-    background: rgba(4, 48, 43, 0.07);
-    border-top: 1.5px solid var(--accent-ink);
-}
 
 /* the foot of the section: when the table was last read on the left, the button that
    reads it again on the right. justify-content keeps the button at that edge even

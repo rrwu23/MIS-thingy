@@ -7,8 +7,8 @@
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Comfortaa:wght@300..700&display=swap">
-    <link rel="stylesheet" href="styles.css?v=5">
-    <script src="app.js?v=3" defer></script>
+    <link rel="stylesheet" href="styles.css?v=6">
+    <script src="app.js?v=4" defer></script>
 </head>
 <body>
     <!-- The page behind the hub's "View students" door, and the whole of it is the
@@ -28,7 +28,7 @@
             </header>
 
             <h1 class="card__title" id="studentstitle">Student balances</h1>
-            <p class="card__hint">Every student of the admin behind this browser's session, alphabetically by name, with the balance on each account and what the column comes to along the foot of the table. A balance the backend cannot report takes that student off the table and out of the total rather than standing in as a zero, and the table reads itself again whenever you come back to this tab.</p>
+            <p class="card__hint">Every student of the admin behind this browser's session, alphabetically by name, with the balance on each account. A balance the backend cannot report takes that student off the table rather than standing in as a zero, and the table reads itself again whenever you come back to this tab.</p>
 
             <!-- The line and the table as one section, named by the page's own
                  heading. The frame the table is drawn in stays hidden until there are
@@ -49,19 +49,9 @@
                         </thead>
 
                         <!-- One row per student, filled by app.js: the name, then the
-                             balance. -->
+                             balance. The table ends with the last student, as the sketch
+                             draws it — no foot, and nothing added up. -->
                         <tbody id="rosterrows"></tbody>
-
-                        <!-- The foot of the table: what the listed balances come to, so
-                             the admin sees the whole thing at a glance. app.js keeps
-                             the total to the rows that are standing, which is why the
-                             status line above says how many balances were left out. -->
-                        <tfoot>
-                            <tr>
-                                <th scope="row" class="roster__totalhead">Total</th>
-                                <td id="rostertotal" class="roster__amount roster__amount--total"></td>
-                            </tr>
-                        </tfoot>
                     </table>
                 </div>
 
