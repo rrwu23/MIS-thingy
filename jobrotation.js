@@ -7,8 +7,8 @@
 //   GET  /current-admin               which admin this browser is signed in as;
 //                                     401 {"detail": "Not logged in"} with no session
 //   GET  /getuser?supervisor=<admin>  that admin's students — the exact filter the
-//                                     transaction flow and the home chart use, so only
-//                                     this admin's own accounts are ever listed. The
+//                                     transaction flow and the students table use, so
+//                                     only this admin's own accounts are ever listed. The
 //                                     route has no response annotation to read
 //                                     (openapi.json declares "schema": {} for it), so
 //                                     its answer is taken as the array of accounts it
@@ -180,7 +180,7 @@ function adminNameIn(payload) {
 
 // The students of `admin`, alphabetically and without duplicates. An account only
 // counts when its own supervisor field names that admin, exactly apart from surrounding
-// space — the same rule the transaction flow and the home chart follow — so another
+// space — the same rule the transaction flow and the students table follow — so another
 // admin's student is never listed, and an account with no supervisor belongs to nobody.
 // GET /getuser?supervisor= filters on the backend as well (checked live: an unknown
 // supervisor answers []), so the two checks agree.

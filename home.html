@@ -7,8 +7,8 @@
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Comfortaa:wght@300..700&display=swap">
-    <link rel="stylesheet" href="styles.css?v=3">
-    <script src="app.js?v=2" defer></script>
+    <link rel="stylesheet" href="styles.css?v=5">
+    <script src="app.js?v=3" defer></script>
 </head>
 <body>
     <!-- index.html is the front door: the sign-in card, and nothing else. This is the
@@ -30,44 +30,25 @@
                 <p class="hub__question">Would you like to:</p>
             </div>
 
-            <!-- The doors. Add transaction, Add student and Rotate jobs are pages of their
-                 own, so they are links; Remove student and View students are answered here
-                 by app.js. View students opens the balances section further down and the
-                 same door puts it away again. Five doors fill the grid two by two, which
-                 leaves Rotate jobs on a last row of its own — it belongs on this card,
-                 being the one page the old foot-of-card chips used to carry. -->
+            <!-- The doors. Every one of them is a page of its own now, so all five are
+                 links — View students opens students.html, where the students of this
+                 admin and the balance on each account are listed as a table. Five doors
+                 fill the grid two by two, which leaves Rotate jobs on a last row of its
+                 own — it belongs on this card, being the one page the old foot-of-card
+                 chips used to carry. -->
             <nav class="hub__actions" aria-label="What the bank can do">
                 <a class="btn btn--door" href="/transaction1.html">Add transaction</a>
                 <a class="btn btn--door" href="/addaccount.html">Add student</a>
                 <button type="button" id="removestudent" class="btn btn--door">
                     Remove student
                 </button>
-                <button type="button" id="viewstudents" class="btn btn--door"
-                        aria-expanded="false" aria-controls="studentchart">
-                    View students
-                </button>
+                <a class="btn btn--door" href="/students.html">View students</a>
                 <a class="btn btn--door" href="/job_rotation.html">Rotate jobs</a>
             </nav>
 
             <!-- Everything the hub has to say: a greeting that could name nobody, Remove
                  student with no route behind it, a Sign out that did not go through. -->
             <p id="homestatus" class="results" role="status" aria-live="polite"></p>
-
-            <!-- The students of the admin who is signed in — one bar per student, the bar
-                 being that student's balance and the name sitting under it. The section
-                 stays hidden until "View students" opens it, and app.js reads the
-                 balances then, so the hub reads nothing nobody asked to see. -->
-            <section id="studentchart" class="chart" aria-labelledby="studentcharttitle" hidden>
-                <h2 class="chart__title" id="studentcharttitle">Student balances</h2>
-                <p id="studentchartstatus" class="chart__status" role="status" aria-live="polite"></p>
-
-                <div id="studentchartframe" class="chart__frame" hidden>
-                    <div id="studentchartplot" class="chart__plot"></div>
-                    <div id="studentchartnames" class="chart__names"></div>
-                </div>
-
-                <p id="studentchartstamp" class="chart__stamp"></p>
-            </section>
 
             <!-- The foot of the card. Query accounts, Add admin and Admin login are not
                  doors here: each is still reachable by its own URL, and the admin pair is

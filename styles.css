@@ -2,7 +2,7 @@
    App1 — shared stylesheet
    Theme: a light teal canvas carrying one card per page, and that card is filled
    with the accent itself — #21ffda, the one brand colour. index.html, home.html and
-   the eleven inner pages are all cut from the same cloth: the brand bar along the
+   the twelve inner pages are all cut from the same cloth: the brand bar along the
    top, the page's own content across the middle, the footnote at the foot. No page
    draws a white glass card any more; the only pale surface left is the Y/N overlay,
    which is a panel over the page rather than part of it.
@@ -18,7 +18,7 @@
    fallback shown while the webfont swaps in.
    Loaded by every page in the project.
    Every page links this file as styles.css?v=N, and its own scripts the same way, each
-   asset carrying its own N — this one is at 3. Bump the N of whichever file has
+   asset carrying its own N — this one is at 5. Bump the N of whichever file has
    changed, the stylesheet for a new look or a script for new behaviour: the host sends
    assets with max-age=14400, so without a new URL a browser can go on painting a
    four-hour-old copy — of this file or of app.js — while the HTML around it is
@@ -909,141 +909,133 @@ a.tag:hover {
    of them writes. */
 .confirm__actions .btn { flex: 1 1 6rem; }
 
-/* -------------------------------------------------------------- chart ---- */
-/* home.html's "View students" door: one bar per student of the signed-in admin —
-   the bar is the balance, the name sits under it, and the axis carries no numbers.
-   The frame stacks the plot and the row of names below it, and the section stays
-   hidden until the door opens it (app.js toggles that). */
-.chart {
-    --chart-height: 18rem;
-    --chart-gap: 0.6rem;
-    --chart-pad: 0.5rem;
-
-    margin-top: 1.9rem;
-    padding-top: 1.5rem;
-    border-top: 1px solid var(--border);
+/* ------------------------------------------------------------- roster ---- */
+/* students.html, the page behind the hub's "View students" door: the students of the
+   admin behind the session cookie, one row each, as the two-column table the sketch
+   draws — Student on the left, the balance on the right, and what those balances come
+   to along the foot. app.js fills the rows and unhides the frame they stand in.
+   The table is the pale surface the doors and the fields borrow, so the card's teal
+   shows around it, and everything inside keeps the palette a pale surface gets: the
+   header row is the accent ink with the card's own pale text on it, the hairlines are
+   the deeper teal, and a balance below zero is the red that reads on white. */
+.roster {
+    display: grid;
+    gap: 1.15rem;
 }
 
-/* On the home page the chart stands on the accent card, so it borrows the white
-   surface the doors borrow: the bars, the gridlines, the names and the stamp keep the
-   colours they would have on a light surface and stay readable up there. */
-.hub .chart {
-    margin-top: 0;
-    padding: 1.15rem clamp(0.9rem, 3vw, 1.4rem);
+/* the status line above the table keeps the white panel the .results block gives it —
+   the same line every other page waits and complains on */
+.roster .results { margin-top: 0; }
+
+/* The frame is that pale surface: one rounded box the table is drawn inside, clipped
+   so the filled header row cannot poke past the corners. */
+.roster__frame {
+    overflow: hidden;
     background: rgba(255, 255, 255, 0.94);
     border: 1.5px solid var(--accent-ink);
-    border-radius: var(--radius);
-}
-
-.chart__title {
-    margin: 0;
-    font-size: clamp(1.05rem, 3.2vw, 1.35rem);
-    font-weight: 700;
-    color: var(--text);
-}
-
-.chart__status {
-    margin: 0.7rem 0 0;
-    font-size: 0.92rem;
-    line-height: 1.45;
-    color: var(--text-dim);
-}
-
-.chart__status--error { color: var(--danger); }
-
-.chart__frame {
-    display: grid;
-    grid-template-columns: 1fr;
-    margin-top: 1.6rem;
+    border-radius: var(--radius-sm);
+    box-shadow: 0 10px 22px rgba(4, 48, 43, 0.16);
 }
 
 /* the class would otherwise win over the browser's own [hidden] rule */
-.chart__frame[hidden] { display: none; }
+.roster__frame[hidden] { display: none; }
 
-.chart__plot {
-    position: relative;
-    height: var(--chart-height);
-    border-left: 1px solid var(--border-hi);
-    border-bottom: 1px solid var(--border-hi);
+.roster__table {
+    width: 100%;
+    border-collapse: collapse;
 }
 
-.chart__gridline {
-    position: absolute;
-    left: 0;
-    right: 0;
-    border-top: 1px dashed var(--border);
+.roster__table th,
+.roster__table td {
+    padding: clamp(0.55rem, 2vw, 0.75rem) clamp(0.7rem, 3vw, 1.1rem);
+    text-align: left;
+    vertical-align: baseline;
 }
 
-/* the line balances are counted from */
-.chart__gridline--zero { border-top: 1px solid var(--border-hi); }
-
-.chart__bars {
-    position: absolute;
-    inset: 0;
-    display: flex;
-    align-items: stretch;
-    gap: var(--chart-gap);
-    padding: 0 var(--chart-pad);
-}
-
-.chart__bar-column { position: relative; flex: 1 1 0; }
-
-.chart__bar {
-    position: absolute;
-    left: 0;
-    right: 0;
-    margin: 0 auto;
-    width: min(100%, 3.5rem);
-    min-height: 3px;
-    border-radius: var(--radius-sm) var(--radius-sm) 0 0;
-    background-image: var(--gradient);
-    box-shadow: 0 6px 18px rgba(6, 179, 154, 0.28);
-}
-
-/* a balance below zero hangs under the zero line */
-.chart__bar--negative {
-    background-image: none;
-    background-color: var(--danger);
-    border-radius: 0 0 var(--radius-sm) var(--radius-sm);
-    box-shadow: none;
-}
-
-.chart__value {
-    position: absolute;
-    left: 0;
-    right: 0;
-    font-size: 0.76rem;
+/* the header across the top: the accent ink filled edge to edge, carrying the card's
+   own pale text — the one place in the app where the ink is the background */
+.roster__table thead th {
+    background: var(--accent-ink);
+    font-size: 0.74rem;
     font-weight: 700;
-    text-align: center;
-    color: var(--text);
+    letter-spacing: 0.12em;
+    text-transform: uppercase;
+    color: #f2fffc;
 }
 
-/* the names line up with their bars: same gap, same side padding */
-.chart__names {
+/* the line the sketch draws down between Student and balance, one in the header and
+   one between every pair of cells below it */
+.roster__table thead th + th { border-left: 1px solid rgba(255, 255, 255, 0.35); }
+
+.roster__table tbody td {
+    font-size: 0.95rem;
+    color: var(--accent-ink);
+    border-top: 1px solid rgba(6, 131, 113, 0.28);
+}
+
+.roster__table tbody td + td,
+.roster__table tfoot th + td { border-left: 1px solid rgba(6, 131, 113, 0.28); }
+
+/* Every other student in a tint of the accent, so the eye can follow a long name
+   across to its balance; the row under the pointer a shade stronger. */
+.roster__row:nth-child(even) { background: rgba(33, 255, 218, 0.14); }
+
+.roster__row:hover { background: rgba(33, 255, 218, 0.30); }
+
+/* a name can be a whole sentence: it wraps inside its own column rather than pushing
+   the balance out of the table */
+.roster__name { overflow-wrap: anywhere; }
+
+/* The balance column takes only as much room as its longest figure, and its digits
+   are fixed-width, so 235 and -10 end on the same edge — the right one. The <th> of
+   the head row needs the class in the selector to win over the left-aligned rule
+   above it. */
+.roster__table th.roster__amount,
+.roster__table td.roster__amount {
+    width: 1%;
+    font-weight: 650;
+    font-variant-numeric: tabular-nums;
+    text-align: right;
+    white-space: nowrap;
+}
+
+/* The one figure in the table that is red, on the pale surface the frame behind it
+   draws. The class needs the cell in the selector: the colour the rows carry is set on
+   .roster__table tbody td, which carries more weight than a class on its own and would
+   otherwise keep the minus sign the same ink as every other balance. */
+.roster__table td.roster__amount--negative { color: var(--danger); }
+
+/* the foot of the table: the total, under a heavier rule than the rows carry */
+.roster__table tfoot th,
+.roster__table tfoot td {
+    font-size: 0.95rem;
+    font-weight: 700;
+    color: var(--accent-ink);
+    background: rgba(4, 48, 43, 0.07);
+    border-top: 1.5px solid var(--accent-ink);
+}
+
+/* the foot of the section: when the table was last read on the left, the button that
+   reads it again on the right. justify-content keeps the button at that edge even
+   while the line beside it has nothing to say. */
+.roster__actions {
     display: flex;
-    gap: var(--chart-gap);
-    padding: var(--chart-pad) var(--chart-pad) 0;
+    align-items: center;
+    justify-content: flex-end;
+    gap: 0.75rem 1rem;
+    flex-wrap: wrap;
 }
 
-.chart__name {
-    flex: 1 1 0;
-    font-size: 0.76rem;
-    line-height: 1.25;
-    text-align: center;
-    color: var(--text-dim);
-    overflow-wrap: anywhere;
-}
-
-/* when the chart was last read — outside the live region, so a ticking clock is not
-   announced */
-.chart__stamp {
-    margin: 0.9rem 0 0;
+/* the line is outside the live region, so a clock going round is not announced */
+.roster__stamp {
+    flex: 1 1 12rem;
+    margin: 0;
     font-size: 0.78rem;
     line-height: 1.4;
-    color: var(--text-faint);
+    color: var(--accent-ink-soft);
 }
 
-.chart__stamp:empty { display: none; }
+.roster__stamp:empty { display: none; }
 
 /* ------------------------------------------------------------ footnote ---- */
 /* The foot of the card: the line that says where else you could have gone. margin-top:

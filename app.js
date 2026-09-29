@@ -97,8 +97,9 @@ form?.addEventListener('submit', async function(event) {
         console.log('Success:', result);
         alert('Form submitted successfully!');
 
-        // The account is made, and the home page is where it shows up (its balance is
-        // drawn on the chart), so the admin is handed back there instead of being left
+        // The account is made, and the home page is where it shows up (the student
+        // balances page behind its "View students" door is the list it joins), so the
+        // admin is handed back there instead of being left
         // on a filled-in form. The sentence above is read first: the redirect waits
         // for the alert to be dismissed.
         redirectHomeAfter(REDIRECT_DELAY_MS);
@@ -124,8 +125,8 @@ form?.addEventListener('submit', async function(event) {
 // exact, case-sensitive lookups and both are optional — checked live:
 // ?supervisor=test-account answers that admin's three accounts while
 // ?supervisor=nonsense answers [] — so a blank field matches everyone. Every row is
-// a plain object of account fields, the same shape the chart and the transaction
-// flow read (live: [{"name": "hi there", "password": "hi", "supervisor": "lagoon",
+// a plain object of account fields, the same shape the students table and the
+// transaction flow read (live: [{"name": "hi there", "password": "hi", "supervisor": "lagoon",
 // "birthday": "01/29"}, …]), and the route is untyped — openapi.json promises
 // nothing about the body — so the card built for an account is filled from that
 // account's own keys, in the order the backend sends them. Every field the table
@@ -372,12 +373,13 @@ adminForm?.addEventListener('submit', async function (event) {
 // cookie, which is why every API call sends credentials: "include".
 const LOGIN_URL = 'https://api.rongrongwu.com/login';
 
-// Where a finished flow goes: the home page, home.html — the buttons and the balances
-// chart. It is *not* index.html: that one is only the front door, the sign-in card, so
-// sending a login or a finished transaction there would bounce the admin back to the
-// form they just filled in. The admin session lives in the backend's cookie, not in
-// the page, so the home page picks it up on its own as it opens — it reads the
-// signed-in admin and draws that admin's student chart.
+// Where a finished flow goes: the home page, home.html — the buttons, and behind them
+// the doors to every other page, the student balances table among them. It is *not*
+// index.html: that one is only the front door, the sign-in card, so sending a login or
+// a finished transaction there would bounce the admin back to the form they just filled
+// in. The admin session lives in the backend's cookie, not in the page, so the home
+// page picks it up on its own as it opens — it reads the signed-in admin for its
+// greeting, and students.html asks the same route for its table.
 const HOME_URL = '/home.html';
 
 // How long a "logged in…" / "recorded…" status line stays up before the home page
@@ -523,8 +525,8 @@ studentSignInButton?.addEventListener('click', function () {
 });
 
 // The way on from the front door: the sign-in line under the card's buttons carries
-// this, because index.html itself is only the card — the buttons and the chart are on
-// the home page behind it.
+// this, because index.html itself is only the card — the buttons, and the doors behind
+// them, are on the home page.
 function homePageLink() {
     const link = document.createElement('a');
     link.href = HOME_URL;
@@ -557,7 +559,7 @@ const homeStatus = document.getElementById('homestatus');
 const ADMIN_NAME_KEYS = ['admin_name', 'name', 'admin', 'username'];
 
 // The greeting the card opens on, "Hi <admin name>". The name comes from the same
-// route the chart below starts from, and it is asked once as the page opens — the dots
+// route students.html starts from, and it is asked once as the page opens — the dots
 // in the page stand in until that answer arrives. A read that names nobody, a session
 // the backend refuses and a backend that cannot be reached are all said on the status
 // line under the doors, because a greeting stuck on dots would be the only thing the
@@ -676,11 +678,11 @@ function describeCurrentAdmin(payload) {
         : `Signed in as ${adminName}.`;
 }
 
-// home.html's student balances chart draws one bar per student of the admin behind
-// the session cookie: balance up the y axis, the name under it. It is the section
-// behind the home page's "View students" door — hidden until that door is pressed, and
-// read again whenever the tab comes back to the front. Three live routes
-// stand behind a chart, all of them taking the session cookie:
+// students.html, the page behind the home page's "View students" door, lists one row
+// per student of the admin behind the session cookie: the student's name on the left,
+// the balance on their account on the right, and what those balances come to along the
+// foot of the table. Three live routes stand behind it, all of them taking the session
+// cookie:
 //   GET /current-admin                -> which admin this browser is signed in as;
 //                                        401 {"detail": "Not logged in"} with no
 //                                        session, like every other protected route
@@ -694,55 +696,36 @@ function describeCurrentAdmin(payload) {
 const STUDENTS_URL = 'https://api.rongrongwu.com/getuser';
 const BALANCE_URL = 'https://api.rongrongwu.com/get-balance';
 
-// The step the balance scale is laid out on: the axis runs from a multiple of it below
-// the lowest balance up to one above the highest, so the gridlines land on round
-// figures, the tallest bar never touches the ceiling, and a set of zero balances still
-// has a range to draw in. No number is written beside the axis — each bar carries its
-// own balance above it.
-const CHART_STEP = 20;
-
 // Fields an account object may carry its name and its supervisor in, most likely
 // first — the same order the other pages read them in, the route being untyped.
 const STUDENT_NAME_KEYS = ['name', 'username', 'account', 'id'];
 const STUDENT_SUPERVISOR_KEYS = ['supervisor', 'owner', 'manager'];
 
-// The chart keeps itself up to date: read once as the page opens, then again on this
-// timer and whenever the tab comes back to the front, so a balance changed in another
-// tab or on another device turns up here on its own.
-const CHART_REFRESH_MS = 30000;
+// The table app.js fills and the line above it. students.html is the only page that
+// carries these elements — every other page loads app.js for its own form — so a read
+// only ever starts where there is a table to put an answer in.
+const rosterFrame = document.getElementById('rosterframe');
+const rosterRows = document.getElementById('rosterrows');
+const rosterTotal = document.getElementById('rostertotal');
+const rosterStatus = document.getElementById('rosterstatus');
+const rosterStamp = document.getElementById('rosterstamp');
+const rosterRefreshButton = document.getElementById('rosterrefresh');
 
-// The section the "View students" door opens and closes — app.js is what shows it, so
-// the balances below are read only once somebody asks to see them.
-const studentChart = document.getElementById('studentchart');
-
-const studentChartStatus = document.getElementById('studentchartstatus');
-const studentChartFrame = document.getElementById('studentchartframe');
-const studentChartPlot = document.getElementById('studentchartplot');
-const studentChartNames = document.getElementById('studentchartnames');
-const studentChartStamp = document.getElementById('studentchartstamp');
-
-// One read at a time: a slow answer must not pile up behind the next tick.
-let chartRefreshRunning = false;
-
-// True once the first read has been started, so the messages that explain the wait are
-// written on the page's first read only. A retry that fails the same way every half
-// minute has nothing new to say, and repeating itself would only talk over the live
-// region.
-let chartReadStarted = false;
+// One read at a time: a Refresh pressed while a slow answer is still on its way must
+// not pile a second read up behind the first.
+let rosterReadRunning = false;
 
 // Which admin is signed in, then that admin's students, then their balances — and the
-// bars. Anything that is not a chart is spelled out on the status line above the plot,
-// and the bars of the read before are dropped rather than left standing as if they were
+// rows. Anything that is not a table is spelled out on the status line above it, and
+// the rows of the read before are dropped rather than left standing as if they were
 // current.
-async function refreshStudentChart() {
-    if (!studentChartPlot) return; // every other page loads app.js for its own form
-    if (chartRefreshRunning) return;
+async function refreshRoster() {
+    if (!rosterRows) return; // every other page loads app.js for its own form
+    if (rosterReadRunning) return;
 
-    chartRefreshRunning = true;
-
-    if (!chartReadStarted) {
-        showChartStatus('Asking the backend which admin is signed in…', false);
-    }
+    rosterReadRunning = true;
+    rosterRefreshButton?.setAttribute('aria-disabled', 'true'); // one read at a time
+    showRosterMessage(rosterStatus, 'Asking the backend which admin is signed in…', false);
 
     try {
         const response = await fetch(CURRENT_ADMIN_URL, {
@@ -753,27 +736,26 @@ async function refreshStudentChart() {
         const admin = response.ok ? currentAdminNameIn(result) : '';
 
         if (!admin) {
-            console.error('Student chart: the backend named no admin.', response.status, result);
-            clearStudentChart();
-            showChartStatus('No admin session — the backend named no admin for this browser, and the chart only draws the students of the admin that is signed in. Log into the admin account; the chart picks it up on its own.', true);
+            console.error('Student table: the backend named no admin.', response.status, result);
+            clearRosterTable();
+            showRosterMessage(rosterStatus, 'No admin session — the backend named no admin for this browser, and the table only lists the students of the admin that is signed in. Log into the admin account; the table reads again with the page.', true);
             return;
         }
 
-        if (!chartReadStarted) {
-            showChartStatus(`Reading the students of “${admin}” and their balances…`, false);
-        }
+        showRosterMessage(rosterStatus, `Reading the students of “${admin}” and their balances…`, false);
 
         const students = await adminStudents(admin);
 
         if (!students.length) {
-            clearStudentChart();
-            showChartStatus(`The backend lists no student with “${admin}” as their supervisor, so there is nothing to draw.`, true);
+            clearRosterTable();
+            showRosterMessage(rosterStatus, `The backend lists no student with “${admin}” as their supervisor, so there is nothing to show.`, true);
             return;
         }
 
         // One request per student, all at once. A balance that cannot be read takes
-        // that student out of the chart rather than being drawn as a zero, and the
-        // status line says how many fell out.
+        // that student's row off the table rather than being written as a zero, and the
+        // status line says how many fell out. The total along the foot is the sum of
+        // the rows that are standing, so it never counts a figure nobody read.
         const rows = await Promise.all(students.map(async (name) => ({
             name,
             balance: await studentBalance(name).catch((error) => {
@@ -784,100 +766,126 @@ async function refreshStudentChart() {
         const drawn = rows.filter((row) => row.balance !== null);
 
         if (!drawn.length) {
-            clearStudentChart();
-            showChartStatus('No balance could be read for these students, so there is nothing to draw.', true);
+            clearRosterTable();
+            showRosterMessage(rosterStatus, 'No balance could be read for these students, so there is nothing to show.', true);
             return;
         }
 
-        drawStudentChart(drawn);
+        drawRosterTable(drawn);
 
         const missing = rows.length - drawn.length;
-        showChartStatus(
-            `${drawn.length} student${drawn.length === 1 ? '' : 's'} of the admin “${admin}” — the bar is the balance and the name sits under it.`
+        showRosterMessage(
+            rosterStatus,
+            `${drawn.length} student${drawn.length === 1 ? '' : 's'} of the admin “${admin}”, alphabetically — the balance on each account, and what the column comes to along the foot.`
             + (missing
-                ? ` ${missing} balance${missing === 1 ? '' : 's'} could not be read, so ${missing === 1 ? 'that student is' : 'those students are'} not drawn.`
+                ? ` ${missing} balance${missing === 1 ? '' : 's'} could not be read, so ${missing === 1 ? 'that student is' : 'those students are'} not in the table and not in the total.`
                 : ''),
             false
         );
     } catch (error) {
-        console.error('Student chart error:', error);
-        clearStudentChart();
-        showChartStatus('Network error — the students and their balances could not be read from the API. The chart reads again by itself.', true);
+        console.error('Student table error:', error);
+        clearRosterTable();
+        showRosterMessage(rosterStatus, 'Network error — the students and their balances could not be read from the API. Press Refresh to read them again.', true);
     } finally {
-        chartRefreshRunning = false;
-        chartReadStarted = true;
-        stampStudentChart();
+        rosterReadRunning = false;
+        rosterRefreshButton?.removeAttribute('aria-disabled');
+        stampRoster();
     }
 }
 
-// The line under the chart, outside the live region, so a clock ticking every half
-// minute is not read out to a screen reader.
-function stampStudentChart() {
-    if (!studentChartStamp) return;
+// Fills the table: one row per student, the name in the left column and the balance in
+// the right, then the foot of the table with what those balances come to. Every cell is
+// built as a node rather than with innerHTML, because the names come from the backend.
+function drawRosterTable(rows) {
+    const body = document.createDocumentFragment();
+    let total = 0;
 
-    studentChartStamp.textContent = `Last read at ${new Date().toLocaleTimeString()}, chart refreshes whenever you come back to this tab.`;
-}
+    for (const row of rows) {
+        total += row.balance;
 
-function showChartStatus(text, isError) {
-    if (!studentChartStatus) return;
+        const line = document.createElement('tr');
+        line.className = 'roster__row';
 
-    const className = isError ? 'chart__status chart__status--error' : 'chart__status';
+        const name = document.createElement('td');
+        name.className = 'roster__name';
+        name.textContent = row.name;
 
-    // The same sentence a second time would only make the live region talk over itself:
-    // a read that found nothing new has nothing to announce.
-    if (studentChartStatus.textContent.trim() === text && studentChartStatus.className === className) {
-        return;
+        // A balance below zero is the one red in the table; the figure itself carries
+        // its own minus sign, so nothing else has to say which way the account went.
+        const amount = document.createElement('td');
+        amount.className = row.balance < 0
+            ? 'roster__amount roster__amount--negative'
+            : 'roster__amount';
+        amount.textContent = String(row.balance);
+
+        line.append(name, amount);
+        body.append(line);
     }
 
-    studentChartStatus.textContent = text;
-    studentChartStatus.className = className;
-}
+    rosterRows.replaceChildren(body);
 
-// Drops the bars, the gridlines and the names. A read that failed or came back empty
-// must not leave the chart of the read before standing as if it were current.
-function clearStudentChart() {
-    if (studentChartFrame) {
-        studentChartFrame.hidden = true;
+    if (rosterTotal) {
+        rosterTotal.textContent = String(total);
     }
 
-    studentChartPlot?.replaceChildren();
-    studentChartNames?.replaceChildren();
+    if (rosterFrame) {
+        rosterFrame.hidden = false;
+    }
+
+    console.log(`Listed ${rows.length} student(s), their balances coming to ${total}.`, rows);
 }
 
-// The chart is the home page's "View students" door: the section is part of home.html
-// but stays hidden until it is asked for, so the hub reads no balance nobody asked to
-// see. Pressing the door again puts the chart away; pressing it once more opens a fresh
-// look, which is why the wait is narrated again and the balances are read from scratch
-// rather than left as the read before had them.
-const viewStudentsButton = document.getElementById('viewstudents');
-
-viewStudentsButton?.addEventListener('click', function () {
-    if (!studentChart) return;
-
-    const opening = studentChart.hidden;
-
-    studentChart.hidden = !opening;
-    viewStudentsButton.setAttribute('aria-expanded', String(opening));
-
-    if (opening) {
-        chartReadStarted = false;
-        refreshStudentChart();
+// Drops the rows and the total, and hides the frame they stand in. A read that failed
+// or came back empty must not leave the table of the read before standing as if it were
+// current.
+function clearRosterTable() {
+    if (rosterFrame) {
+        rosterFrame.hidden = true;
     }
-});
 
-// While the chart is open it reads again whenever the tab comes back to the front, so a
-// balance changed in another tab or on another device turns up here on its own. A closed
-// chart, and every other page (which loads app.js for its own form), start nothing.
-if (studentChart) {
-    // setInterval(function () {
-    //     if (!document.hidden && !studentChart.hidden) {
-    //         refreshStudentChart();
-    //     }
-    // }, CHART_REFRESH_MS); //NOT refreshing every 30 sec
+    rosterRows?.replaceChildren();
+
+    if (rosterTotal) {
+        rosterTotal.textContent = '';
+    }
+}
+
+// The line beside the Refresh button, outside the live region, so a clock written there
+// every read is not read out to a screen reader.
+function stampRoster() {
+    if (!rosterStamp) return;
+
+    rosterStamp.textContent = `Last read at ${new Date().toLocaleTimeString()}.`;
+}
+
+// Replace the previous status line above the table with a single message — the same
+// one-paragraph shape showHomeMessage, showAccountMessage and showReasonMessage write
+// into their own blocks, so an error is the red variant of the same panel.
+function showRosterMessage(results, text, isError) {
+    if (!results) return;
+
+    const paragraph = document.createElement('p');
+    paragraph.textContent = text;
+
+    if (isError) {
+        paragraph.className = 'results__error';
+    }
+
+    results.replaceChildren(paragraph);
+}
+
+// The page starts itself: the first read happens as students.html opens, Refresh reads
+// again on demand, and a read started in another tab — or a balance changed there —
+// turns up here when this tab comes back to the front. Every other page loads app.js for
+// its own form, has no table to fill, and starts nothing.
+if (rosterRows) {
+    refreshRoster();
+
+    rosterRefreshButton?.addEventListener('click', refreshRoster);
 
     document.addEventListener('visibilitychange', function () {
-        if (!document.hidden && !studentChart.hidden) {
-            refreshStudentChart();
+        if (!document.hidden) {
+            refreshRoster();
         }
     });
 }
@@ -945,7 +953,7 @@ signOutButton?.addEventListener('click', async function () {
 });
 
 // The admin name inside a GET /current-admin reply (an object of strings), or '' when
-// the reply names nobody. The chart needs the name itself, not the sentence
+// the reply names nobody. The students table needs the name itself, not the sentence
 // describeCurrentAdmin() builds for the status line above it.
 function currentAdminNameIn(payload) {
     if (typeof payload === 'string') {
@@ -1026,7 +1034,7 @@ prefillSupervisorWithCurrentAdmin();
 // ?supervisor= filter is exact — checked live: ?supervisor=test-account answers that
 // admin's three accounts while ?supervisor=nonsense answers [] — and each row's own
 // supervisor field is read again here, so only this admin's students can reach the
-// chart, the same rule the transaction flow follows.
+// table on students.html, the same rule the transaction flow follows.
 async function adminStudents(admin) {
     const response = await fetch(`${STUDENTS_URL}?${new URLSearchParams({ supervisor: admin })}`, {
         method: 'GET',
@@ -1090,7 +1098,7 @@ function studentEntries(payload) {
 
 // The balance GET /get-balance reports for one student, as a number. The reply is
 // {"user": "Rongrong Wu", "balance": 235} — checked live — and untyped beyond that,
-// so a numeric string is accepted too. Anything else is thrown rather than drawn as a
+// so a numeric string is accepted too. Anything else is thrown rather than written as a
 // zero, because a zero is a real balance and a misread one is not.
 async function studentBalance(name) {
     const response = await fetch(`${BALANCE_URL}?${new URLSearchParams({ student: name })}`, {
@@ -1111,73 +1119,6 @@ async function studentBalance(name) {
     }
 
     return balance;
-}
-
-// Draws the bars on the scale described above: the axis runs from the lowest balance
-// (zero when every balance is positive) up to the highest, both rounded out to a
-// multiple of CHART_STEP.
-//   235 highest  -> 0 to 240
-//   -10 lowest   -> -20 to 240, the bars growing from the zero line
-// The gridlines are the only marks on that axis — no number is written beside them,
-// each bar carrying its own balance above it. A bar is absolutely positioned inside its
-// column and measured up from the bottom of the plot, which is how a negative balance
-// hangs below the zero line while positive ones grow above it. Everything is built as
-// nodes rather than innerHTML, because the student names come from the backend.
-function drawStudentChart(rows) {
-    const balances = rows.map((row) => row.balance);
-    const axisLow = Math.floor(Math.min(0, ...balances) / CHART_STEP) * CHART_STEP;
-    const axisHigh = Math.max(Math.ceil(Math.max(0, ...balances) / CHART_STEP) * CHART_STEP, axisLow + CHART_STEP);
-    const span = axisHigh - axisLow;
-
-    // Where a balance sits on the plot, in per cent up from the axis bottom.
-    const upTo = (value) => ((value - axisLow) / span) * 100;
-
-    const gridlines = document.createDocumentFragment();
-
-    for (let value = axisLow; value <= axisHigh; value += CHART_STEP) {
-        const gridline = document.createElement('div');
-        gridline.className = value === 0 ? 'chart__gridline chart__gridline--zero' : 'chart__gridline';
-        gridline.style.bottom = `${upTo(value)}%`;
-        gridlines.append(gridline);
-    }
-
-    studentChartPlot.replaceChildren(gridlines);
-
-    const bars = document.createElement('div');
-    bars.className = 'chart__bars';
-    const names = document.createDocumentFragment();
-
-    for (const row of rows) {
-        const column = document.createElement('div');
-        column.className = 'chart__bar-column';
-
-        // The balance is written above its bar and the name below the plot, so the bar
-        // itself carries no text and is hidden from a screen reader.
-        const value = document.createElement('span');
-        value.className = 'chart__value';
-        value.style.bottom = `calc(${upTo(Math.max(row.balance, 0))}% + 0.3rem)`;
-        value.textContent = String(row.balance);
-
-        const bar = document.createElement('div');
-        bar.className = row.balance < 0 ? 'chart__bar chart__bar--negative' : 'chart__bar';
-        bar.style.bottom = `${upTo(Math.min(row.balance, 0))}%`;
-        bar.style.height = `${(Math.abs(row.balance) / span) * 100}%`;
-        bar.setAttribute('aria-hidden', 'true');
-
-        column.append(value, bar);
-        bars.append(column);
-
-        const name = document.createElement('span');
-        name.className = 'chart__name';
-        name.textContent = row.name;
-        names.append(name);
-    }
-
-    studentChartPlot.append(bars);
-    studentChartNames.replaceChildren(names);
-    studentChartFrame.hidden = false;
-
-    console.log(`Drew ${rows.length} bar(s) on a y axis of ${axisLow} to ${axisHigh}, stepped every ${CHART_STEP}.`, rows);
 }
 
 // Reason pages --------------------------------------------------------------
