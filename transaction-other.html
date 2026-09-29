@@ -1,0 +1,71 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>App1 · Other transaction</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Comfortaa:wght@300..700&display=swap">
+    <link rel="stylesheet" href="styles.css">
+    <script src="app.js" defer></script>
+</head>
+<body>
+    <div class="page">
+        <main class="card">
+            <header class="bar">
+                <a class="brand" href="/index.html">
+                    <span class="brand__dot" aria-hidden="true"></span>Bonura's Bank
+                </a>
+                <a class="tag" href="/index.html">&#8592; Home</a>
+            </header>
+
+            <h1 class="card__title">Other transaction</h1>
+            <p class="card__hint">For the ones that are not on a list. Type the points and the broad reason yourself &mdash; a minus in front of the amount takes points away instead of giving them &mdash; and put whatever is worth remembering in the memo. Nothing is written until the Y/N question is answered with Y, and the account is then written under the type <code>OTHERS</code>.</p>
+
+            <form id="otherform" class="form">
+                <!-- The amount is typed, not picked: it is a text box with a numeric
+                     keypad on phones (the same choice addaccount.html makes for its
+                     balance), because the app checks the figure itself and says what
+                     is wrong with it on the status line below. app.js refuses
+                     anything that is not a whole number of points, and the sign is the
+                     admin's own - unlike the reason pages, where the type decides it. -->
+                <div class="field">
+                    <label for="otheramount">Amount <span class="hint">points, minus to take them away</span></label>
+                    <input type="text" id="otheramount" name="amount"
+                           inputmode="numeric" autocomplete="off">
+                </div>
+
+                <!-- Goes into the reason column, so it is the sentence the account's
+                     history shows: the three lists on the other pages each supply
+                     their own text, this page takes it from here. -->
+                <div class="field">
+                    <label for="otherreason">Broad reason <span class="hint">what the points are for</span></label>
+                    <input type="text" id="otherreason" name="reason" autocomplete="off">
+                </div>
+
+                <div class="field">
+                    <label for="othermemo">Memo <span class="hint">optional</span></label>
+                    <textarea id="othermemo" name="memo" rows="5"></textarea>
+                </div>
+
+                <!-- Next is the form's own submit button, so Enter inside any of the
+                     boxes is the same click; app.js cancels the submit itself and
+                     nothing ever leaves the page as a query string. Like the reason
+                     pages' Next it stays grey and unclickable until the backend has
+                     confirmed the admin session. -->
+                <div class="form__actions">
+                    <button type="submit" class="btn btn--primary" id="othernext" aria-disabled="true">
+                        Next
+                    </button>
+                </div>
+            </form>
+
+            <div id="otherresults" class="results" role="status" aria-live="polite"
+                 data-empty="Asking the backend whether you are logged in&hellip;"></div>
+
+            <p class="footnote">Wrong student? <a class="tag" href="/transaction-middle.html">&#8592; Back</a></p>
+        </main>
+    </div>
+</body>
+</html>

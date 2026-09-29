@@ -932,9 +932,9 @@ function drawStudentChart(rows) {
 }
 
 // Reason pages --------------------------------------------------------------
-// transaction_bonus.html, transaction_fines.html, transaction_salaries.html and
-// transaction_spending.html each show one dropdown of reasons that comes from the
-// backend. Every /reasons/{slug} route answers with the same shape - a plain map
+// transaction_bonus.html, transaction_fines.html and transaction_spending.html each
+// show one dropdown of reasons that comes from the backend. Every /reasons/{slug}
+// route answers with the same shape - a plain map
 // of reason -> amount, negatives included:
 //   {"Bathroom expectation violation": -10, "Being rude / disrespectful": -15, ...}
 // Those keys are the `reason` column of the table, and they double as the value each
@@ -1315,14 +1315,16 @@ function buildConfirmDialog() {
 }
 
 // What the dialog says: the same facts the status line names after a recording, so
-// the admin sees the student, the reason and the amount before answering.
+// the admin sees the student, the reason, the amount and - when there is one, which
+// is the Other page's memo - their own note before answering.
 function describeTransaction(transaction) {
     const forStudent = transaction.student ? ` for ${transaction.student}` : '';
     const amount = transaction.amount === null || transaction.amount === undefined
         ? 'no amount'
         : `amount ${transaction.amount}`;
+    const memo = transaction.memo ? ` Memo: "${transaction.memo}".` : '';
 
-    return `${transaction.type} — "${transaction.label}"${forStudent}, ${amount}. Y writes it to the account, N drops it.`;
+    return `${transaction.type} — "${transaction.label}"${forStudent}, ${amount}.${memo} Y writes it to the account, N drops it.`;
 }
 
 // Puts the question on screen and answers true for Y, false for N. A question
@@ -1363,9 +1365,10 @@ function answerConfirmation(answer) {
     confirmPending = null;
     confirmDialog.hidden = true;
 
-    // The keyboard goes back to the flow's own button rather than being dropped on
-    // the body, so the admin can carry on without reaching for the mouse.
-    reasonNext?.focus();
+    // The keyboard goes back to the flow's own button — the reason pages' Next or the
+    // Other page's — rather than being dropped on the body, so the admin can carry on
+    // without reaching for the mouse.
+    (reasonNext ?? otherNext)?.focus();
 
     pending.resolve(answer);
 }
@@ -1588,12 +1591,41 @@ async function runApproval() {
         return;
     }
 
+    // POST /transaction-record writes it, through the one function both approving
+    // pages send with, so the reason pages and the Other page cannot drift apart.
+    const sent = await sendTransaction(transaction);
+
+    if (sent.ok) {
+        // Recorded once is recorded: Next goes grey until another reason is
+        // chosen, so a second click cannot write the same transaction twice.
+        setApproveEnabled(false);
+        showReasonMessage(recordedMessage(transaction), false);
+
+        // The transaction is done with this account, and the home page is where the
+        // balance it just changed is drawn, so the flow hands the admin back to it
+        // instead of leaving them on a form with nothing left to do.
+        redirectHomeAfter(REDIRECT_DELAY_MS);
+        return;
+    }
+
+    showReasonMessage(sent.text, true);
+
+    // A send that did not go through leaves Next live, so the same choice can be
+    // tried again.
+    setApproveEnabled(true);
+}
+
+// The write itself, shared by the reason pages and the Other page: the approved
+// object is parked in sessionStorage next to the student username transaction1.html
+// stored - parked before anything is sent, so a send that fails loses nothing - and
+// then POSTed as a whole, as JSON, with the table columns (type, reason) in the
+// backend's own spelling and the admin session cookie travelling with the request.
+// Answers { ok: true } once the backend has written it, and { ok: false, text } with
+// the sentence to show when it refused or the network was gone.
+async function sendTransaction(transaction) {
     sessionStorage.setItem(PENDING_KEY, JSON.stringify(transaction));
     console.log('Approved:', transaction);
 
-    // POST /transaction-record writes it: the object goes as a whole, as JSON, with
-    // the two table columns (type and reason) in the backend's own spelling, and the
-    // admin session cookie travels with the request.
     try {
         const response = await fetch(RECORD_URL, {
             method: 'POST',
@@ -1608,29 +1640,28 @@ async function runApproval() {
 
         if (response.ok) {
             console.log('Transaction recorded:', result);
-
-            // Recorded once is recorded: Next goes grey until another reason is
-            // chosen, so a second click cannot write the same transaction twice.
-            setApproveEnabled(false);
-            showReasonMessage(`Recorded "${transaction.label}"${forStudent} — the backend wrote the ${transaction.type} transaction. Taking you to the home page…`, false);
-
-            // The transaction is done with this account, and the home page is where
-            // the balance it just changed is drawn, so the flow hands the admin back
-            // to it instead of leaving them on a form with nothing left to do.
-            redirectHomeAfter(REDIRECT_DELAY_MS);
-            return;
+            return { ok: true, result };
         }
 
         console.error('Transaction record error:', result);
-        showReasonMessage(`Nothing was recorded — the backend refused the transaction (${response.status}): ${describeError(result)}`, true);
+        return {
+            ok: false,
+            text: `Nothing was recorded — the backend refused the transaction (${response.status}): ${describeError(result)}`
+        };
     } catch (error) {
         console.error('Network Error:', error);
-        showReasonMessage('Network error — the transaction could not reach the API, so nothing was recorded.', true);
+        return {
+            ok: false,
+            text: 'Network error — the transaction could not reach the API, so nothing was recorded.'
+        };
     }
+}
 
-    // A send that did not go through leaves Next live, so the same choice can be
-    // tried again.
-    setApproveEnabled(true);
+// The sentence both approving pages show once the backend has written it.
+function recordedMessage(transaction) {
+    const forStudent = transaction.student ? ` for ${transaction.student}` : '';
+
+    return `Recorded "${transaction.label}"${forStudent} — the backend wrote the ${transaction.type} transaction. Taking you to the home page…`;
 }
 
 // Choosing another reason is a different transaction, so it brings back the Next
@@ -1646,3 +1677,209 @@ reasonNext?.addEventListener('click', approveReason);
 // The page starts itself: ask the backend for admin powers, fill the dropdown,
 // then say on the one status line what happened.
 openReasonPage();
+
+// Other transaction page -------------------------------------------------------
+// transaction-other.html is the type that is not one of the lists: the admin types the
+// amount, the broad reason and the memo themselves, because the thing being recorded
+// has no row in the reasons table. It took the salary page's place, and that list is
+// still paid out in one go by jobrotation.js through /pay-salaries. Nothing is fetched
+// to fill this form - there is no list to fetch, and the boxes are the whole of it.
+//
+// The object it writes is the one the reason pages write, with the two free-text fields
+// the route accepts as well (openapi.json: TransactionRecord asks for student, type,
+// slug and reason, and takes amount, date and memo on top of them). Nothing about the
+// amount is signed here, unlike the reason pages: the admin's sign is their own, so a
+// minus in the box takes points away and a plain number gives them.
+const otherForm = document.getElementById('otherform');
+const otherAmount = document.getElementById('otheramount');
+const otherReason = document.getElementById('otherreason');
+const otherMemo = document.getElementById('othermemo');
+const otherNext = document.getElementById('othernext');
+const otherResults = document.getElementById('otherresults');
+
+// The type column value this page records under, and the slug the reason pages would
+// have built out of it: "OTHERS" -> "others". The route takes the type as it comes -
+// checked live, POST /transaction-record with type "OTHERS" answered
+// {"message": "Transaction saved"} - so this page owns its own value, and the two lines
+// below are all that has to change if the sheet ever spells the type differently.
+const OTHER_TYPE = 'OTHERS';
+const OTHER_SLUG = reasonSlugFromType(OTHER_TYPE);
+
+// True once the backend has confirmed the session and a student is being transacted
+// for. The greyed-out attribute is what the eye and the mouse see; this flag is what
+// the keyboard is checked against, because Enter inside a box submits the form whether
+// or not the button looks live.
+let otherEnabled = false;
+
+// Sets the Other page's Next button greyed-out or live - the same attribute styles.css
+// styles for .btn on the reason pages - and remembers the answer for that check.
+function setOtherEnabled(enabled) {
+    otherEnabled = Boolean(enabled);
+
+    if (!otherNext) return;
+
+    if (otherEnabled) {
+        otherNext.removeAttribute('aria-disabled');
+    } else {
+        otherNext.setAttribute('aria-disabled', 'true');
+    }
+}
+
+function showOtherMessage(text, isError) {
+    if (!otherResults) return;
+
+    const paragraph = document.createElement('p');
+    paragraph.textContent = text;
+
+    if (isError) {
+        paragraph.className = 'results__error';
+    }
+
+    otherResults.replaceChildren(paragraph);
+}
+
+// The memo as it should be sent: the box's own text, or null when it was left empty.
+// The route takes a null memo, and an empty box is not a note.
+function otherMemoValue() {
+    const memo = otherMemo?.value?.trim() ?? '';
+
+    return memo === '' ? null : memo;
+}
+
+// Opening the Other page: the same two checks the reason pages make as they load - a
+// student has to have been confirmed on transaction1.html, and the backend has to still
+// recognise this browser as an admin.
+async function openOtherPage() {
+    if (!otherAmount) return; // every other page loads app.js for its own form only
+
+    // A transaction is only ever for a student confirmed on transaction1.html, so
+    // without one the boxes and the Next button stay switched off and the status line
+    // says where to go. This is what stops this type being opened straight from the URL
+    // with nobody behind it.
+    if (!sessionStorage.getItem(STUDENT_KEY)) {
+        setOtherEnabled(false);
+        showOtherMessage('No student was confirmed by the backend — go back to the transaction page and enter a username that exists.', true);
+        return;
+    }
+
+    setOtherEnabled(false);
+
+    const check = await checkAdminPermission();
+    setOtherEnabled(check.granted);
+
+    // Who the transaction is for is the one thing neither box can say, so the line
+    // names the student transaction1.html confirmed along with the invitation.
+    const student = sessionStorage.getItem(STUDENT_KEY) || '';
+    const nextStep = check.granted
+        ? ` Type the amount, the broad reason and, if it is worth remembering, a memo for ${student}, then press Next.`
+        : '';
+
+    showOtherMessage(`${check.text}${nextStep}`, check.isError);
+}
+
+// Next: approving the Other transaction. The same shape as the reason pages' approval -
+// the backend is asked for admin powers once more, the Y/N question stands between the
+// choice and the write, and one approval runs at a time.
+async function approveOther() {
+    if (!otherAmount || !otherEnabled || approvalRunning) return;
+
+    approvalRunning = true;
+
+    try {
+        await runOtherApproval();
+    } finally {
+        approvalRunning = false;
+    }
+}
+
+// The approval itself, split out so the one-at-a-time flag above covers every way out
+// of it - recorded, refused, unanswered or off the network.
+async function runOtherApproval() {
+    const reason = otherReason?.value?.trim() ?? '';
+    const amountText = otherAmount?.value?.trim() ?? '';
+    const amount = Number(amountText);
+
+    if (!reason) {
+        showOtherMessage('Type the broad reason before approving — it is the reason column the transaction is written under.', true);
+        otherReason?.focus();
+        return;
+    }
+
+    // The schema's amount is an integer, so half a point is refused here rather than
+    // rounded somewhere the admin cannot see it.
+    if (amountText === '' || !Number.isInteger(amount)) {
+        showOtherMessage('The amount has to be a whole number of points — 25 to give them, -25 to take them away.', true);
+        otherAmount?.focus();
+        return;
+    }
+
+    setOtherEnabled(false);
+    const check = await checkAdminPermission();
+
+    if (!check.granted) {
+        showOtherMessage(check.text, true);
+        return;
+    }
+
+    setOtherEnabled(true);
+
+    // The same columns the reason pages write, with the reason and the memo typed in
+    // instead of picked: type is this page's own value, slug is that value as a URL,
+    // reason is the broad reason, and amount and memo are what the two boxes hold.
+    // label is only what the eye saw, so the question and the status line name the
+    // transaction exactly as it is about to be written.
+    const transaction = {
+        student: sessionStorage.getItem(STUDENT_KEY) || '',
+        type: OTHER_TYPE,
+        slug: OTHER_SLUG,
+        reason: reason,
+        amount: amount,
+        memo: otherMemoValue(),
+        label: reason
+    };
+
+    const confirmed = await askConfirmation(transaction);
+
+    if (!confirmed) {
+        const forStudent = transaction.student ? ` for ${transaction.student}` : '';
+        showOtherMessage(`Nothing was recorded — the "${transaction.label}" transaction${forStudent} was not confirmed with Y.`, true);
+        return;
+    }
+
+    const sent = await sendTransaction(transaction);
+
+    if (sent.ok) {
+        // Recorded once is recorded: Next goes grey until a box changes, so a second
+        // Enter or click cannot write the same transaction twice.
+        setOtherEnabled(false);
+        showOtherMessage(recordedMessage(transaction), false);
+        redirectHomeAfter(REDIRECT_DELAY_MS);
+        return;
+    }
+
+    showOtherMessage(sent.text, true);
+
+    // A send that did not go through leaves Next live, so the same choice can be tried
+    // again.
+    setOtherEnabled(true);
+}
+
+// Editing the boxes is a different transaction, so it brings back the Next button that
+// a recorded or refused one left grey - the same rule as choosing another reason. Both
+// boxes have to hold something for that, because neither half alone can be written.
+otherForm?.addEventListener('input', function () {
+    if (otherAmount?.value.trim() && otherReason?.value.trim()) {
+        setOtherEnabled(true);
+    }
+});
+
+// Next is a submit button so that Enter inside a box works too, and a form that asks to
+// be submitted is answered here: nothing may leave this page as a query string.
+otherForm?.addEventListener('submit', function (event) {
+    event.preventDefault();
+    approveOther();
+});
+
+// The page starts itself: ask the backend for admin powers, then say on the status line
+// what it answered.
+openOtherPage();

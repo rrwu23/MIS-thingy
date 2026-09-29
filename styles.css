@@ -353,7 +353,12 @@ a.tag:hover {
     color: var(--text-faint);
 }
 
-.field input {
+/* The one-line fields and the memo box share one surface, so the memo on
+   transaction-other.html cannot drift away from the fields above it. The second rule
+   is the only thing a <textarea> needs on top of that: a height to start from and the
+   browser's own grab handle, downwards only, so the page below it is never covered. */
+.field input,
+.field textarea {
     width: 100%;
     padding: 0.8rem 0.95rem;
     font-family: inherit;
@@ -365,9 +370,17 @@ a.tag:hover {
     transition: border-color 0.16s ease, box-shadow 0.16s ease, background-color 0.16s ease;
 }
 
-.field input:hover { border-color: var(--border-hi); }
+.field textarea {
+    min-height: 7rem;
+    line-height: 1.5;
+    resize: vertical;
+}
 
-.field input:focus {
+.field input:hover,
+.field textarea:hover { border-color: var(--border-hi); }
+
+.field input:focus,
+.field textarea:focus {
     outline: none;
     background: var(--surface-3);
     border-color: var(--accent-deep);
@@ -379,7 +392,8 @@ a.tag:hover {
    ":not(:placeholder-shown)" trick needed a placeholder to test against, and the
    fields no longer carry one. A browser too old to know the state simply leaves the
    border alone, and its own validation bubble still explains what is missing. */
-.field input:user-invalid {
+.field input:user-invalid,
+.field textarea:user-invalid {
     border-color: rgba(207, 51, 82, 0.55);
 }
 
