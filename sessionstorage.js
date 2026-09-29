@@ -1,18 +1,25 @@
-// Session handling for the transaction flow.
+// Session handling for the student flow.
 //
-// transaction1.html asks the backend whether this browser still holds an admin
-// login, and asks it again whether the typed student exists before it lets the
-// flow move on. That student has to be one of the logged-in admin's own accounts:
-// the admin behind the session cookie is read from GET /current-admin, and only an
-// account naming that admin as its supervisor can be confirmed, so no admin can
-// open a transaction for another admin's student. The confirmed username is stored
-// in sessionStorage, and the later pages read that username back so every step
-// knows which account is being changed — and refuse to carry on when no student has
-// been confirmed.
-// Loaded by transaction1.html and transaction-middle.html.
+// Two pages ask the same question — transaction1.html starts a transaction and
+// transaction-view-middle.html opens a student's history — so they share this file.
+// Each asks the backend whether this browser still holds an admin login, and asks it
+// again whether the typed student exists before it lets the page move on. That student
+// has to be one of the logged-in admin's own accounts: the admin behind the session
+// cookie is read from GET /current-admin, and only an account naming that admin as its
+// supervisor can be confirmed, so no admin can open a transaction — or a history — for
+// another admin's student. The confirmed username is stored in sessionStorage, and the
+// pages after these read that username back so every step knows which account is being
+// changed or looked at — and refuse to carry on when no student has been confirmed.
+// Loaded by the two pages with the one-username form (transaction1.html and
+// transaction-view-middle.html) and by the two pages they open (transaction-middle.html
+// and transaction-view.html), which read the stored username back.
 
 const STUDENT_USERNAME_KEY = 'student_username';
+
+// Where the flow goes once the username has been confirmed: the transaction flow's Next
+// opens the type menu, the history flow's opens the transactions of that student.
 const TRANSACTION_NEXT_URL = '/transaction-middle.html';
+const VIEW_NEXT_URL = '/transaction-view.html';
 
 // Public account list, the route the typing picker in studentpicker.js also
 // loads. Its ?name= and ?supervisor= filters are exact, case-sensitive lookups
@@ -63,6 +70,24 @@ const transactionNext = document.getElementById('transactionnext');
 const transactionStudent = document.getElementById('transactionstudent');
 const transactionSession = document.getElementById('transactionsession');
 
+// The history flow's version of the same three pieces: transaction-view-middle.html's
+// one-username form, the Next link beside it, and the line under the form that says what
+// the backend answered.
+const viewForm = document.getElementById('transactionviewform');
+const viewNext = document.getElementById('viewnext');
+const viewSession = document.getElementById('viewsession');
+
+// Whichever flow this page is, read once: the form whose username is asked about, the
+// Next link held back until the backend agrees about it, the line that says why, and
+// what that link opens. Every function below works on the one pair that is on the page,
+// and that is what makes the two flows one check. A page with neither form — the two
+// pages the flows open — finds nothing here and starts nothing.
+const flowForm = transactionForm ?? viewForm;
+const flowNext = transactionNext ?? viewNext;
+const flowSession = transactionSession ?? viewSession;
+const nextPageUrl = viewForm ? VIEW_NEXT_URL : TRANSACTION_NEXT_URL;
+const nextPageName = viewForm ? 'the transaction history' : 'a transaction';
+
 // 'unknown' while the backend is being asked, then 'granted' or 'denied'.
 let permission = 'unknown';
 
@@ -79,7 +104,7 @@ let blockedMessage = '';
 
 // The username as typed, trimmed; '' when the field is empty.
 function typedStudentUsername() {
-    const field = transactionForm?.elements.namedItem('student_username');
+    const field = flowForm?.elements.namedItem('student_username');
     return field ? field.value.trim() : '';
 }
 
@@ -89,7 +114,7 @@ function typedStudentUsername() {
 function storeStudentUsername(username) {
     sessionStorage.setItem(STUDENT_USERNAME_KEY, username);
 
-    const field = transactionForm?.elements.namedItem('student_username');
+    const field = flowForm?.elements.namedItem('student_username');
 
     if (field) {
         field.value = username;
@@ -107,23 +132,23 @@ function forgetStudentUsername() {
     console.log('Forgot the stored student username: the typed name is not an account.');
 }
 
-// transaction1.html: Next is a plain link, so the click is always held back until
-// the backend has agreed about the student; confirmStudent() opens the next page
-// itself once it has.
-transactionNext?.addEventListener('click', function (event) {
+// Next is a plain link on both pages, so the click is always held back until the
+// backend has agreed about the student; confirmStudent() opens the next page itself
+// once it has.
+flowNext?.addEventListener('click', function (event) {
     event.preventDefault();
     confirmStudent();
 });
 
 // Pressing Enter inside the single input submits the form, not the link.
-transactionForm?.addEventListener('submit', function (event) {
+flowForm?.addEventListener('submit', function (event) {
     event.preventDefault();
     confirmStudent();
 });
 
 // Editing the username lifts the lock: the backend's answer was about the name
 // that was asked about, not about this new one.
-transactionForm?.addEventListener('input', function () {
+flowForm?.addEventListener('input', function () {
     if (!blockedStudent) return;
 
     blockedStudent = '';
@@ -158,9 +183,10 @@ function lockTransactionTypes() {
     });
 }
 
-// transaction1.html: ask the backend for login permission as the page opens.
+// The two pages with the one-username form: ask the backend for login permission as the
+// page opens.
 async function checkLoginPermission() {
-    if (!transactionForm) return; // only transaction1.html has the form
+    if (!flowForm) return; // only the pages with that form have anything to unlock
 
     // Next is grey and unclickable until the backend has confirmed the session.
     setNextEnabled(false);
@@ -179,7 +205,7 @@ async function checkLoginPermission() {
             permission = 'granted';
             setNextEnabled(true);
             console.info(`POST /adduser answered ${response.status} on purpose: the empty body was rejected, which is how this app hears "admin session accepted". It is the logged-in signal, not an error, and no account was created.`);
-            showSessionMessage('Admin login confirmed by the backend — you can open a transaction.', false);
+            showSessionMessage(`Admin login confirmed by the backend — you can open ${nextPageName}.`, false);
             return;
         }
 
@@ -212,24 +238,24 @@ function permissionGranted() {
     }
 
     if (permission === 'denied') {
-        alert('log into admin account before making a transaction');
+        alert(`log into the admin account before opening ${nextPageName}`);
     }
 
     return false;
 }
 
 function setNextEnabled(enabled) {
-    if (!transactionNext) return;
+    if (!flowNext) return;
 
     if (enabled) {
-        transactionNext.removeAttribute('aria-disabled');
+        flowNext.removeAttribute('aria-disabled');
     } else {
-        transactionNext.setAttribute('aria-disabled', 'true');
+        flowNext.setAttribute('aria-disabled', 'true');
     }
 }
 
 function showSessionMessage(text, isError) {
-    if (!transactionSession) return;
+    if (!flowSession) return;
 
     const paragraph = document.createElement('p');
     paragraph.textContent = text;
@@ -238,14 +264,14 @@ function showSessionMessage(text, isError) {
         paragraph.className = 'results__error';
     }
 
-    transactionSession.replaceChildren(paragraph);
+    flowSession.replaceChildren(paragraph);
 }
 
-// transaction1.html: the check behind both Next and Enter. The admin session has
-// to be confirmed first, then the backend is asked whether the typed username is
-// an account it knows about; only then is the name stored and the next page
-// opened. Otherwise the flow stays put and the results line below the form says
-// why.
+// The check behind both Next and Enter, on the two pages that carry the form. The admin
+// session has to be confirmed first, then the backend is asked whether the typed
+// username is an account it knows about; only then is the name stored and the next page
+// opened — the type menu for a transaction, the history page for a history. Otherwise
+// the page stays where it is and the results line below the form says why.
 async function confirmStudent() {
     if (studentCheckRunning) return; // one check at a time, however fast the clicks
     if (!permissionGranted()) return;
@@ -291,8 +317,8 @@ async function confirmStudent() {
         blockedStudent = '';
         blockedMessage = '';
         storeStudentUsername(account);
-        showSessionMessage(`${account} confirmed by the backend — opening the transaction…`, false);
-        window.location.href = TRANSACTION_NEXT_URL;
+        showSessionMessage(`${account} confirmed by the backend — opening ${nextPageName}…`, false);
+        window.location.href = nextPageUrl;
     } catch (error) {
         console.error('Student check error:', error);
         blockStudent(username, 'Network error — the account check could not reach the API, so the transaction stays locked. Try again.');

@@ -1,0 +1,59 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>App1 · Transaction history</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Comfortaa:wght@300..700&display=swap">
+    <link rel="stylesheet" href="styles.css?v=7">
+    <script src="sessionstorage.js?v=3" defer></script>
+</head>
+<body>
+    <!-- The first page of the history flow, and the page the students page's "View
+         student transaction history" door opens: the sketch's box with one field in it,
+         "Enter student name." Nothing is read on this page — it is the question, not the
+         answer. The typed name is confirmed by the backend the same way transaction1.html
+         confirms the student of a transaction (sessionstorage.js asks /current-admin
+         whose student it is and /getuser whether the name is an account), the confirmed
+         username is stored in sessionStorage, and Next then opens transaction-view.html,
+         which reads the stored name back and shows the transactions recorded for it. -->
+    <div class="page">
+        <main class="card">
+            <header class="bar">
+                <a class="brand" href="/home.html">
+                    <span class="brand__dot" aria-hidden="true"></span>Bonura's Bank
+                </a>
+                <a class="tag" href="/students.html">&#8592; Students</a>
+            </header>
+
+            <h1 class="card__title">Transaction history</h1>
+            <p class="card__hint">Enter the student whose transactions you want to read. Only a signed-in admin may look, so the page asks the backend for permission as it loads, and asks it again about the student when you press Next — a name the backend does not know is refused, with the same line the transaction pages give.</p>
+
+            <form id="transactionviewform" class="form">
+                <div class="field">
+                    <label for="student_username">Enter student name.</label>
+
+                    <!-- The input keeps the id and name sessionstorage.js reads
+                         (student_username), so the one check behind Next works here
+                         exactly as it does on transaction1.html; the label is what the
+                         sketch draws. autocomplete is off because the browser's own
+                         suggestions have nothing to do with the accounts on the backend. -->
+                    <input type="text" id="student_username" name="student_username"
+                           autocomplete="off" required>
+                </div>
+
+                <div class="form__actions">
+                    <a class="btn btn--primary" id="viewnext" href="/transaction-view.html">Next</a>
+                </div>
+            </form>
+
+            <div id="viewsession" class="results" role="status" aria-live="polite"
+                 data-empty="Asking the backend whether you are logged in&hellip;"></div>
+
+            <p class="footnote">Wrong page? <a class="tag" href="/students.html">&#8592; Students</a></p>
+        </main>
+    </div>
+</body>
+</html>
