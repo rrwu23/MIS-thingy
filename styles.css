@@ -1,26 +1,36 @@
 /* ==========================================================================
    App1 — shared stylesheet
-   Theme: light teal canvas, #21ffda signature teal accent, white glass cards.
-   The accent is used as-is for filled surfaces (buttons, the brand dot, card
-   hairlines, focus glows). Its deeper tints (--accent-deep, --gradient-ink)
-   carry thin text and 1px outlines, because plain #21ffda on a light canvas
-   would not be readable.
+   Theme: a light teal canvas carrying one card per page, and that card is filled
+   with the accent itself — #21ffda, the one brand colour. index.html, home.html and
+   the eleven inner pages are all cut from the same cloth: the brand bar along the
+   top, the page's own content across the middle, the footnote at the foot. No page
+   draws a white glass card any more; the only pale surface left is the Y/N overlay,
+   which is a panel over the page rather than part of it.
+   Standing on the accent, the accent itself would disappear, so everything resting
+   on a card is drawn in the accent's deeper tints instead: --accent-ink for text and
+   outlines, --accent-ink-soft for the quiet tier under it, --accent-deep for the 1px
+   hairlines, and --danger-ink for a red that still reads up there. Controls are pale
+   boxes with an ink outline — .btn--door, .btn--ghost, the fields, the tag — while
+   .btn--primary, the one button that takes you further in, is the ink itself.
    Typeface: Comfortaa for the whole UI, pulled from Google Fonts by the <head>
    of every page (Comfortaa ships with no operating system, so the webfont is
    the only way to get it). The system stack behind it in --font is just the
    fallback shown while the webfont swaps in.
    Loaded by every page in the project.
-   Every page links this file as styles.css?v=N, and its own scripts the same way.
-   Bump N whenever the look or the behaviour changes: the host sends assets with
-   max-age=14400, so without a new URL a browser can go on painting a four-hour-old
-   copy — of this file or of app.js — while the HTML around it is already new.
+   Every page links this file as styles.css?v=N, and its own scripts the same way, each
+   asset carrying its own N — this one is at 3. Bump the N of whichever file has
+   changed, the stylesheet for a new look or a script for new behaviour: the host sends
+   assets with max-age=14400, so without a new URL a browser can go on painting a
+   four-hour-old copy — of this file or of app.js — while the HTML around it is
+   already new.
    ========================================================================== */
 
 :root {
     /* accent — the one brand colour */
-    --accent:      #21ffda;
-    --accent-deep: #067d6c;   /* darker tint of the accent, for text/outlines */
-    --accent-ink:  #04302b;   /* text that sits on top of the accent */
+    --accent:          #21ffda;
+    --accent-deep:     #067d6c;   /* darker tint of the accent, for 1px hairlines */
+    --accent-ink:      #04302b;   /* text and outlines that stand on top of the accent */
+    --accent-ink-soft: rgba(4, 48, 43, 0.74);   /* the quiet tier of text under it */
 
     /* canvas */
     --bg:         #f2fffc;
@@ -28,13 +38,16 @@
     --glow-2:     rgba(33, 255, 218, 0.34);
     --glow-3:     rgba(33, 255, 218, 0.24);
 
-    /* surfaces */
-    --surface:    rgba(255, 255, 255, 0.88);
-    --surface-2:  rgba(240, 255, 251, 0.92);
+    /* surfaces — the pale surface a control borrows when it stands on the accent card:
+       the fields and the tag on every page, the doors and the status lines on the hub.
+       White enough to carry the deep ink text, which is why the Y/N overlay's panel
+       is the same white. */
+    --surface:    rgba(255, 255, 255, 0.94);
     --surface-3:  #ffffff;
     --border:     rgba(6, 131, 113, 0.34);
     --border-hi:  rgba(6, 131, 113, 0.80);
-    --danger:     #cf3352;
+    --danger:     #cf3352;   /* for a red drawn on a pale surface */
+    --danger-ink: #8a1b34;   /* the same red, deep enough to read on the accent */
 
     /* text */
     --text:       #052e2a;
@@ -43,17 +56,17 @@
 
     /* effects */
     --gradient:     linear-gradient(135deg, var(--accent) 0%, #1af0d0 52%, #0ec7ab 100%);
-    --gradient-ink: linear-gradient(135deg, #089a83 0%, #067d6c 52%, #055b4d 100%);
     --radius:       18px;
     --radius-sm:    11px;
     --shadow:       0 18px 44px rgba(5, 76, 68, 0.14);
     --shadow-btn:   0 10px 24px rgba(6, 179, 154, 0.30);
-    --ring:         0 0 0 4px rgba(33, 255, 218, 0.45);
+    /* The glow a focused field draws. Every field in the app stands on the accent card
+       now, where a teal ring would wash out, so the ring is the field's own white. */
+    --ring:         0 0 0 4px rgba(255, 255, 255, 0.65);
 
     --font: "Comfortaa", system-ui, -apple-system, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
-    /* the code face is Comfortaa too — <code> keeps its accent tint and rounded
-       chip so it still reads as code. The monospace stack behind it is only a
-       fallback. */
+    /* the code face is Comfortaa too — <code> keeps its rounded chip so it still
+       reads as code. The monospace stack behind it is only a fallback. */
     --mono: "Comfortaa", ui-monospace, SFMono-Regular, "SF Mono", Menlo, Consolas, monospace;
 
     color-scheme: light;
@@ -93,25 +106,27 @@ body {
 .page { width: 100%; max-width: 46rem; }
 
 /* ----------------------------------------------------------------- card ---- */
+/* Every inner page is one card, and that card is filled with the accent — the same
+   surface and the same 34px corners index.html and home.html are drawn on. The teal
+   hairline the old white card carried along its top edge is gone with the white card:
+   the card itself is that colour now.
+   The card is a column rather than a plain block for two reasons: it lets the page's
+   footnote be pushed to the foot with margin-top: auto, the way the hub pushes Sign
+   out there, and its min-height — the hub's — keeps a short page as tall as the
+   sketch's card instead of shrinking to its handful of lines. Everything on it
+   inherits the accent ink, which is what every control below is drawn against. */
 .card {
     position: relative;
-    padding: clamp(1.5rem, 3.5vw, 2.5rem);
-    background: var(--surface);
-    border: 1px solid var(--border);
-    border-radius: var(--radius);
+    display: flex;
+    flex-direction: column;
+    min-height: clamp(26rem, 74vh, 38rem);
+    padding: clamp(1.6rem, 5vw, 2.75rem);
+    color: var(--accent-ink);
+    background: var(--accent);
+    border: 1.5px solid var(--accent-deep);
+    border-radius: 34px;
     box-shadow: var(--shadow);
-    backdrop-filter: blur(14px);
-    -webkit-backdrop-filter: blur(14px);
     overflow: hidden;
-}
-
-/* teal -> deeper teal hairline along the top edge of every card */
-.card::before {
-    content: "";
-    position: absolute;
-    inset: 0 0 auto 0;
-    height: 3px;
-    background: var(--gradient);
 }
 
 /* ------------------------------------------------------------------ bar ---- */
@@ -132,35 +147,40 @@ body {
     font-weight: 700;
     letter-spacing: 0.06em;
     text-transform: uppercase;
-    color: var(--text);
+    color: var(--accent-ink);
     text-decoration: none;
 }
 
+/* the dot beside the name: the accent standing on the accent would vanish, so the dot
+   is the ink, lit by a halo of the card's own white */
 .brand__dot {
     width: 0.7rem;
     height: 0.7rem;
     border-radius: 50%;
-    background-image: var(--gradient);
-    box-shadow: 0 0 14px rgba(33, 255, 218, 0.95);
+    background: var(--accent-ink);
+    box-shadow: 0 0 12px rgba(255, 255, 255, 0.85);
 }
 
+/* The chip in the top-right corner of every inner page, and the small ones along the
+   footnotes: a pale box with an ink outline, the treatment the doors get. */
 .tag {
-    padding: 0.3rem 0.7rem;
+    padding: 0.35rem 0.75rem;
     font-size: 0.7rem;
     font-weight: 600;
     letter-spacing: 0.14em;
     text-transform: uppercase;
-    color: var(--text-dim);
-    border: 1px solid var(--border);
+    color: var(--accent-ink);
+    background: var(--surface);
+    border: 1.5px solid var(--accent-ink);
     border-radius: 999px;
     text-decoration: none;
     transition: color 0.16s ease, border-color 0.16s ease, background-color 0.16s ease;
 }
 
 a.tag:hover {
-    color: var(--text);
-    border-color: var(--border-hi);
-    background: rgba(33, 255, 218, 0.22);
+    color: var(--accent-ink);
+    border-color: var(--accent-deep);
+    background: var(--surface-3);
 }
 
 /* ---------------------------------------------------------- card headings ---- */
@@ -174,7 +194,7 @@ a.tag:hover {
 .card__hint {
     margin: 0 0 1.85rem;
     font-size: 0.95rem;
-    color: var(--text-dim);
+    color: var(--accent-ink-soft);
 }
 
 /* ------------------------------------------------------------- buttons ---- */
@@ -261,19 +281,58 @@ a.tag:hover {
     pointer-events: none;
 }
 
+/* The buttons that stand on a card, where the accent they used to be filled with is
+   the card itself.
+   .btn--primary — the one button that takes you further in — becomes the accent ink,
+   the same dark filled button the sign-in card's doors are, and lightens to the accent
+   deep on hover; .btn--ghost (Clear) keeps its outline but draws it in the ink, since
+   the accent border would disappear into the card. The pale filled treatment, for a
+   set of choices that are all equal, is .btn--door — the hub's five doors and the
+   transaction-type menu both wear it, so nothing here repeats it.
+   The buttons that stand on a pale surface instead, the Y/N overlay's Y and N, are
+   untouched by all this and keep the rules above. */
+.card .btn--primary {
+    color: #f2fffc;
+    background-image: none;
+    background-color: var(--accent-ink);
+    border-color: var(--accent-ink);
+    box-shadow: 0 10px 22px rgba(4, 48, 43, 0.26);
+}
+
+.card .btn--primary:hover {
+    background-color: var(--accent-deep);
+    border-color: var(--accent-deep);
+    box-shadow: 0 14px 28px rgba(4, 48, 43, 0.32);
+}
+
+.card .btn--primary:active { transform: translateY(0); }
+
+.card .btn--ghost {
+    color: var(--accent-ink);
+    border: 1.5px solid rgba(4, 48, 43, 0.45);
+}
+
+.card .btn--ghost:hover {
+    color: var(--accent-ink);
+    background: rgba(255, 255, 255, 0.45);
+    border-color: var(--accent-ink);
+}
+
+/* the ring the .btn rule draws is the deeper teal, which would wash out against the
+   card — on the card it is the accent ink, like the outline of the button it rings */
+.card .btn:focus-visible { outline-color: var(--accent-ink); }
+
 /* ---------------------------------------------------------- acc. panel ---- */
-/* Big rounded panel filled with the accent, as sketched on the bonus page. */
+/* The reason pages' panel — the title, the dropdown and Next — was a rounded box
+   filled with the accent, standing on a white card. The card is that colour now, so
+   the box would only repeat it. What is left is the column itself, which keeps the
+   airy spacing the sketch leaves between the dropdown and the button. */
 .panel {
     display: grid;
     align-content: start;
     justify-items: center;
     gap: clamp(2.5rem, 7vw, 4.5rem);
     min-height: clamp(17rem, 42vw, 25rem);
-    padding: clamp(1.75rem, 5vw, 2.75rem) clamp(1.5rem, 5vw, 3rem) clamp(3rem, 9vw, 5rem);
-    background: var(--accent);
-    border: 1px solid var(--accent-deep);
-    border-radius: 28px;
-    box-shadow: var(--shadow);
 }
 
 .panel__title {
@@ -408,28 +467,33 @@ a.tag:hover {
 
 .hub__foot .btn { align-self: flex-end; }
 
-/* The hub's status line, on the accent card: it borrows the white surface the doors
-   borrow so that it stays readable there, and an empty one takes no room at all —
-   the page as it opens is the sketch and nothing else. */
+/* A status line standing on an accent card — the hub's, or an inner page's — borrows
+   the white surface the doors borrow so that it stays readable there. On the hub an
+   empty one takes no room at all, the page as it opens being the sketch and nothing
+   else; on an inner page the empty slot keeps the dashed placeholder above, which is
+   the line that says what the page is waiting for. */
 .hub .results { margin-top: 0; }
 
 .hub .results:empty { display: none; }
 
-.hub .results > p {
+.hub .results > p,
+.card .results > p {
     color: var(--accent-ink);
     background: rgba(255, 255, 255, 0.94);
     border-color: var(--accent-ink);
     border-radius: var(--radius-sm);
 }
 
-.hub .results > p.results__error {
+.hub .results > p.results__error,
+.card .results > p.results__error {
     background: rgba(255, 255, 255, 0.94);
     border-left-color: var(--danger);
 }
 
 /* on the white surface the line borrows, the deeper accent tint is what reads as a
    link — the accent itself would disappear into it */
-.hub .results > p a {
+.hub .results > p a,
+.card .results > p a {
     color: var(--accent-deep);
     font-weight: 700;
     text-decoration-thickness: 1.5px;
@@ -441,9 +505,9 @@ a.tag:hover {
    bank's name at its top-left, the username and password boxes across its middle and
    the two sign-in doors along its foot. It is filled with the accent, so everything
    standing on it — brand, boxes, buttons, status line — is drawn in the accent ink,
-   the darkest tint of the same colour, rather than in the light text the glass cards
-   use. The card is as tall as the window allows, which is what leaves the empty teal
-   between the fields and the buttons the sketch shows. */
+   the darkest tint of the same colour, the way the content of every other card is. The
+   card is as tall as the window allows, which is what leaves the empty teal between the
+   fields and the buttons the sketch shows. */
 .signin {
     display: grid;
     gap: clamp(1.5rem, 4.5vw, 2.5rem);
@@ -493,13 +557,13 @@ a.tag:hover {
 
 .signin__field input:hover { background: #ffffff; }
 
-/* The focus glow the form pages use is teal, which would wash out against the accent
-   card. On this card the ring is white, and a ring all the same. */
+/* The ring a focused box draws is --ring: a ring of white, because a teal glow would
+   wash out against the accent card. The inner pages' fields draw the same ring. */
 .signin__field input:focus {
     outline: none;
     background: #ffffff;
     border-color: var(--accent-ink);
-    box-shadow: 0 0 0 4px rgba(255, 255, 255, 0.65);
+    box-shadow: var(--ring);
 }
 
 /* the same rule as the form pages: a box colours up once it has the user's attention
@@ -592,29 +656,31 @@ a.tag:hover {
     font-weight: 600;
     letter-spacing: 0.08em;
     text-transform: uppercase;
-    color: var(--text-dim);
+    color: var(--accent-ink-soft);
 }
 
 .field .hint {
     font-weight: 400;
     letter-spacing: 0;
     text-transform: none;
-    color: var(--text-faint);
+    color: var(--accent-ink-soft);
 }
 
 /* The one-line fields and the memo box share one surface, so the memo on
    transaction-other.html cannot drift away from the fields above it. The second rule
    is the only thing a <textarea> needs on top of that: a height to start from and the
-   browser's own grab handle, downwards only, so the page below it is never covered. */
+   browser's own grab handle, downwards only, so the page below it is never covered.
+   The boxes stand on the accent card, so each one is a pale box with an ink outline —
+   the treatment the sign-in card's two boxes and the doors get. */
 .field input,
 .field textarea {
     width: 100%;
     padding: 0.8rem 0.95rem;
     font-family: inherit;
     font-size: 1rem;
-    color: var(--text);
-    background: var(--surface-2);
-    border: 1px solid var(--border);
+    color: var(--accent-ink);
+    background: var(--surface);
+    border: 1.5px solid var(--accent-ink);
     border-radius: var(--radius-sm);
     transition: border-color 0.16s ease, box-shadow 0.16s ease, background-color 0.16s ease;
 }
@@ -626,13 +692,16 @@ a.tag:hover {
 }
 
 .field input:hover,
-.field textarea:hover { border-color: var(--border-hi); }
+.field textarea:hover {
+    background: var(--surface-3);
+    border-color: var(--accent-deep);
+}
 
 .field input:focus,
 .field textarea:focus {
     outline: none;
     background: var(--surface-3);
-    border-color: var(--accent-deep);
+    border-color: var(--accent-ink);
     box-shadow: var(--ring);
 }
 
@@ -717,10 +786,13 @@ a.tag:hover {
 .combo__hint {
     margin: 0;
     font-size: 0.82rem;
-    color: var(--text-faint);
+    color: var(--accent-ink-soft);
 }
 
-.combo__hint--error { color: var(--danger); }
+/* the hint is the one red that is written straight on the card rather than on a pale
+   box, where --danger would only reach about 3.9:1 against the accent — this is the
+   same red, deep enough to read up there */
+.combo__hint--error { color: var(--danger-ink); }
 
 .form__actions {
     display: flex;
@@ -771,12 +843,14 @@ a.tag:hover {
     color: var(--accent-deep);
 }
 
+/* the line a page shows while it waits reads straight on the card, so it is drawn in
+   the card's ink rather than in the light page's faintest grey */
 .results:empty::before {
     content: attr(data-empty);
     padding: 1rem 1.1rem;
     font-size: 0.92rem;
-    color: var(--text-faint);
-    border: 1px dashed var(--border);
+    color: var(--accent-ink-soft);
+    border: 1px dashed rgba(4, 48, 43, 0.45);
     border-radius: var(--radius-sm);
 }
 
@@ -852,7 +926,7 @@ a.tag:hover {
 
 /* On the home page the chart stands on the accent card, so it borrows the white
    surface the doors borrow: the bars, the gridlines, the names and the stamp keep the
-   light pages' colours and stay readable up there. */
+   colours they would have on a light surface and stay readable up there. */
 .hub .chart {
     margin-top: 0;
     padding: 1.15rem clamp(0.9rem, 3vw, 1.4rem);
@@ -972,21 +1046,28 @@ a.tag:hover {
 .chart__stamp:empty { display: none; }
 
 /* ------------------------------------------------------------ footnote ---- */
+/* The foot of the card: the line that says where else you could have gone. margin-top:
+   auto pushes it to the bottom of the card the way the hub pushes Sign out to its own
+   foot — the card is a column, so a page shorter than the card gets the empty teal
+   between its content and its footnote that the sketch draws. */
 .footnote {
-    margin: 1.6rem 0 0;
+    margin: auto 0 0;
     padding-top: 1.1rem;
     font-size: 0.85rem;
-    color: var(--text-faint);
-    border-top: 1px solid var(--border);
+    color: var(--accent-ink-soft);
+    border-top: 1px solid rgba(4, 48, 43, 0.35);
 }
 
+/* the one piece of code on the pages — the <code>OTHERS</code> in the other-transaction
+   hint — keeps its chip but takes the card's ink for its word, the accent tint it used
+   to be written in being a tint of the card's own colour */
 code {
     padding: 0.15rem 0.4rem;
     font-family: var(--mono);
     font-size: 0.9em;
-    color: var(--accent-deep);
-    background: rgba(33, 255, 218, 0.13);
-    border: 1px solid var(--border);
+    color: var(--accent-ink);
+    background: rgba(255, 255, 255, 0.55);
+    border: 1px solid rgba(4, 48, 43, 0.45);
     border-radius: 6px;
 }
 
