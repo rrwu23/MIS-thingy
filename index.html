@@ -7,17 +7,17 @@
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Comfortaa:wght@300..700&display=swap">
-    <link rel="stylesheet" href="styles.css?v=7">
+    <link rel="stylesheet" href="styles.css?v=8">
     <script src="app.js?v=4" defer></script>
 </head>
 <body>
     <!-- The landing page is one card and nothing else: the bank's name at its top-left,
-         a username box and a password box across its middle, and the two sign-in doors
-         along its foot with the history door standing under them. app.js's landing
-         section is the only thing the card talks to, and "Admin sign in" is the admin
-         login there — the same POST /login, with the same admin_name and password
-         fields, that login_admin.html sends. The student door has no route behind it
-         yet, so it says so when it is pressed. -->
+         a username box and a password box across its middle, and the two doors along its
+         foot. app.js's landing section is the only thing the card talks to, and "Admin
+         sign in" is the admin login there — the same POST /login, with the same
+         admin_name and password fields, that login_admin.html sends. The student door has
+         no route behind it yet, so it says so when it is pressed; what a signed-in admin
+         can do, the six doors of home.html, all starts from this card. -->
     <div class="page">
         <main class="signin">
             <h1 class="signin__brand">Bonura bank</h1>
@@ -51,19 +51,6 @@
                         Admin sign in
                     </button>
                 </div>
-
-                <!-- The third way out of this card, and the one that is not a sign-in: the
-                     same history door the students page carries, opening the same page —
-                     transaction-view-middle.html, which asks the backend whose session
-                     this is before it asks which student to show, so a visitor who is not
-                     signed in is told to sign in on the page it opens rather than here. It
-                     stands under the two doors but wears the pale treatment of a door
-                     rather than their dark ink, the way the hub and the students page draw
-                     a door. app.js knows nothing about it: it is a link, and the card's
-                     only script is the sign-in the two buttons above send. -->
-                <a class="btn btn--door" href="/transaction-view-middle.html">
-                    View student transaction history
-                </a>
             </form>
 
             <div id="signinresults" class="results" role="status" aria-live="polite"></div>

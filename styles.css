@@ -418,7 +418,7 @@ a.tag:hover {
 
 .hub__question { font-size: clamp(1rem, 3vw, 1.15rem); }
 
-/* the doors, two by two: five of them, so Rotate jobs sits on a last row of its own */
+/* the doors, two by two: six of them, three full rows, with Rotate jobs closing the last */
 .hub__actions {
     display: grid;
     grid-template-columns: 1fr 1fr;
@@ -430,6 +430,12 @@ a.tag:hover {
    and the accent ink for its word. */
 .btn--door {
     padding: clamp(1.05rem, 3.2vw, 1.45rem) 1.1rem;
+    /* The page's line-height, said out loud. The doors are mostly links, which inherit
+       it, but the two that are <button>s — Remove student and Sign out — take the user
+       agent's font shorthand instead, which pins a button to line-height: normal. Left
+       alone, a button door stands a line-box shorter than the link doors, and shows it
+       wherever it has no neighbour to be stretched level with. */
+    line-height: 1.55;
     color: var(--accent-ink);
     background: rgba(255, 255, 255, 0.94);
     border-width: 1.5px;

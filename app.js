@@ -536,7 +536,7 @@ function homePageLink() {
 
 // Home page ------------------------------------------------------------------
 // home.html is the card behind the front door: a greeting that names the admin this
-// browser is signed in as, the four doors the sketch draws, and Sign out. Almost
+// browser is signed in as, the six doors on it, and Sign out. Almost
 // everything on it starts from the same live route, GET /current-admin (listed in
 // https://api.rongrongwu.com/openapi.json): it takes the session cookie and answers
 // 401 {"detail": "Not logged in"} without one — checked live with curl, exactly like
