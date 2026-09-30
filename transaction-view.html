@@ -7,9 +7,9 @@
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Comfortaa:wght@300..700&display=swap">
-    <link rel="stylesheet" href="styles.css?v=12">
+    <link rel="stylesheet" href="styles.css?v=13">
     <script src="sessionstorage.js?v=3" defer></script>
-    <script src="transactionview.js?v=4" defer></script>
+    <script src="transactionview.js?v=5" defer></script>
 </head>
 <body>
     <!-- The second page of the history flow: the sketch's card with the student's name
@@ -21,7 +21,7 @@
              GET https://api.rongrongwu.com/gettransactions?student=<username>
 
          The table wears the students page's table classes (.roster__frame,
-         .roster__table, .roster__amount) because it is that table with six columns
+         .roster__table, .roster__amount) because it is that table with five columns
          rather than two; what is new about it is in the history block of styles.css. -->
     <div class="page">
         <main class="card">
@@ -61,7 +61,6 @@
                                 <th scope="col">Date <span class="history__pattern">(YYYY/MM/DD HH:mm)</span></th>
                                 <th scope="col" class="roster__amount history__amount-head">Amount</th>
                                 <th scope="col">Type</th>
-                                <th scope="col">Detailed reason</th>
                                 <th scope="col">Memo</th>
                                 <th scope="col" class="roster__amount history__amount-head">Ending balance</th>
                             </tr>

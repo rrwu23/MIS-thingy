@@ -7,8 +7,8 @@
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Comfortaa:wght@300..700&display=swap">
-    <link rel="stylesheet" href="styles.css?v=12">
-    <script src="transactionview.js?v=4" defer></script>
+    <link rel="stylesheet" href="styles.css?v=13">
+    <script src="transactionview.js?v=5" defer></script>
 </head>
 <!-- data-history="student" is what tells transactionview.js which of the two history
      pages it is standing on: the student's own page, where the student is the one the
@@ -16,7 +16,7 @@
      script reads the page as the admin's, transaction-view.html. -->
 <body data-history="student">
     <!-- The student's own history, and it is the admin's page in the student's own form:
-         the same card, the same six-column table and the same script — only the student is
+         the same card, the same five-column table and the same script — only the student is
          not typed and not confirmed on a page before it, and the route that answers is the
          student's own:
 
@@ -56,7 +56,6 @@
                                 <th scope="col">Date <span class="history__pattern">(YYYY/MM/DD HH:mm)</span></th>
                                 <th scope="col" class="roster__amount history__amount-head">Amount</th>
                                 <th scope="col">Type</th>
-                                <th scope="col">Detailed reason</th>
                                 <th scope="col">Memo</th>
                                 <th scope="col" class="roster__amount history__amount-head">Ending balance</th>
                             </tr>

@@ -1059,29 +1059,26 @@ a.tag:hover {
 
 /* ------------------------------------------------------------ history ---- */
 /* transaction-view.html, the page behind the hub's "View student transaction history"
-   door: the transactions of one student, one row each, in the six columns the sketch
+   door: the transactions of one student, one row each, in the five columns the sketch
    draws. The table is the roster's table, worn by a second page — the same
    .roster__frame box and the same .roster__table, so the filled head row, the hairline
    between cells, the tinted every-other row and the red for a figure below zero all come
-   from the rules above and are written once. What is new is only the width: six columns
-   need a tighter cell than two, the date is not left to wrap, a reason, a memo or a type
+   from the rules above and are written once. What is new is only the width: five columns
+   need a tighter cell than two, the date is not left to wrap, a memo or a type
    can be a whole sentence or a slug with no space in it, and a table wider than the phone
    it is read on scrolls inside the frame rather than pushing the card out of the window.
    The two rules that override a roster rule name both classes on purpose: they must win
    whatever order the two blocks end up in. */
 .roster__frame.history__frame { overflow-x: auto; }
 
-/* Six columns have to be given somewhere to land: the table keeps a width of its own
+/* Five columns have to be given somewhere to land: the table keeps a width of its own
    and the frame above scrolls sideways rather than squeezing "bonus" onto two lines.
-   The three columns that carry sentences get their own minimum, so the wrap happens
-   between words — a reason, a memo or a type is read as words, not as letters. Each
+   The two columns that carry sentences get their own minimum, so the wrap happens
+   between words — a memo or a type is read as words, not as letters. Each
    minimum is the width of the longest word that column is likely to hold rather than a
    round number, and the cell's own gutters are tighter here than the roster's for the
-   same reason: at this font "BONUS" asks for 5rem, "Compliment" 7.5rem and "seconds"
-   5.5rem. The longest reason the app can write — "WOW Work (exceptional quality/
-   effort)" — is wider than all three, and the reason column draws it whole wherever the
-   frame has the room a laptop gives it.
-   The figures are then picked so the six columns *and their headings* come out no
+   same reason: at this font "BONUS" asks for 5rem and "seconds" 5.5rem.
+   The figures are then picked so the five columns *and their headings* come out no
    wider than the frame the card draws them in: measured, that frame is 644px at the
    .page width above and 619px in a 760px window, and a frame clips what it cannot hold
    — the column at the end of the row is the one cut off, and a balance nobody can see
@@ -1090,12 +1087,11 @@ a.tag:hover {
    date and the time, so the column is sized by the stamp under it — 2026/09/29 16:17,
    121px at this font — and never by the heading, which asks for 262px on one line and
    then draws over three lines in the column it leaves. The floors above come to about
-   595px together, so only a phone, whose frame is narrower than all six columns, scrolls. */
+   475px together — the reason column's 7.5rem floor went with the column — so only a
+   phone, whose frame is narrower than all five columns, scrolls. */
 .history__table { min-width: 32rem; }
 
 .roster__table.history__table .history__type { min-width: 5rem; }
-
-.roster__table.history__table .history__reason { min-width: 7.5rem; }
 
 .roster__table.history__table .history__memo { min-width: 5.5rem; }
 
@@ -1124,7 +1120,6 @@ a.tag:hover {
 .roster__table.history__table thead .history__pattern { text-transform: none; }
 
 .roster__table.history__table .history__type,
-.roster__table.history__table .history__reason,
 .roster__table.history__table .history__memo { overflow-wrap: anywhere; }
 
 /* ------------------------------------------------------------ footnote ---- */

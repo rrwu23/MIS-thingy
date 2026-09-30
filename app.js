@@ -1243,9 +1243,26 @@ function reasonSlugFromType(type) {
         .replace(/^-+|-+$/g, '');
 }
 
-// Where an approved transaction is written: POST /transaction-record takes the whole
-// object as JSON (openapi.json: TransactionRecord wants student, type, slug and
-// reason, and accepts amount, date and memo as well).
+// Where an approved transaction is written: POST /transaction-record, with the five
+// fields a row of the table carries and nothing else - user, amount, type, date, memo.
+// Both approving pages build their transaction in those terms and transactionBody()
+// below cuts it down to them, so the reason pages and the Other page cannot drift apart.
+//
+//   user    the student the row belongs to: the username transaction1.html had the
+//           backend confirm, which is the name every other student route is asked with
+//   amount  the figure, signed by the type on the reason pages and by the box the
+//           admin typed in on the Other page, null for a reason carrying no figure
+//   type    the broad type, in the table's own spelling ("BONUS BUCKS", "OTHERS")
+//   date    transactionStamp(): YYYY/MM/DD HH:mm, the shape the history column heads
+//   memo    the detailed reason and the figure that goes with it
+//           ("Exceptional effort (10 pts)")
+//
+// Checked live while this was written: the deployed route still declares the older
+// TransactionRecord - openapi.json requires student, type, slug and reason and has no
+// `user` field at all, and a body of these five answers 422 {"detail": [{"type":
+// "missing", "loc": ["body", "student"], "msg": "Field required"}, ...]} about the three
+// it no longer gets. The body below is the five fields the rows carry, as asked for; the
+// route needs the same five on its side.
 const RECORD_URL = 'https://api.rongrongwu.com/transaction-record';
 
 // The date every recorded transaction is sent with, so a row this app writes carries
@@ -1255,8 +1272,7 @@ const RECORD_URL = 'https://api.rongrongwu.com/transaction-record';
 // time apart. Both approving pages fill `date` in from here, so the reason pages and the
 // Other page cannot drift into two shapes.
 //
-// The route takes `date` as a plain string (openapi.json: TransactionRecord.date is
-// anyOf string/null, and only student, type, slug and reason are required), so the shape
+// The route takes `date` as a plain string and keeps no stamp of its own, so the shape
 // is this app's to choose, and choosing the history column's own shape keeps the row the
 // app wrote and the rows the backend wrote reading alike — transactionview.js re-cuts
 // both into that one shape, and reads back a stamp written this way unchanged.
@@ -1621,18 +1637,21 @@ function buildConfirmDialog() {
 }
 
 // What the dialog says: the same facts the status line names after a recording, so
-// the admin sees the student, the reason, the amount and - when there is one, which
-// only the Other page's detailed reason ever is - the detail they typed before
-// answering.
+// the admin sees the student, the reason, the amount and - when it says more than the
+// reason already has - the memo the row will be written with.
 function describeTransaction(transaction) {
     const forStudent = transaction.student ? ` for ${transaction.student}` : '';
     const amount = transaction.amount === null || transaction.amount === undefined
         ? 'no amount'
         : `amount ${transaction.amount}`;
     // Named with the page's own word for the box, so the question reads like the form
-    // that asked it. Only the Other page ever fills this in: the reason pages have no
-    // such box and send no memo, so their questions gain no line here.
-    const memo = transaction.memo ? ` Detailed reason: "${transaction.memo}".` : '';
+    // that asked it. A reason page's memo is the label itself - the reason and the figure
+    // the dropdown spelled ("Exceptional effort (10 pts)") - so the line is dropped when
+    // there is nothing in it the question has not just said, and only the Other page's
+    // note (the reason, the figure, and the note typed under them) gains one.
+    const memo = transaction.memo && transaction.memo !== transaction.label
+        ? ` Memo: "${transaction.memo}".`
+        : '';
 
     return `${transaction.type} — "${transaction.label}"${forStudent}, ${amount}.${memo} Y writes it to the account, N drops it.`;
 }
@@ -1868,22 +1887,27 @@ async function runApproval() {
 
     const option = reasonSelect.selectedOptions?.[0];
 
-    // The table columns, spelled the way the table spells them: type is the page's
-    // data-reason-type (the type column value), slug is that same value as a URL, and
-    // reason is the option's value, which is the reason column text the backend sent.
+    // The row the route is written with, in the table's own spelling: type is the page's
+    // data-reason-type (the type column value, the type as the table spells it - "BONUS
+    // BUCKS"), not the URL slug the reason list was fetched by ("bonus-bucks").
+    // memo is the table's memo column: the reason and the figure that goes with it,
+    // spelled the way the dropdown spelled them ("Exceptional effort (10 pts)"), so the
+    // row says what the reason was worth without the reader doing the sum.
     // amount is the figure that goes with that reason, negative for the two types that
     // spend money, null when the reason carries no figure at all (the built-in fallback
-    // list of a page). date is the moment of this approval, in the history column's own
-    // shape (transactionStamp()), so the row is written with the time it happened, not
-    // with whatever a later read makes of it. label is only what the eye saw.
+    // list of a page, which carries its reason texts and no figures). date is the moment
+    // of this approval, in the history column's own shape (transactionStamp()), so the
+    // row is written with the time it happened, not with whatever a later read makes of
+    // it. label is only what the eye saw, and is not sent: the question and the status
+    // line name the transaction with it, and the memo is written from it.
+    const label = option ? option.textContent : reasonSelect.value;
     const transaction = {
         student: sessionStorage.getItem(STUDENT_KEY) || '',
         type: reasonType,
-        slug: reasonSlug,
-        reason: reasonSelect.value,
         amount: optionAmount(option),
         date: transactionStamp(),
-        label: option ? option.textContent : reasonSelect.value
+        memo: label,
+        label: label
     };
 
     // The approved choice is parked next to the student username transaction1.html
@@ -1928,23 +1952,39 @@ async function runApproval() {
     setApproveEnabled(true);
 }
 
-// The write itself, shared by the reason pages and the Other page: the approved
-// object is parked in sessionStorage next to the student username transaction1.html
-// stored - parked before anything is sent, so a send that fails loses nothing - and
-// then POSTed as a whole, as JSON, with the table columns (type, reason) in the
-// backend's own spelling and the admin session cookie travelling with the request.
+// The body the route is written with: exactly the five fields a row of the table carries
+// - user, amount, type, date, memo - and nothing else. What the pages keep in their own
+// transaction object is more than this (the label the question reads, the reasons the
+// memo is built from), and none of that goes over the wire: `user` is the student the row
+// belongs to, and the reason a row is written under is in its memo.
+function transactionBody(transaction) {
+    return {
+        user: transaction.student,
+        amount: transaction.amount,
+        type: transaction.type,
+        date: transaction.date,
+        memo: transaction.memo
+    };
+}
+
+// The write itself, shared by the reason pages and the Other page: the body above is
+// parked in sessionStorage next to the student username transaction1.html stored -
+// parked before anything is sent, so a send that fails loses nothing - and then POSTed,
+// as JSON, with the admin session cookie travelling with the request.
 // Answers { ok: true } once the backend has written it, and { ok: false, text } with
 // the sentence to show when it refused or the network was gone.
 async function sendTransaction(transaction) {
-    sessionStorage.setItem(PENDING_KEY, JSON.stringify(transaction));
-    console.log('Approved:', transaction);
+    const body = transactionBody(transaction);
+
+    sessionStorage.setItem(PENDING_KEY, JSON.stringify(body));
+    console.log('Approved:', body);
 
     try {
         const response = await fetch(RECORD_URL, {
             method: 'POST',
             credentials: 'include',
             headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify(transaction)
+            body: JSON.stringify(body)
         });
 
         // A refusal can answer with something that is not JSON, so the body is read
@@ -1993,21 +2033,18 @@ openReasonPage();
 
 // Other transaction page -------------------------------------------------------
 // transaction-other.html is the type that is not one of the lists: the admin types the
-// amount, the broad reason and the detailed reason themselves, because the thing being
+// amount, the broad reason and the memo themselves, because the thing being
 // recorded has no row in the reasons table. It took the salary page's place, and that
 // list is still paid out in one go by jobrotation.js through /pay-salaries. Nothing is
 // fetched to fill this form - there is no list to fetch, and the boxes are the whole of
 // it.
 //
-// The object it writes is the one the reason pages write, with the two free-text fields
-// the route accepts as well (openapi.json: TransactionRecord asks for student, type,
-// slug and reason, and takes amount, date and memo on top of them). The second of those
-// boxes is the one the page calls "Detailed reason" (the memo field, the column the
-// history page heads "Memo"), labelled after what it asks for - the detail behind the
-// broad reason above it - so the page reads detailed reason while the column stays memo.
-// Nothing about the
-// amount is signed here, unlike the reason pages: the admin's sign is their own, so a
-// minus in the box takes points away and a plain number gives them.
+// The object it writes is the row the reason pages write, with the two free-text fields
+// the admin types instead of picking: the broad reason leads the row's memo and the note
+// in the box under it is written after it. The box, the column the history page heads
+// "Memo" and the field the route takes all say that one word.
+// Nothing about the amount is signed here, unlike the reason pages: the admin's sign is
+// their own, so a minus in the box takes points away and a plain number gives them.
 const otherForm = document.getElementById('otherform');
 const otherAmount = document.getElementById('otheramount');
 const otherReason = document.getElementById('otherreason');
@@ -2015,13 +2052,11 @@ const otherMemo = document.getElementById('othermemo');
 const otherNext = document.getElementById('othernext');
 const otherResults = document.getElementById('otherresults');
 
-// The type column value this page records under, and the slug the reason pages would
-// have built out of it: "OTHERS" -> "others". The route takes the type as it comes -
+// The type column value this page records under. The route takes the type as it comes -
 // checked live, POST /transaction-record with type "OTHERS" answered
-// {"message": "Transaction saved"} - so this page owns its own value, and the two lines
-// below are all that has to change if the sheet ever spells the type differently.
+// {"message": "Transaction saved"} - so this page owns its own value, and the line below
+// is all that has to change if the sheet ever spells the type differently.
 const OTHER_TYPE = 'OTHERS';
-const OTHER_SLUG = reasonSlugFromType(OTHER_TYPE);
 
 // True once the backend has confirmed the session and a student is being transacted
 // for. The greyed-out attribute is what the eye and the mouse see; this flag is what
@@ -2056,10 +2091,9 @@ function showOtherMessage(text, isError) {
     otherResults.replaceChildren(paragraph);
 }
 
-// The record's memo as it should be sent: the text of the box the page calls "Detailed
-// reason" - the field and the column keep the route's own name, memo, while the box is
-// labelled after what it asks for - or null when it was left empty. The route takes a
-// null memo, and an empty box is not a note.
+// The record's memo as it should be sent: the text of the memo box, which the page, the
+// column and the route all call memo - or null when it was left empty. The route takes
+// a null memo, and an empty box is not a note.
 function otherMemoValue() {
     const memo = otherMemo?.value?.trim() ?? '';
 
@@ -2091,7 +2125,7 @@ async function openOtherPage() {
     // names the student transaction1.html confirmed along with the invitation.
     const student = sessionStorage.getItem(STUDENT_KEY) || '';
     const nextStep = check.granted
-        ? ` Type the amount, the broad reason and, if it is worth remembering, a detailed reason for ${student}, then press Next.`
+        ? ` Type the amount, the broad reason and, if it is worth remembering, a memo for ${student}, then press Next.`
         : '';
 
     showOtherMessage(`${check.text}${nextStep}`, check.isError);
@@ -2120,7 +2154,7 @@ async function runOtherApproval() {
     const amount = Number(amountText);
 
     if (!reason) {
-        showOtherMessage('Type the broad reason before approving — it is the reason column the transaction is written under.', true);
+        showOtherMessage('Type the broad reason before approving — the memo the transaction is written with is built from it.', true);
         otherReason?.focus();
         return;
     }
@@ -2143,24 +2177,23 @@ async function runOtherApproval() {
 
     setOtherEnabled(true);
 
-    // The same columns the reason pages write, with the reason and the memo typed in
-    // instead of picked: type is this page's own value, slug is that value as a URL,
-    // reason is the broad reason, amount is what the first box holds, memo is the text of
-    // the box under it - the detailed reason, under the column name the route and the
-    // history page know it by - and date
-    // is the moment of this approval in the history column's own shape
-    // (transactionStamp()) — the same stamp, built by the same function, so the two
-    // approving pages cannot date a row two ways. label is only what the eye saw, so the
-    // question and the status line name the transaction exactly as it is about to be
-    // written.
+    // The same row the reason pages write, with the reason and the note typed in instead
+    // of picked: type is this page's own value ("OTHERS"), amount is what the first box
+    // holds and the sign is the admin's own, and memo is the table's memo column - the
+    // broad reason with the figure the row is written with ("Lost library book
+    // (-25 pts)"), and the note from the box under it after it when one was typed,
+    // because the fields the route is given keep the one column for the two. date is the
+    // moment of this approval in the history column's own shape (transactionStamp()) —
+    // the same stamp, built by the same function, so the two approving pages cannot date
+    // a row two ways. label is only what the eye saw, so the question and the status line
+    // name the transaction exactly as it is about to be written.
+    const note = otherMemoValue();
     const transaction = {
         student: sessionStorage.getItem(STUDENT_KEY) || '',
         type: OTHER_TYPE,
-        slug: OTHER_SLUG,
-        reason: reason,
         amount: amount,
         date: transactionStamp(),
-        memo: otherMemoValue(),
+        memo: note ? `${amountLabel(reason, amount)} — ${note}` : amountLabel(reason, amount),
         label: reason
     };
 

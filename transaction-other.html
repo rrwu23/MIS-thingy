@@ -7,8 +7,8 @@
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Comfortaa:wght@300..700&display=swap">
-    <link rel="stylesheet" href="styles.css?v=12">
-    <script src="app.js?v=7" defer></script>
+    <link rel="stylesheet" href="styles.css?v=13">
+    <script src="app.js?v=10" defer></script>
 </head>
 <body>
     <div class="page">
@@ -18,7 +18,7 @@
                 <a class="tag" href="/home.html">&#8592; Home</a>
             </header>
 
-            <p class="card__hint"><strong>Other transaction.</strong> For the ones that are not on a list. Type the points and the broad reason yourself &mdash; a minus in front of the amount takes points away instead of giving them &mdash; and put the detail behind that reason in the detailed reason. Nothing is written until the Y/N question is answered with Y, and the account is then written under the type <code>OTHERS</code>.</p>
+            <p class="card__hint"><strong>Other transaction.</strong> For the ones that are not on a list. Type the points and the broad reason yourself &mdash; a minus in front of the amount takes points away instead of giving them &mdash; and put anything else worth remembering about the transaction in the memo, which is written with the broad reason and its points in front of it. Nothing is written until the Y/N question is answered with Y, and the account is then written under the type <code>OTHERS</code>.</p>
 
             <form id="otherform" class="form">
                 <!-- The amount is typed, not picked: it is a text box with a numeric
@@ -33,23 +33,22 @@
                            inputmode="numeric" autocomplete="off">
                 </div>
 
-                <!-- Goes into the reason column, so it is the sentence the account's
-                     history shows: the three lists on the other pages each supply
-                     their own text, this page takes it from here, and the detail the
-                     box under it holds is recorded beside it. -->
+                <!-- Leads the row's memo, so it is the sentence the account's history
+                     shows: the three lists on the other pages each supply their own
+                     reason and figure, this page takes its two from here, and the note
+                     the box below it holds is written after them. -->
                 <div class="field">
                     <label for="otherreason">Broad reason <span class="hint">what the points are for</span></label>
                     <input type="text" id="otherreason" name="reason" autocomplete="off">
                 </div>
 
-                <!-- Called "Detailed reason" on the page because that is what the box
-                     asks for - the detail behind the broad reason above - and recorded in
-                     the record's memo column, the column the history page draws under the
-                     head "Memo" (openapi.json: TransactionRecord.memo). The column keeps
-                     the route's own name, so the id, the name and the field sendTransaction()
-                     sends all stay memo while the eye reads Detailed reason. -->
+                <!-- Optional, and written after the broad reason and its points in the
+                     row's memo column — the column the history page draws under the head
+                     "Memo" (openapi.json: TransactionRecord.memo) — so the label, the id,
+                     the name and the memo sendTransaction() posts all say the same word
+                     the column does. -->
                 <div class="field">
-                    <label for="othermemo">Detailed reason <span class="hint">optional</span></label>
+                    <label for="othermemo">Memo <span class="hint">optional</span></label>
                     <textarea id="othermemo" name="memo" rows="5"></textarea>
                 </div>
 

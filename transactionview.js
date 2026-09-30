@@ -16,7 +16,7 @@
 //                                  in — app.js — kept in sessionStorage under a key of
 //                                  its own.
 //
-// The two pages are the same card, the same six columns and the same question about one
+// The two pages are the same card, the same five columns and the same question about one
 // account, so the script reads which of the two it is standing on off the page itself
 // (OWN_HISTORY below) instead of being copied. What it asks, one route per page, with the
 // student in the same ?student= query:
@@ -24,8 +24,8 @@
 //   GET https://api.rongrongwu.com/gettransactions?student=<username>
 //   GET https://api.rongrongwu.com/transaction-student-history?student=<username>
 //
-// One row per transaction, in the six columns the sketch draws: the date, the amount,
-// the type, the detailed reason, the memo, and the balance the account ended on.
+// One row per transaction, in the five columns the sketch draws: the date, the amount,
+// the type, the memo, and the balance the account ended on.
 //
 // This file is the page's own script, so the readers it needs are kept here rather
 // than shared: studentpicker.js, jobrotation.js and sessionstorage.js do the same, and
@@ -41,7 +41,7 @@
 const ADMIN_HISTORY_URL = 'https://api.rongrongwu.com/gettransactions';
 
 // The student's own way in: the transactions of the student this browser signed in as, in
-// the same ?student= query, answered by the same six-column table — the same format as
+// the same ?student= query, answered by the same five-column table — the same format as
 // the admin's route, because it is the same question about the same records. The name is
 // not typed on that page and not confirmed by the page before it: it is the account the
 // student sign in on the front door went through with.
@@ -71,13 +71,13 @@ const HISTORY_STUDENT_KEY = 'student_username';
 // so the two are kept apart rather than sharing one key.
 const SIGNED_IN_STUDENT_KEY = 'student_login';
 
-// The six columns, in the order the sketch draws them — the same order, and the same
-// six words, as the head row written in transaction-view.html. Each column names the
-// fields its value may arrive in, most likely first: the route is untyped, openapi.json
-// promises nothing about the body, so a record is read with the same tolerance the other
-// pages read /getuser and /get-balance with:
-//   {"date": "2026/09/29/16/17", "amount": -10, "type": "fines", "reason": "Talking",
-//    "memo": "third time", "ending_balance": 225}
+// The five columns, in the order the sketch draws them — the same order, and the same
+// five words, as the head row the two pages that carry the table write out. Each column
+// names the fields its value may arrive in, most likely first: the route is untyped,
+// openapi.json promises nothing about the body, so a record is read with the same
+// tolerance the other pages read /getuser and /get-balance with:
+//   {"date": "2026/09/29/16/17", "amount": -10, "type": "fines", "memo": "third time",
+//    "ending_balance": 225}
 // numeric marks the two figures at the ends of a row: they are numbers written under
 // each other, so they take the roster's .roster__amount cells — right-aligned in
 // fixed-width digits — and the red for a figure below zero. date marks the one column
@@ -97,10 +97,6 @@ const HISTORY_COLUMNS = [
     {
         keys: ['type', 'category', 'kind'],
         className: 'history__type'
-    },
-    {
-        keys: ['reason', 'detailed_reason', 'detail'],
-        className: 'history__reason'
     },
     {
         keys: ['memo', 'note', 'notes'],
@@ -269,7 +265,7 @@ function isRecord(entry) {
     return entry !== null && typeof entry === 'object';
 }
 
-// Fills the table: one row per transaction, the six columns in the sketch's order.
+// Fills the table: one row per transaction, the five columns in the sketch's order.
 // Every cell is built as a node rather than with innerHTML, because the values come
 // from the backend.
 function drawHistoryTable(records) {
