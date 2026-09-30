@@ -3,21 +3,23 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Bonura bank · Sign in</title>
+    <title>Bonura bank</title>
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Comfortaa:wght@300..700&display=swap">
-    <link rel="stylesheet" href="styles.css?v=10">
-    <script src="app.js?v=5" defer></script>
+    <link rel="stylesheet" href="styles.css?v=12">
+    <script src="app.js?v=7" defer></script>
 </head>
 <body>
     <!-- The landing page is one card and nothing else: the bank's name at its top-left,
          a username box and a password box across its middle, and the two doors along its
-         foot. app.js's landing section is the only thing the card talks to, and "Admin
-         sign in" is the admin login there — the same POST /login, with the same
-         admin_name and password fields, that login_admin.html sends. The student door has
-         no route behind it yet, so it says so when it is pressed; what a signed-in admin
-         can do, the six doors of home.html, all starts from this card. -->
+         foot. app.js's landing section is the only thing the card talks to. "Admin sign
+         in" is the admin login there — the same POST /login, with the same admin_name and
+         password fields, that login_admin.html sends — and "Student sign in" is the
+         student's own login, POST /student-login, entered with the same two boxes read as
+         that student's username and password; it carries the way on to the student's own
+         hub, student-home.html. What a signed-in admin can do, the six doors of
+         home.html, all starts from this card. -->
     <div class="page">
         <main class="signin">
             <h1 class="signin__brand">Bonura bank</h1>
@@ -41,8 +43,9 @@
 
                 <!-- The two doors, side by side at the foot of the card. Admin sign in is
                      the form's submit button, so Enter in either box signs the admin in
-                     too; the student button is not a submit, because there is nowhere for
-                     it to go yet. -->
+                     too; Student sign in is a plain button — it asks the same two boxes
+                     for the student route, and app.js puts them past the browser's own
+                     check itself before anything is sent. -->
                 <div class="signin__actions">
                     <button type="button" id="studentsignin" class="btn btn--ink">
                         Student sign in

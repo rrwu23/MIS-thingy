@@ -3,12 +3,12 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>App1 · Students</title>
+    <title>Bonura bank</title>
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Comfortaa:wght@300..700&display=swap">
-    <link rel="stylesheet" href="styles.css?v=10">
-    <script src="app.js?v=5" defer></script>
+    <link rel="stylesheet" href="styles.css?v=12">
+    <script src="app.js?v=7" defer></script>
 </head>
 <body>
     <!-- The page behind the hub's "View students" door, and the whole of it is the
@@ -21,17 +21,17 @@
     <div class="page">
         <main class="card">
             <header class="bar">
-                <a class="brand" href="/home.html">
-                    <span class="brand__dot" aria-hidden="true"></span>Bonura's Bank
-                </a>
+                <h1 class="card__title">Bonura bank</h1>
                 <a class="tag" href="/home.html">&#8592; Home</a>
             </header>
 
-            <h1 class="card__title" id="studentstitle">Student balances</h1>
-            <p class="card__hint">Every student of the admin behind this browser's session, alphabetically by name, with the balance on each account. A balance the backend cannot report takes that student off the table rather than standing in as a zero, and the table reads itself again whenever you come back to this tab.</p>
+            <!-- The page's own name, which used to be the card's heading — the heading is
+                 the bank's name now — and it keeps the id the roster section below is
+                 labelled by. -->
+            <p class="card__hint"><strong id="studentstitle">Student balances.</strong> Every student of the admin behind this browser's session, alphabetically by name, with the balance on each account. A balance the backend cannot report takes that student off the table rather than standing in as a zero, and the table reads itself again whenever you come back to this tab.</p>
 
-            <!-- The line and the table as one section, named by the page's own
-                 heading. The frame the table is drawn in stays hidden until there are
+            <!-- The line and the table as one section, named by the page's own line
+                 above. The frame the table is drawn in stays hidden until there are
                  rows to show: a read that found nothing, or one that failed, says so on
                  the status line rather than leaving a bare header row behind. -->
             <section class="roster" aria-labelledby="studentstitle">

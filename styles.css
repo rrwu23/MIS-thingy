@@ -1,11 +1,11 @@
 /* ==========================================================================
    App1 — shared stylesheet
    Theme: a light teal canvas carrying one card per page, and that card is filled
-   with the accent itself — #21ffda, the one brand colour. index.html, home.html and
-   the twelve inner pages are all cut from the same cloth: the brand bar along the
-   top, the page's own content across the middle, the footnote at the foot. No page
-   draws a white glass card any more; the only pale surface left is the Y/N overlay,
-   which is a panel over the page rather than part of it.
+   with the accent itself — #21ffda, the one brand colour. Every page is cut from the
+   same cloth: the bank's name across the top of the card as the page's own heading,
+   the page's own content under it, the footnote at the foot. No page draws a white
+   glass card any more; the only pale surface left is the Y/N overlay, which is a
+   panel over the page rather than part of it.
    Standing on the accent, the accent itself would disappear, so everything resting
    on a card is drawn in the accent's deeper tints instead: --accent-ink for text and
    outlines, --accent-ink-soft for the quiet tier under it, --accent-deep for the 1px
@@ -18,7 +18,7 @@
    fallback shown while the webfont swaps in.
    Loaded by every page in the project.
    Every page links this file as styles.css?v=N, and its own scripts the same way, each
-   asset carrying its own N — this one is at 7. Bump the N of whichever file has
+   asset carrying its own N — this one is at 12. Bump the N of whichever file has
    changed, the stylesheet for a new look or a script for new behaviour: the host sends
    assets with max-age=14400, so without a new URL a browser can go on painting a
    four-hour-old copy — of this file or of app.js — while the HTML around it is
@@ -139,27 +139,12 @@ body {
     margin-bottom: 1.6rem;
 }
 
-.brand {
-    display: inline-flex;
-    align-items: center;
-    gap: 0.6rem;
-    font-size: 0.95rem;
-    font-weight: 700;
-    letter-spacing: 0.06em;
-    text-transform: uppercase;
-    color: var(--accent-ink);
-    text-decoration: none;
-}
-
-/* the dot beside the name: the accent standing on the accent would vanish, so the dot
-   is the ink, lit by a halo of the card's own white */
-.brand__dot {
-    width: 0.7rem;
-    height: 0.7rem;
-    border-radius: 50%;
-    background: var(--accent-ink);
-    box-shadow: 0 0 12px rgba(255, 255, 255, 0.85);
-}
+/* The bank's name, which opens every card: the page's one h1, standing on the left of
+   the top bar with the way back on the right. It wears the card heading's own size
+   (.card__title), so the name reads the same on every page, and the bar already carries
+   the air of its own under it — so the heading's bottom margin comes off here, which
+   also keeps it level with the chip beside it. */
+.bar .card__title { margin: 0; }
 
 /* The chip in the top-right corner of every inner page, and the small ones along the
    footnotes: a pale box with an ink outline, the treatment the doors get. */
@@ -195,6 +180,14 @@ a.tag:hover {
     margin: 0 0 1.85rem;
     font-size: 0.95rem;
     color: var(--accent-ink-soft);
+}
+
+/* The page's own name, which used to be the card's heading: it opens the hint in the ink
+   rather than in the quiet tier the rest of the line is written in, so a page still says
+   which page it is without a second heading over the card. */
+.card__hint strong {
+    color: var(--accent-ink);
+    font-weight: 700;
 }
 
 /* ------------------------------------------------------------- buttons ---- */
@@ -425,6 +418,37 @@ a.tag:hover {
     gap: clamp(0.85rem, 3vw, 1.6rem);
     margin-top: clamp(0.5rem, 2vw, 1rem);
 }
+
+/* The balance box on the student's own hub, under the doors: the pale surface the doors
+   are drawn on, so the figure reads as an answer standing on the card rather than one
+   more way further in. It is read when View balance is pressed, so it starts hidden, and
+   [hidden] has to win over the display rule below — the same reason
+   .roster__frame[hidden] and .combo__list[hidden] exist. margin-top: auto is what leaves
+   it low on the card, where the sketch draws it, with the doors left where they are. */
+.hub__balance {
+    /* The line inside stands in a span of its own so the box can centre it: a flex
+       container takes the text run and the figure as two items, which would drop the
+       space between them — "Balance:235" — and set the figure on a line of its own. */
+    display: flex;
+    align-items: center;
+    min-height: clamp(3.25rem, 9vw, 4.25rem);
+    margin-top: auto;
+    padding: clamp(0.8rem, 2.6vw, 1.05rem) 1.15rem;
+    font-size: clamp(1rem, 3vw, 1.15rem);
+    color: var(--accent-ink);
+    background: rgba(255, 255, 255, 0.94);
+    border: 1.5px solid var(--accent-ink);
+    border-radius: 10px;
+    box-shadow: 0 10px 22px rgba(4, 48, 43, 0.20);
+}
+
+.hub__balance[hidden] { display: none; }
+
+.hub__balance strong { font-weight: 700; }
+
+/* A balance below zero, on the box's pale surface: the same red the students table draws
+   one in, since that is the same figure on the same kind of surface. */
+.hub__balance strong.hub__balance--negative { color: var(--danger); }
 
 /* A door: the pale box the panels use, standing on the accent with a dark outline
    and the accent ink for its word. */
@@ -722,8 +746,9 @@ a.tag:hover {
 }
 
 /* ------------------------------------------------- typing dropdown ---- */
-/* transaction1.html: the student field suggests account names while they are
-   typed. The list is a plain <ul> the script fills, laid over what is below it. */
+/* The two username fields — transaction1.html and transaction-view-middle.html —
+   suggest account names while they are typed. The list is a plain <ul> the script
+   fills, laid over what is below it. */
 .combo { position: relative; }
 
 /* room on the right edge for the same hollow triangle as .panel select */

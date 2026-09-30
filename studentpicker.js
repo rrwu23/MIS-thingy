@@ -1,4 +1,9 @@
-// Typing dropdown for the student field on transaction1.html.
+// Typing dropdown for the student field on the two pages that ask for a username by
+// hand: transaction1.html, which starts a transaction, and transaction-view-middle.html,
+// which opens a history. Both pages carry the same field, list and hint ids, so this
+// one file serves both - it only ever writes the chosen name into the field, and the
+// check that follows the field stays where it was, in sessionstorage.js, which reads
+// that same input when Next is clicked or the form is submitted.
 //
 // As the admin types into #student_username this file shows the accounts whose
 // name matches what has been typed so far, so a username never has to be

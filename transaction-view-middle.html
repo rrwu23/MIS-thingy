@@ -3,12 +3,13 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>App1 · Transaction history</title>
+    <title>Bonura bank</title>
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Comfortaa:wght@300..700&display=swap">
-    <link rel="stylesheet" href="styles.css?v=10">
+    <link rel="stylesheet" href="styles.css?v=12">
     <script src="sessionstorage.js?v=3" defer></script>
+    <script src="studentpicker.js?v=3" defer></script>
 </head>
 <body>
     <!-- The first page of the history flow, and the page the hub's "View student
@@ -18,18 +19,18 @@
          confirms the student of a transaction (sessionstorage.js asks /current-admin
          whose student it is and /getuser whether the name is an account), the confirmed
          username is stored in sessionStorage, and Next then opens transaction-view.html,
-         which reads the stored name back and shows the transactions recorded for it. -->
+         which reads the stored name back and shows the transactions recorded for it.
+         The one field wears transaction1.html's typing dropdown too — both pages load
+         sessionstorage.js and studentpicker.js over the same three ids, so the name of a
+         student never has to be remembered exactly on either flow. -->
     <div class="page">
         <main class="card">
             <header class="bar">
-                <a class="brand" href="/home.html">
-                    <span class="brand__dot" aria-hidden="true"></span>Bonura's Bank
-                </a>
+                <h1 class="card__title">Bonura bank</h1>
                 <a class="tag" href="/students.html">&#8592; Students</a>
             </header>
 
-            <h1 class="card__title">Transaction history</h1>
-            <p class="card__hint">Enter the student whose transactions you want to read. Only a signed-in admin may look, so the page asks the backend for permission as it loads, and asks it again about the student when you press Next — a name the backend does not know is refused, with the same line the transaction pages give.</p>
+            <p class="card__hint"><strong>Transaction history.</strong> Enter the student whose transactions you want to read &mdash; start typing the first letters of the name and the matching accounts come up, so <em>rong</em> finds <em>Rongrong Wu</em>. Only a signed-in admin may look, so the page asks the backend for permission as it loads, and asks it again about the student when you press Next &mdash; a name the backend does not know is refused, with the same line the transaction pages give.</p>
 
             <form id="transactionviewform" class="form">
                 <div class="field">
@@ -38,10 +39,28 @@
                     <!-- The input keeps the id and name sessionstorage.js reads
                          (student_username), so the one check behind Next works here
                          exactly as it does on transaction1.html; the label is what the
-                         sketch draws. autocomplete is off because the browser's own
-                         suggestions have nothing to do with the accounts on the backend. -->
-                    <input type="text" id="student_username" name="student_username"
-                           autocomplete="off" required>
+                         sketch draws. The field wears that page's typing dropdown too,
+                         because the name to read a history for is the same name to start
+                         a transaction for: studentpicker.js is loaded above and finds
+                         this field, its list and its hint by the same three ids it uses
+                         there, so typing the first letters of a name offers the accounts
+                         of the signed-in admin (rong finds Rongrong Wu). Unlike
+                         transaction1.html the choice is not kept by this page's own
+                         script - it only writes the name into the field, and
+                         sessionstorage.js reads the field, so the chosen name is checked
+                         and stored by the one checker behind Next. autocomplete is off
+                         because the browser's own suggestions have nothing to do with
+                         the accounts on the backend. -->
+                    <div class="combo">
+                        <input type="text" id="student_username" name="student_username"
+                               autocomplete="off" required
+                               role="combobox" aria-expanded="false" aria-controls="studentlist"
+                               aria-autocomplete="list" aria-describedby="studenthint">
+                        <ul id="studentlist" class="combo__list" role="listbox"
+                            aria-label="Student accounts" hidden></ul>
+                    </div>
+
+                    <p id="studenthint" class="combo__hint" role="status" aria-live="polite" hidden></p>
                 </div>
 
                 <div class="form__actions">

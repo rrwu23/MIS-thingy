@@ -1,14 +1,28 @@
-// The history flow's own page script: transaction-view.html, the page behind the hub's
-// "View student transaction history" door.
+// The history flow's own page script, and it serves the two pages that carry the table:
 //
-// The page before it, transaction-view-middle.html, has already asked the backend
-// whether the typed name is one of the signed-in admin's own students, and has stored
-// the confirmed username in sessionStorage — the same file the transaction flow stores
-// it with, sessionstorage.js, because it is exactly the same question. This file reads
-// that username back, writes it into the page's title, and asks the backend for the
-// transactions recorded against it:
+//   transaction-view.html          the admin's page, behind the hub's "View student
+//                                  transaction history" door. The page before it,
+//                                  transaction-view-middle.html, has already asked the
+//                                  backend whether the typed name is one of the
+//                                  signed-in admin's own students, and has stored the
+//                                  confirmed username in sessionStorage — the same file
+//                                  the transaction flow stores it with,
+//                                  sessionstorage.js, because it is exactly the same
+//                                  question.
+//   transaction-view-student.html  the student's own page, behind the student hub's
+//                                  "View transaction history" door. Nothing is typed on
+//                                  the page before it and nothing is confirmed there:
+//                                  the student it shows is the one the front door signed
+//                                  in — app.js — kept in sessionStorage under a key of
+//                                  its own.
+//
+// The two pages are the same card, the same six columns and the same question about one
+// account, so the script reads which of the two it is standing on off the page itself
+// (OWN_HISTORY below) instead of being copied. What it asks, one route per page, with the
+// student in the same ?student= query:
 //
 //   GET https://api.rongrongwu.com/gettransactions?student=<username>
+//   GET https://api.rongrongwu.com/transaction-student-history?student=<username>
 //
 // One row per transaction, in the six columns the sketch draws: the date, the amount,
 // the type, the detailed reason, the memo, and the balance the account ended on.
@@ -17,19 +31,45 @@
 // than shared: studentpicker.js, jobrotation.js and sessionstorage.js do the same, and
 // no page ever loads two of them.
 
-// Where the transactions of one student are read from. The student goes in a ?student=
-// query, the shape every other student route in the API takes (GET /get-balance
-// ?student=). The route is not in https://api.rongrongwu.com/openapi.json today and
-// answers 404 {"detail": "Not Found"} when it is asked (checked live), so the page says
-// what the backend answered rather than showing a table with no rows in it, which would
-// read as "this student never had a transaction".
-const HISTORY_URL = 'https://api.rongrongwu.com/gettransactions';
+// Where the transactions of one student are read from, the admin's way in: the student
+// goes in a ?student= query, the shape every other student route in the API takes
+// (GET /get-balance?student=). The route is not in
+// https://api.rongrongwu.com/openapi.json today and answers 404 {"detail": "Not Found"}
+// when it is asked (checked live), so the page says what the backend answered rather
+// than showing a table with no rows in it, which would read as "this student never had a
+// transaction".
+const ADMIN_HISTORY_URL = 'https://api.rongrongwu.com/gettransactions';
 
-// The student whose history this is: the username transaction-view-middle.html had the
-// backend confirm. Kept in sync with STUDENT_USERNAME_KEY in sessionstorage.js — the
-// same key, because it is the same student, and the transaction flow reads it back the
-// same way.
+// The student's own way in: the transactions of the student this browser signed in as, in
+// the same ?student= query, answered by the same six-column table — the same format as
+// the admin's route, because it is the same question about the same records. The name is
+// not typed on that page and not confirmed by the page before it: it is the account the
+// student sign in on the front door went through with.
+const STUDENT_HISTORY_URL = 'https://api.rongrongwu.com/transaction-student-history';
+
+// Which of the two pages this script is standing on, which the page says about itself:
+// transaction-view-student.html carries data-history="student" on its <body>, and
+// transaction-view.html carries nothing of the sort. Everything that differs between the
+// two hangs off this one word — whose username is read, and which route answers.
+const OWN_HISTORY = document.body?.dataset.history === 'student';
+
+const HISTORY_URL = OWN_HISTORY ? STUDENT_HISTORY_URL : ADMIN_HISTORY_URL;
+
+// The route as it is written in a sentence, for the lines that name it out loud.
+const HISTORY_ROUTE = OWN_HISTORY ? '/transaction-student-history' : '/gettransactions';
+
+// The student whose history this is, on the admin's page: the username
+// transaction-view-middle.html had the backend confirm. Kept in sync with
+// STUDENT_USERNAME_KEY in sessionstorage.js — the same key, because it is the same
+// student, and the transaction flow reads it back the same way.
 const HISTORY_STUDENT_KEY = 'student_username';
+
+// The student the student's own page belongs to: the account the front door's student
+// sign in went through with, kept by app.js under the same key (SIGNED_IN_STUDENT_KEY
+// there). A browser can hold both names at once — an admin can confirm a student for a
+// transaction, and that student can then sign in without the admin flow forgetting them —
+// so the two are kept apart rather than sharing one key.
+const SIGNED_IN_STUDENT_KEY = 'student_login';
 
 // The six columns, in the order the sketch draws them — the same order, and the same
 // six words, as the head row written in transaction-view.html. Each column names the
@@ -73,14 +113,17 @@ const HISTORY_COLUMNS = [
     }
 ];
 
-// What the title of the page says when no student has been confirmed — the sentence
-// transaction-middle.html puts on the page it opens with nobody behind it, cut down to
-// the half of it a title can carry; the status line below spells the rest out.
-const NO_STUDENT_TEXT = 'No student confirmed by the backend';
+// What the page says where the student's name goes when there is nobody to name — on the
+// admin's page the sentence transaction-middle.html puts on the page it opens with nobody
+// behind it, cut down to the half of it a name can carry; on the student's own page the
+// student who never signed in. The status line below spells the rest out either way.
+const NO_STUDENT_TEXT = OWN_HISTORY
+    ? 'No student signed in'
+    : 'No student confirmed by the backend';
 
-// The table transaction-view.html carries and the line above it. This file only ever
-// ships with that page, but a read that found no table to put an answer in does
-// nothing at all, the way every other page's guard in this project works.
+// The table the two pages carry and the line above it. A read that found no table to put
+// an answer in does nothing at all, the way every other page's guard in this project
+// works.
 const historyStudent = document.getElementById('historystudent');
 const historyRows = document.getElementById('historyrows');
 const historyStatus = document.getElementById('historystatus');
@@ -96,13 +139,14 @@ let historyReadRunning = false;
 // that is not a table is spelled out on the status line above it, and the rows of the
 // read before are dropped rather than left standing as if they were current.
 async function readHistory() {
-    if (!historyRows) return; // only transaction-view.html has the table
+    if (!historyRows) return; // only the two history pages have the table
     if (historyReadRunning) return;
 
-    // Whose history this is: the username the page before this one had the backend
-    // confirm. Without one there is nothing to ask about, so the page says so and its
-    // Refresh stays switched off until a name has been confirmed.
-    const student = sessionStorage.getItem(HISTORY_STUDENT_KEY);
+    // Whose history this is: on the admin's page the username the page before this one had
+    // the backend confirm, and on the student's own page the student this browser signed
+    // in as. Without one there is nothing to ask about, so the page says so and its
+    // Refresh stays switched off until there is a name to read for.
+    const student = sessionStorage.getItem(OWN_HISTORY ? SIGNED_IN_STUDENT_KEY : HISTORY_STUDENT_KEY);
 
     if (!student) {
         if (historyStudent) {
@@ -111,7 +155,9 @@ async function readHistory() {
 
         lockHistory();
         clearHistoryTable();
-        showHistoryMessage(historyStatus, `No student was confirmed by the backend, so no transaction could be read. Go back one page and enter a name that exists.`, true);
+        showHistoryMessage(historyStatus, OWN_HISTORY
+            ? `No student is signed in on this browser, so there is no history to read. Sign in with the student door on the front page.`
+            : `No student was confirmed by the backend, so no transaction could be read. Go back one page and enter a name that exists.`, true);
         return;
     }
 
@@ -126,7 +172,7 @@ async function readHistory() {
     try {
         const response = await fetch(`${HISTORY_URL}?${new URLSearchParams({ student })}`, {
             method: 'GET',
-            credentials: 'include' // send the admin session cookie
+            credentials: 'include' // send the session cookie, the admin's or the student's
         });
 
         // A route the backend does not have answers 404 with {"detail": "Not Found"}.
@@ -134,7 +180,7 @@ async function readHistory() {
         // had a transaction, which is not what a missing route says.
         if (response.status === 404) {
             clearHistoryTable();
-            showHistoryMessage(historyStatus, `The backend has no route for reading a student’s transactions yet — GET /gettransactions answered 404, so there is nothing to show for “${student}”. Nothing that has been recorded was changed.`, true);
+            showHistoryMessage(historyStatus, `The backend has no route for reading a student’s transactions yet — GET ${HISTORY_ROUTE} answered 404, so there is nothing to show for “${student}”. Nothing that has been recorded was changed.`, true);
             return;
         }
 
@@ -349,12 +395,12 @@ function lockHistory() {
     historyRefreshButton.setAttribute('tabindex', '-1');
 }
 
-// The page starts itself: the first read happens as transaction-view.html opens,
-// Refresh reads again on demand, and a read started in another tab — or a transaction
-// written there — turns up here when this tab comes back to the front. Read again each
-// time, because the stored student is read at the top of every read: a page whose
-// student was refused on the page before it must not go on showing the history of
-// whoever was confirmed last.
+// The page starts itself: the first read happens as the page opens, Refresh reads again
+// on demand, and a read started in another tab — or a transaction written there — turns
+// up here when this tab comes back to the front. Read again each time, because the stored
+// student is read at the top of every read: a page whose student was refused on the page
+// before it — or a student page opened after a different student signed in — must not go
+// on showing the history of whoever was read for last.
 if (historyRows) {
     readHistory();
 

@@ -8,40 +8,40 @@
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Comfortaa:wght@300..700&display=swap">
     <link rel="stylesheet" href="styles.css?v=12">
-    <script src="sessionstorage.js?v=3" defer></script>
     <script src="transactionview.js?v=4" defer></script>
 </head>
-<body>
-    <!-- The second page of the history flow: the sketch's card with the student's name
-         across the top and one table under it, the transactions recorded for that name.
-         transactionview.js fills both in — the name in the title, the rows in the table —
-         from the username sessionstorage.js had the backend confirm on the page before,
-         and it is the page that asks the backend for the transactions themselves:
+<!-- data-history="student" is what tells transactionview.js which of the two history
+     pages it is standing on: the student's own page, where the student is the one the
+     front door signed in (app.js) and the route is the student's own. Without it the
+     script reads the page as the admin's, transaction-view.html. -->
+<body data-history="student">
+    <!-- The student's own history, and it is the admin's page in the student's own form:
+         the same card, the same six-column table and the same script — only the student is
+         not typed and not confirmed on a page before it, and the route that answers is the
+         student's own:
 
-             GET https://api.rongrongwu.com/gettransactions?student=<username>
+             GET https://api.rongrongwu.com/transaction-student-history?student=<username>
 
-         The table wears the students page's table classes (.roster__frame,
-         .roster__table, .roster__amount) because it is that table with six columns
-         rather than two; what is new about it is in the history block of styles.css. -->
+         transactionview.js reads the username the front door's student door stored in
+         sessionStorage, writes it into the line under the heading, and asks for that
+         student's transactions. A browser with no student behind it is told so on the
+         status line above the table, rather than shown a table with no rows in it. -->
     <div class="page">
         <main class="card">
             <header class="bar">
                 <h1 class="card__title">Bonura bank</h1>
-                <a class="tag" href="/students.html">&#8592; Students</a>
+                <a class="tag" href="/student-home.html">&#8592; Home</a>
             </header>
 
             <!-- The page's own name and the student it holds the history of, in one line:
-                 the card's heading is the bank's name now, so what this page is — and
-                 whose history it shows — is said here. The student's name is filled in by
-                 transactionview.js from the username the backend confirmed, and the dots
-                 stand in until the read answers; a name nobody confirmed leaves the
-                 sentence transaction-middle.html also leaves, rather than a table with no
-                 student behind it. -->
+                 the card's heading is the bank's name, so what this page is — and whose
+                 history it shows — is said here. The student's name is filled in by
+                 transactionview.js from the username the front door signed in. -->
             <p class="card__hint"><strong>Transaction history.</strong> Student: <strong id="historystudent">&hellip;</strong> Every transaction the backend has recorded for this student — the date, the amount, what it was for, any memo, and the balance the account ended on. Nothing here is added up: each ending balance is the figure that transaction carries, and a field the backend does not send is shown as a dash.</p>
 
             <section class="roster" aria-labelledby="historystudent">
                 <div id="historystatus" class="results" role="status" aria-live="polite"
-                     data-empty="Reading the transactions&hellip;"></div>
+                     data-empty="Reading your transactions&hellip;"></div>
 
                 <div id="historyframe" class="roster__frame history__frame" hidden>
                     <table class="roster__table history__table">
@@ -51,12 +51,7 @@
                                  YYYY/MM/DD HH:mm, as in 2026/09/29 16:17, where MM is the month and
                                  mm the minute. The shape wears a span of its own because the head
                                  row is uppercased and a pattern's letters are read as they are
-                                 written: HH:MM would name the month where the minutes go. The
-                                 space between the date and the time is also the one place this
-                                 heading may break, so a squeezed column wraps the heading there
-                                 instead of widening the table past its frame and clipping the
-                                 balance at the end of the row. The stamp under it may not wrap at
-                                 all (.history__date in styles.css). -->
+                                 written: HH:MM would name the month where the minutes go. -->
                             <tr>
                                 <th scope="col">Date <span class="history__pattern">(YYYY/MM/DD HH:mm)</span></th>
                                 <th scope="col" class="roster__amount history__amount-head">Amount</th>
@@ -75,15 +70,15 @@
                 </div>
 
                 <!-- The foot of the section: when the table was last read, and the button
-                     that reads it again — the students page's own foot, for the same
-                     reason. -->
+                     that reads it again — the admin's history page's own foot, for the
+                     same reason. -->
                 <div class="roster__actions">
                     <p id="historystamp" class="roster__stamp"></p>
                     <button type="button" id="historyrefresh" class="btn btn--ghost">Refresh</button>
                 </div>
             </section>
 
-            <p class="footnote">Wrong student? <a class="tag" href="/transaction-view-middle.html">&#8592; Back</a></p>
+            <p class="footnote">Wrong page? <a class="tag" href="/student-home.html">&#8592; Back</a></p>
         </main>
     </div>
 </body>

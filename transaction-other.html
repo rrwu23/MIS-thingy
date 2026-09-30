@@ -3,25 +3,22 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>App1 · Other transaction</title>
+    <title>Bonura bank</title>
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Comfortaa:wght@300..700&display=swap">
-    <link rel="stylesheet" href="styles.css?v=10">
-    <script src="app.js?v=5" defer></script>
+    <link rel="stylesheet" href="styles.css?v=12">
+    <script src="app.js?v=7" defer></script>
 </head>
 <body>
     <div class="page">
         <main class="card">
             <header class="bar">
-                <a class="brand" href="/home.html">
-                    <span class="brand__dot" aria-hidden="true"></span>Bonura's Bank
-                </a>
+                <h1 class="card__title">Bonura bank</h1>
                 <a class="tag" href="/home.html">&#8592; Home</a>
             </header>
 
-            <h1 class="card__title">Other transaction</h1>
-            <p class="card__hint">For the ones that are not on a list. Type the points and the broad reason yourself &mdash; a minus in front of the amount takes points away instead of giving them &mdash; and put whatever is worth remembering in the memo. Nothing is written until the Y/N question is answered with Y, and the account is then written under the type <code>OTHERS</code>.</p>
+            <p class="card__hint"><strong>Other transaction.</strong> For the ones that are not on a list. Type the points and the broad reason yourself &mdash; a minus in front of the amount takes points away instead of giving them &mdash; and put the detail behind that reason in the detailed reason. Nothing is written until the Y/N question is answered with Y, and the account is then written under the type <code>OTHERS</code>.</p>
 
             <form id="otherform" class="form">
                 <!-- The amount is typed, not picked: it is a text box with a numeric
@@ -38,14 +35,21 @@
 
                 <!-- Goes into the reason column, so it is the sentence the account's
                      history shows: the three lists on the other pages each supply
-                     their own text, this page takes it from here. -->
+                     their own text, this page takes it from here, and the detail the
+                     box under it holds is recorded beside it. -->
                 <div class="field">
                     <label for="otherreason">Broad reason <span class="hint">what the points are for</span></label>
                     <input type="text" id="otherreason" name="reason" autocomplete="off">
                 </div>
 
+                <!-- Called "Detailed reason" on the page because that is what the box
+                     asks for - the detail behind the broad reason above - and recorded in
+                     the record's memo column, the column the history page draws under the
+                     head "Memo" (openapi.json: TransactionRecord.memo). The column keeps
+                     the route's own name, so the id, the name and the field sendTransaction()
+                     sends all stay memo while the eye reads Detailed reason. -->
                 <div class="field">
-                    <label for="othermemo">Memo <span class="hint">optional</span></label>
+                    <label for="othermemo">Detailed reason <span class="hint">optional</span></label>
                     <textarea id="othermemo" name="memo" rows="5"></textarea>
                 </div>
 

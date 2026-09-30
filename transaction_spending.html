@@ -3,25 +3,25 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>App1 · Select expense</title>
+    <title>Bonura bank</title>
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Comfortaa:wght@300..700&display=swap">
-    <link rel="stylesheet" href="styles.css?v=10">
-    <script src="app.js?v=5" defer></script>
+    <link rel="stylesheet" href="styles.css?v=12">
+    <script src="app.js?v=7" defer></script>
 </head>
 <body>
     <div class="page">
         <main class="card">
             <header class="bar">
-                <a class="brand" href="/home.html">
-                    <span class="brand__dot" aria-hidden="true"></span>Bonura's Bank
-                </a>
+                <h1 class="card__title">Bonura bank</h1>
                 <a class="tag" href="/home.html">&#8592; Home</a>
             </header>
 
             <section class="panel" aria-labelledby="reasontitle">
-                <h1 class="panel__title" id="reasontitle">Select expense</h1>
+                <!-- The page's own name, which used to be a heading — the card's heading is
+                     the bank's name now — kept with the id the panel is labelled by. -->
+                <p class="panel__title" id="reasontitle">Select expense</p>
 
                 <!-- data-reason-type tells app.js which /reasons/{slug} list to
                      ask for: it carries the type column value exactly, so "WAYS TO

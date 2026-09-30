@@ -466,8 +466,10 @@ function describeError(result) {
 // redirected once it succeeds, because the session lives in the backend's cookie and
 // not in a page; the line under the buttons says who is signed in and carries the way
 // on to the home page, which the admin can take whenever they are ready. The student
-// door has no route behind it yet, so it says that rather than pretending to sign
-// anyone in.
+// door beside it is the student's own login — POST /student-login, entered with the
+// same two boxes read as the student's username and password — and it carries the way
+// on to the student's own hub, student-home.html, where that student's balance and
+// their own transaction history are.
 const signInForm = document.getElementById('signinform');
 
 signInForm?.addEventListener('submit', async function (event) {
@@ -512,17 +514,116 @@ signInForm?.addEventListener('submit', async function (event) {
     }
 });
 
-// The student door: no student sign-in exists yet, so pressing it says so instead of
-// leaving a button that looks broken.
+// The student door: the student's own login, POST /student-login, entered with the two
+// boxes the card already holds — the username box is that student's username, the way
+// it is the admin's name in the admin login above. It is a plain button rather than the
+// form's submit, so Enter inside a box still means the admin login; the boxes are
+// therefore put past the browser's own check here, because a button does not ask the
+// browser to run it the way a submit does.
+const STUDENT_LOGIN_URL = 'https://api.rongrongwu.com/student-login';
+
+// Where the student's own pages are, and whose they are. The username the student sign
+// in went through with is kept in sessionStorage under this key, and the student's hub
+// (student-home.html, studenthome.js) and the student's own history page
+// (transaction-view-student.html, transactionview.js) read it back — one key in three
+// files, kept in sync by hand, the way STUDENT_USERNAME_KEY is kept with
+// transactionview.js and sessionstorage.js. It is deliberately not that key: an admin
+// can confirm one student for a transaction and another student can still sign in on
+// the same browser, and the two names must not overwrite each other.
+const SIGNED_IN_STUDENT_KEY = 'student_login';
+const STUDENT_HOME_URL = '/student-home.html';
+
+// Fields a POST /student-login reply may name the student in, most likely first — the
+// route is untyped, openapi.json promises nothing about the body, so the name is looked
+// for the way the admin name is looked for elsewhere (ADMIN_NAME_KEYS), with the
+// student's own field first. Named apart from STUDENT_NAME_KEYS below, which is the read
+// of an account object rather than of a login reply.
+const STUDENT_LOGIN_NAME_KEYS = ['student_name', 'name', 'student', 'username'];
+
+function studentName(result) {
+    if (result === null || typeof result !== 'object') {
+        return null;
+    }
+
+    for (const key of STUDENT_LOGIN_NAME_KEYS) {
+        const value = result[key];
+
+        if (value !== undefined && value !== null && value !== '') {
+            return String(value).trim();
+        }
+    }
+
+    return null;
+}
+
 const studentSignInButton = document.getElementById('studentsignin');
 
-studentSignInButton?.addEventListener('click', function () {
-    showLoginMessage(
-        document.getElementById('signinresults'),
-        'Student sign in is not ready yet — the student side has no login route. Use “Admin sign in” for the admin login.',
-        false
-    );
+studentSignInButton?.addEventListener('click', async function () {
+    // The card's own two boxes, named the way the student route names them: what the
+    // admin login reads as admin_name is this student's own username.
+    const usernameField = signInForm.elements.namedItem('admin_name');
+    const passwordField = signInForm.elements.namedItem('password');
+    const results = document.getElementById('signinresults');
+
+    // The check the admin door gets for free by being the form's submit: an empty box is
+    // pointed out by the browser's own bubble and nothing is sent.
+    if (!signInForm.reportValidity()) {
+        return;
+    }
+
+    const student = usernameField.value.trim();
+    const body = new FormData();
+    body.set('student_name', student);
+    body.set('password', passwordField.value);
+
+    // One sign-in at a time, the same .btn[aria-disabled="true"] state the admin door
+    // and the forms take for the round trip.
+    studentSignInButton.setAttribute('aria-disabled', 'true');
+    showLoginMessage(results, 'Asking the backend to sign this student in…', false);
+
+    try {
+        const response = await fetch(STUDENT_LOGIN_URL, {
+            method: 'POST',
+            credentials: 'include', // keep the session cookie the login answers with
+            body
+        });
+
+        // FastAPI replies with JSON for both success and error bodies
+        const result = await response.json().catch(() => null);
+
+        if (!response.ok) {
+            console.error('Student login error:', result);
+            showLoginMessage(results, `Student sign in failed (${response.status}): ${describeError(result)}`, true);
+            return;
+        }
+
+        // Who the student's own pages are about: the name the backend answered with when
+        // it named one, and the username that was typed when it did not.
+        const name = studentName(result) ?? student;
+        sessionStorage.setItem(SIGNED_IN_STUDENT_KEY, name);
+
+        console.log('Student sign in:', result);
+        showLoginMessage(results, `Signed in as ${name}.`, false);
+
+        // The card holds nothing but the sign-in, so the sentence that names the student
+        // carries the way on to the page behind the door.
+        results?.querySelector('p')?.append(' ', studentHomePageLink());
+    } catch (error) {
+        console.error('Network Error:', error);
+        showLoginMessage(results, 'Network error — the student login API could not be reached.', true);
+    } finally {
+        studentSignInButton.removeAttribute('aria-disabled');
+    }
 });
+
+// The way on from the student door: the same link the admin's line carries, worded for
+// the page behind this one.
+function studentHomePageLink() {
+    const link = document.createElement('a');
+    link.href = STUDENT_HOME_URL;
+    link.textContent = 'Continue to the student home page \u2192';
+    return link;
+}
 
 // The way on from the front door: the sign-in line under the card's buttons carries
 // this, because index.html itself is only the card — the buttons, and the doors behind
@@ -1521,13 +1622,17 @@ function buildConfirmDialog() {
 
 // What the dialog says: the same facts the status line names after a recording, so
 // the admin sees the student, the reason, the amount and - when there is one, which
-// is the Other page's memo - their own note before answering.
+// only the Other page's detailed reason ever is - the detail they typed before
+// answering.
 function describeTransaction(transaction) {
     const forStudent = transaction.student ? ` for ${transaction.student}` : '';
     const amount = transaction.amount === null || transaction.amount === undefined
         ? 'no amount'
         : `amount ${transaction.amount}`;
-    const memo = transaction.memo ? ` Memo: "${transaction.memo}".` : '';
+    // Named with the page's own word for the box, so the question reads like the form
+    // that asked it. Only the Other page ever fills this in: the reason pages have no
+    // such box and send no memo, so their questions gain no line here.
+    const memo = transaction.memo ? ` Detailed reason: "${transaction.memo}".` : '';
 
     return `${transaction.type} — "${transaction.label}"${forStudent}, ${amount}.${memo} Y writes it to the account, N drops it.`;
 }
@@ -1888,14 +1993,19 @@ openReasonPage();
 
 // Other transaction page -------------------------------------------------------
 // transaction-other.html is the type that is not one of the lists: the admin types the
-// amount, the broad reason and the memo themselves, because the thing being recorded
-// has no row in the reasons table. It took the salary page's place, and that list is
-// still paid out in one go by jobrotation.js through /pay-salaries. Nothing is fetched
-// to fill this form - there is no list to fetch, and the boxes are the whole of it.
+// amount, the broad reason and the detailed reason themselves, because the thing being
+// recorded has no row in the reasons table. It took the salary page's place, and that
+// list is still paid out in one go by jobrotation.js through /pay-salaries. Nothing is
+// fetched to fill this form - there is no list to fetch, and the boxes are the whole of
+// it.
 //
 // The object it writes is the one the reason pages write, with the two free-text fields
 // the route accepts as well (openapi.json: TransactionRecord asks for student, type,
-// slug and reason, and takes amount, date and memo on top of them). Nothing about the
+// slug and reason, and takes amount, date and memo on top of them). The second of those
+// boxes is the one the page calls "Detailed reason" (the memo field, the column the
+// history page heads "Memo"), labelled after what it asks for - the detail behind the
+// broad reason above it - so the page reads detailed reason while the column stays memo.
+// Nothing about the
 // amount is signed here, unlike the reason pages: the admin's sign is their own, so a
 // minus in the box takes points away and a plain number gives them.
 const otherForm = document.getElementById('otherform');
@@ -1946,8 +2056,10 @@ function showOtherMessage(text, isError) {
     otherResults.replaceChildren(paragraph);
 }
 
-// The memo as it should be sent: the box's own text, or null when it was left empty.
-// The route takes a null memo, and an empty box is not a note.
+// The record's memo as it should be sent: the text of the box the page calls "Detailed
+// reason" - the field and the column keep the route's own name, memo, while the box is
+// labelled after what it asks for - or null when it was left empty. The route takes a
+// null memo, and an empty box is not a note.
 function otherMemoValue() {
     const memo = otherMemo?.value?.trim() ?? '';
 
@@ -1979,7 +2091,7 @@ async function openOtherPage() {
     // names the student transaction1.html confirmed along with the invitation.
     const student = sessionStorage.getItem(STUDENT_KEY) || '';
     const nextStep = check.granted
-        ? ` Type the amount, the broad reason and, if it is worth remembering, a memo for ${student}, then press Next.`
+        ? ` Type the amount, the broad reason and, if it is worth remembering, a detailed reason for ${student}, then press Next.`
         : '';
 
     showOtherMessage(`${check.text}${nextStep}`, check.isError);
@@ -2033,7 +2145,9 @@ async function runOtherApproval() {
 
     // The same columns the reason pages write, with the reason and the memo typed in
     // instead of picked: type is this page's own value, slug is that value as a URL,
-    // reason is the broad reason, amount and memo are what the two boxes hold, and date
+    // reason is the broad reason, amount is what the first box holds, memo is the text of
+    // the box under it - the detailed reason, under the column name the route and the
+    // history page know it by - and date
     // is the moment of this approval in the history column's own shape
     // (transactionStamp()) — the same stamp, built by the same function, so the two
     // approving pages cannot date a row two ways. label is only what the eye saw, so the
