@@ -1135,9 +1135,9 @@ a.tag:hover {
     border-top: 1px solid rgba(4, 48, 43, 0.35);
 }
 
-/* the one piece of code on the pages — the <code>OTHERS</code> in the other-transaction
-   hint — keeps its chip but takes the card's ink for its word, the accent tint it used
-   to be written in being a tint of the card's own colour */
+/* the one piece of code on the pages — the <code>Lost library book (-25 pts)</code> in the
+   other-transaction hint — keeps its chip but takes the card's ink for its word, the
+   accent tint it used to be written in being a tint of the card's own colour */
 code {
     padding: 0.15rem 0.4rem;
     font-family: var(--mono);
