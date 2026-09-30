@@ -1,5 +1,5 @@
-// The history flow's own page script: transaction-view.html, the page behind the
-// students page's "View student transaction history" door.
+// The history flow's own page script: transaction-view.html, the page behind the hub's
+// "View student transaction history" door.
 //
 // The page before it, transaction-view-middle.html, has already asked the backend
 // whether the typed name is one of the signed-in admin's own students, and has stored
@@ -36,12 +36,13 @@ const HISTORY_STUDENT_KEY = 'student_username';
 // fields its value may arrive in, most likely first: the route is untyped, openapi.json
 // promises nothing about the body, so a record is read with the same tolerance the other
 // pages read /getuser and /get-balance with:
-//   {"date": "2026-09-29", "amount": -10, "type": "fines", "reason": "Talking",
+//   {"date": "2026/09/29/16/17", "amount": -10, "type": "fines", "reason": "Talking",
 //    "memo": "third time", "ending_balance": 225}
 // numeric marks the two figures at the ends of a row: they are numbers written under
 // each other, so they take the roster's .roster__amount cells — right-aligned in
 // fixed-width digits — and the red for a figure below zero. date marks the one column
-// drawn in the sketch's own date shape.
+// that is re-cut rather than shown as it came: historyDate() draws it in the shape the
+// head of the column names, YYYY/MM/DD HH:mm.
 const HISTORY_COLUMNS = [
     {
         keys: ['date', 'created_at', 'timestamp', 'time'],
@@ -269,17 +270,39 @@ function drawnValue(column, value) {
     return column.date ? historyDate(value) : String(value);
 }
 
-// The sketch's date column is DD/MM/YY, while every date this app records is written
-// YYYY-MM-DD (todayISO() in app.js, the one shape an <input type="date"> reports). An
-// ISO-shaped value is re-cut into the sketch's order — 2026-09-29 becomes 29/09/26 —
-// and a date the backend sends in any other shape is shown exactly as it came, rather
-// than guessed at.
-const ISO_DATE = /^(\d{4})-(\d{2})-(\d{2})$/;
+// The date column is drawn in the shape the head of the column names — YYYY/MM/DD HH:mm,
+// as in 2026/09/29 16:17, read the way a pattern is written: MM is the month and mm the
+// minute, and the space is what holds the date and the time apart. A stamp arrives here
+// in one of two separators: the ISO one this app writes itself, 2026-09-29 and
+// 2026-09-29T16:17:00 (todayISO() in app.js, the one shape an <input type="date">
+// reports), and the slashes the backend stamps a transaction with, 2026/09/29/16/17.
+// Both are re-cut into the shape above for the same two reasons: a date and a time are
+// held apart by a space where a person reads them, and the minute is marked with a colon
+// where a clock writes it. So 2026-09-29T16:17:00 and 2026/09/29/16/17 both come out
+// 2026/09/29 16:17. A date with no time on it keeps the three parts it has — the hour and
+// the minute are the backend's to send, and a time nobody recorded is not invented. The
+// parts are read as they were written, never shifted into this machine's clock, the way
+// todayISO() is careful not to be, so seconds, fractions of a second and a trailing
+// timezone are read past rather than shown. A value in any other shape is shown exactly
+// as it came, rather than guessed at, and the whole value has to be the stamp for any of
+// this to happen: half a date left behind in a cell would be worse than one drawn in a
+// shape nobody planned, so the pattern is anchored at both ends.
+const STAMP = /^(\d{4})[-/](\d{2})[-/](\d{2})(?:[T/ ](\d{2})[:/](\d{2})(?:[:/]\d{2}(?:\.\d+)?)?(?:Z|[+-]\d{2}:?\d{2})?)?$/;
 
 function historyDate(value) {
-    const parts = ISO_DATE.exec(String(value));
+    const text = String(value);
+    const stamp = STAMP.exec(text);
 
-    return parts ? `${parts[3]}/${parts[2]}/${parts[1].slice(2)}` : String(value);
+    if (!stamp) {
+        return text;
+    }
+
+    const [, year, month, day, hour, minute] = stamp;
+
+    // The time is drawn only when the stamp carried one.
+    return hour === undefined
+        ? `${year}/${month}/${day}`
+        : `${year}/${month}/${day} ${hour}:${minute}`;
 }
 
 // Drops the rows and hides the frame they stand in. A read that failed or came back

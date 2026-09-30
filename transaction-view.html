@@ -7,9 +7,9 @@
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Comfortaa:wght@300..700&display=swap">
-    <link rel="stylesheet" href="styles.css?v=8">
+    <link rel="stylesheet" href="styles.css?v=10">
     <script src="sessionstorage.js?v=3" defer></script>
-    <script src="transactionview.js?v=1" defer></script>
+    <script src="transactionview.js?v=3" defer></script>
 </head>
 <body>
     <!-- The second page of the history flow: the sketch's card with the student's name
@@ -47,8 +47,18 @@
                     <table class="roster__table history__table">
                         <caption class="sr-only">The transactions recorded for this student, with the balance the account ended each one on</caption>
                         <thead>
+                            <!-- The date column names the shape transactionview.js draws it in —
+                                 YYYY/MM/DD HH:mm, as in 2026/09/29 16:17, where MM is the month and
+                                 mm the minute. The shape wears a span of its own because the head
+                                 row is uppercased and a pattern's letters are read as they are
+                                 written: HH:MM would name the month where the minutes go. The
+                                 space between the date and the time is also the one place this
+                                 heading may break, so a squeezed column wraps the heading there
+                                 instead of widening the table past its frame and clipping the
+                                 balance at the end of the row. The stamp under it may not wrap at
+                                 all (.history__date in styles.css). -->
                             <tr>
-                                <th scope="col">Date (DD/MM/YY)</th>
+                                <th scope="col">Date <span class="history__pattern">(YYYY/MM/DD HH:mm)</span></th>
                                 <th scope="col" class="roster__amount history__amount-head">Amount</th>
                                 <th scope="col">Type</th>
                                 <th scope="col">Detailed reason</th>

@@ -7,8 +7,8 @@
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Comfortaa:wght@300..700&display=swap">
-    <link rel="stylesheet" href="styles.css?v=8">
-    <script src="app.js?v=4" defer></script>
+    <link rel="stylesheet" href="styles.css?v=10">
+    <script src="app.js?v=5" defer></script>
 </head>
 <body>
     <!-- The page behind the hub's "View students" door, and the whole of it is the
@@ -17,11 +17,7 @@
          open as a section of the home page, and the same three live routes answer it,
          so the table lists the students of the admin holding the session cookie and
          nobody else's. app.js fills the rows in; every other page leaves the empty
-         <tbody> and the hidden frame exactly as they are.
-         Under the table, outside the frame it is drawn in, one door leads on: the
-         transactions recorded for a student. It asks which student by name
-         (transaction-view-middle.html) and then lists that student's history
-         (transaction-view.html). -->
+         <tbody> and the hidden frame exactly as they are. -->
     <div class="page">
         <main class="card">
             <header class="bar">
@@ -68,14 +64,6 @@
                     <p id="rosterstamp" class="roster__stamp"></p>
                     <button type="button" id="rosterrefresh" class="btn btn--ghost">Refresh</button>
                 </div>
-
-                <!-- The one way on from this page: the transactions recorded for a
-                     student. A door rather than a button — the same pale box the hub's
-                     doors and the transaction types are — because it opens a page of its
-                     own, transaction-view-middle.html, which asks which student first. It
-                     stands outside the frame above, so it can be used even when the table
-                     could not be read. -->
-                <a class="btn btn--door" href="/transaction-view-middle.html">View student transaction history</a>
             </section>
 
             <p class="footnote">Need a login first? <a class="tag" href="/login_admin.html">Admin login</a></p>

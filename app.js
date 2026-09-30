@@ -1147,6 +1147,34 @@ function reasonSlugFromType(type) {
 // reason, and accepts amount, date and memo as well).
 const RECORD_URL = 'https://api.rongrongwu.com/transaction-record';
 
+// The date every recorded transaction is sent with, so a row this app writes carries
+// the same stamp a row the backend writes does: YYYY/MM/DD HH:mm, as in
+// 2026/09/29 16:17 — the shape the history column names, read the way a pattern is
+// written, where MM is the month and mm the minute and the space holds the date and the
+// time apart. Both approving pages fill `date` in from here, so the reason pages and the
+// Other page cannot drift into two shapes.
+//
+// The route takes `date` as a plain string (openapi.json: TransactionRecord.date is
+// anyOf string/null, and only student, type, slug and reason are required), so the shape
+// is this app's to choose, and choosing the history column's own shape keeps the row the
+// app wrote and the rows the backend wrote reading alike — transactionview.js re-cuts
+// both into that one shape, and reads back a stamp written this way unchanged.
+//
+// The parts are read off the local clock by hand, the same care todayISO() takes, rather
+// than through toISOString(), which works in UTC and would date an evening transaction
+// tomorrow on this side of the world. The clock is read when the transaction is built,
+// not when the request leaves, so the stamp is the moment the admin approved it — the
+// moment the Y/N question named — even if the answer is given a minute later.
+function transactionStamp() {
+    const now = new Date();
+    const month = String(now.getMonth() + 1).padStart(2, '0');
+    const day = String(now.getDate()).padStart(2, '0');
+    const hour = String(now.getHours()).padStart(2, '0');
+    const minute = String(now.getMinutes()).padStart(2, '0');
+
+    return `${now.getFullYear()}/${month}/${day} ${hour}:${minute}`;
+}
+
 // Protected route used to ask the backend whether this browser still holds an
 // admin session. GET /current-admin answers the same question (the home page
 // lookup above uses it), but this check stays on the trick sessionstorage.js also
@@ -1740,13 +1768,16 @@ async function runApproval() {
     // reason is the option's value, which is the reason column text the backend sent.
     // amount is the figure that goes with that reason, negative for the two types that
     // spend money, null when the reason carries no figure at all (the built-in fallback
-    // list of a page). label is only what the eye saw.
+    // list of a page). date is the moment of this approval, in the history column's own
+    // shape (transactionStamp()), so the row is written with the time it happened, not
+    // with whatever a later read makes of it. label is only what the eye saw.
     const transaction = {
         student: sessionStorage.getItem(STUDENT_KEY) || '',
         type: reasonType,
         slug: reasonSlug,
         reason: reasonSelect.value,
         amount: optionAmount(option),
+        date: transactionStamp(),
         label: option ? option.textContent : reasonSelect.value
     };
 
@@ -2002,15 +2033,19 @@ async function runOtherApproval() {
 
     // The same columns the reason pages write, with the reason and the memo typed in
     // instead of picked: type is this page's own value, slug is that value as a URL,
-    // reason is the broad reason, and amount and memo are what the two boxes hold.
-    // label is only what the eye saw, so the question and the status line name the
-    // transaction exactly as it is about to be written.
+    // reason is the broad reason, amount and memo are what the two boxes hold, and date
+    // is the moment of this approval in the history column's own shape
+    // (transactionStamp()) — the same stamp, built by the same function, so the two
+    // approving pages cannot date a row two ways. label is only what the eye saw, so the
+    // question and the status line name the transaction exactly as it is about to be
+    // written.
     const transaction = {
         student: sessionStorage.getItem(STUDENT_KEY) || '',
         type: OTHER_TYPE,
         slug: OTHER_SLUG,
         reason: reason,
         amount: amount,
+        date: transactionStamp(),
         memo: otherMemoValue(),
         label: reason
     };
