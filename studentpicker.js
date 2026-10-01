@@ -1,9 +1,14 @@
-// Typing dropdown for the student field on the two pages that ask for a username by
-// hand: transaction1.html, which starts a transaction, and transaction-view-middle.html,
-// which opens a history. Both pages carry the same field, list and hint ids, so this
-// one file serves both - it only ever writes the chosen name into the field, and the
-// check that follows the field stays where it was, in sessionstorage.js, which reads
-// that same input when Next is clicked or the form is submitted.
+// Typing dropdown for the student field on the pages that ask for a name by hand:
+// transaction1.html, which starts a transaction, transaction-view-middle.html, which
+// opens a history, and remove.html, which takes a student away. The two transaction
+// pages carry the same field, list and hint ids, so this one file has always served
+// both; remove.html names its own field for what it is there (removestudentname), so
+// the field is found by its data-student-picker attribute and the list and the hint are
+// read off the aria-controls and aria-describedby that field already carries. Whichever
+// page it is, this file only ever writes the chosen name into the field, and whatever
+// checks that field stays where it was: sessionstorage.js on the two transaction pages,
+// which reads the input when Next is clicked or the form is submitted, and app.js's
+// remove page on remove.html, which reads the same input when its form is submitted.
 //
 // As the admin types into #student_username this file shows the accounts whose
 // name matches what has been typed so far, so a username never has to be
@@ -29,9 +34,8 @@
 // is left, when the account list could not be loaded, or when the backend named no
 // admin to load it for.
 //
-// This file only writes the chosen name into the input. Saving it stays where it
-// was, in sessionstorage.js, which reads that same input when Next is clicked or
-// the form is submitted.
+// This file only writes the chosen name into the input. What reads it back stays where it
+// was: sessionstorage.js on the two transaction pages, app.js's remove page on remove.html.
 
 const STUDENT_LIST_URL = 'https://api.rongrongwu.com/getuser';
 
@@ -50,9 +54,12 @@ const STUDENT_LIST_LIMIT = 8;
 
 // Fields an account object may carry its username in, and the field that carries
 // the supervisor, most likely first. Mirrors the tolerant reading in app.js,
-// which copes with the untyped /getuser payload too.
-const STUDENT_NAME_KEYS = ['name', 'username', 'account', 'id'];
-const STUDENT_SUPERVISOR_KEYS = ['supervisor', 'owner', 'manager'];
+// which copes with the untyped /getuser payload too. Spelled PICKER_* because
+// remove.html loads this file and app.js together and app.js keeps its own
+// STUDENT_NAME_KEYS/STUDENT_SUPERVISOR_KEYS for these same fields: two top-level
+// consts of one name, in two classic scripts on one page, would throw.
+const PICKER_STUDENT_NAME_KEYS = ['name', 'username', 'account', 'id'];
+const PICKER_STUDENT_SUPERVISOR_KEYS = ['supervisor', 'owner', 'manager'];
 
 // One word inside a name, and one part of what has been typed: "Rongrong Wu" is two
 // words and so is "rong.wu". Letters and digits make a word, everything else
@@ -60,9 +67,22 @@ const STUDENT_SUPERVISOR_KEYS = ['supervisor', 'owner', 'manager'];
 // its letter instead of being split around it.
 const STUDENT_WORD_PATTERN = /\p{L}[\p{L}\p{N}]*/gu;
 
-const studentInput = document.getElementById('student_username');
-const studentList = document.getElementById('studentlist');
-const studentHint = document.getElementById('studenthint');
+// The field this picker dresses. transaction1.html and transaction-view-middle.html call
+// it #student_username; remove.html has a field of its own name there, so it marks the
+// input with data-student-picker instead.
+const studentInput =
+    document.getElementById('student_username') ??
+    document.querySelector('input[data-student-picker]');
+
+// The list and the hint are the two elements the field itself points at: the ids in
+// aria-controls and aria-describedby are the wiring that already ties the three together
+// on every page, so the list and the hint need no marker of their own.
+const studentList = document.getElementById(
+    studentInput?.getAttribute('aria-controls') || 'studentlist'
+);
+const studentHint = document.getElementById(
+    studentInput?.getAttribute('aria-describedby') || 'studenthint'
+);
 
 // Every account the backend listed, sorted by name: [{ name, supervisor }, ...]
 let studentAccounts = [];
@@ -144,13 +164,13 @@ function studentAccount(entry) {
         return entry ? { name: String(entry), supervisor: '' } : null;
     }
 
-    const name = studentField(entry, STUDENT_NAME_KEYS);
+    const name = studentField(entry, PICKER_STUDENT_NAME_KEYS);
 
     if (name === null) {
         return null;
     }
 
-    const supervisor = studentField(entry, STUDENT_SUPERVISOR_KEYS);
+    const supervisor = studentField(entry, PICKER_STUDENT_SUPERVISOR_KEYS);
 
     return {
         name: String(name),

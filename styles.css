@@ -786,9 +786,12 @@ a.tag:hover {
 }
 
 /* ------------------------------------------------- typing dropdown ---- */
-/* The two username fields — transaction1.html and transaction-view-middle.html —
-   suggest account names while they are typed. The list is a plain <ul> the script
-   fills, laid over what is below it. */
+/* The username fields — transaction1.html and transaction-view-middle.html — and the
+   student name field on remove.html suggest account names while they are typed. The list
+   is a plain <ul> the script fills, laid over what is below it. studentpicker.js finds
+   each field by id (the two transaction pages) or by its data-student-picker attribute
+   (remove.html), and the list and hint off the aria-controls and aria-describedby the
+   field carries. */
 .combo { position: relative; }
 
 /* room on the right edge for the same hollow triangle as .panel select */
@@ -1016,6 +1019,12 @@ a.tag:hover {
     width: min(100%, 22rem);
     text-align: center;
 }
+
+/* The typing dropdown's wrapper has to hold the width the plain box had: the field is
+   centred here rather than stretched, so the wrapper would otherwise shrink to fit the
+   empty box and the box would shrink with it. It takes the box's own width instead, and
+   the list laid over it (left: 0; right: 0) then follows that width. */
+.card--remove .combo { width: min(100%, 22rem); }
 
 /* The sketch's wording over the box, in sentence case: every other page's fields are
    labelled in the small tracked caps, which would spell this one "ENTER STUDENT NAME". */

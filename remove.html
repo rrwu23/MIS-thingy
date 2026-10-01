@@ -7,14 +7,17 @@
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Comfortaa:wght@300..700&display=swap">
-    <link rel="stylesheet" href="styles.css?v=15">
+    <link rel="stylesheet" href="styles.css?v=16">
     <script src="app.js?v=12" defer></script>
+    <script src="studentpicker.js?v=4" defer></script>
 </head>
 <body>
     <!-- The page behind the hub's "Remove student" door, drawn the way its sketch draws it:
          one card, cut from the bank's teal like every other page, the page's own name
          under the bank's, a box for the student's name and the remove button at the foot.
-         Pressing remove removes nothing by itself. It puts the question in front of the
+         The box wears transaction1.html's typing dropdown (studentpicker.js), so a name
+         never has to be remembered exactly — only the accounts of the signed-in admin come
+         up. Pressing remove removes nothing by itself. It puts the question in front of the
          admin — the app's own Yes/No dialog, the one the reason pages approve a transaction
          with — and only an answered Yes is allowed to go on to the removal. That step lives
          in app.js's "Remove student page" section, which is where a request to take a
@@ -37,12 +40,31 @@
                  question under the button is what guards it. The label is the sketch's own
                  wording over the box, in sentence case rather than in the small caps the
                  other pages' fields are labelled in (.card--remove .field label says so),
-                 and the name typed in comes back exactly as it was typed, trimmed. -->
+                 and the name typed in comes back exactly as it was typed, trimmed. The box
+                 wears transaction1.html's typing dropdown: studentpicker.js is loaded above,
+                 finds this field by its data-student-picker attribute, and fills
+                 #removestudentlist with the accounts whose initials match what has been
+                 typed, so rong finds Rongrong Wu. The field keeps its own id and name
+                 (removestudentname) because that is the field app.js's remove page reads
+                 when the form is submitted; the picker only ever writes the chosen name
+                 into it. autocomplete is off because the browser's own suggestions have
+                 nothing to do with the accounts on the backend. -->
             <form id="removeform" class="remove">
                 <div class="field">
                     <label for="removestudentname">Enter student name</label>
-                    <input type="text" id="removestudentname" name="removestudentname"
-                           autocomplete="off" required>
+                    <div class="combo">
+                        <input type="text" id="removestudentname" name="removestudentname"
+                               autocomplete="off" required
+                               data-student-picker
+                               role="combobox" aria-expanded="false"
+                               aria-controls="removestudentlist"
+                               aria-autocomplete="list" aria-describedby="removestudenthint">
+                        <ul id="removestudentlist" class="combo__list" role="listbox"
+                            aria-label="Student accounts" hidden></ul>
+                    </div>
+
+                    <p id="removestudenthint" class="combo__hint" role="status"
+                       aria-live="polite" hidden></p>
                 </div>
 
                 <!-- The one button, at the foot of the card, wearing the doors' pale box
