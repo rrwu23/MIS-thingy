@@ -377,7 +377,9 @@ a.tag:hover {
    everything standing on it is drawn in the accent ink, and each door is a pale box
    with a dark outline, the treatment .panel select gets.
    The card is a column rather than a grid, which is what lets Sign out be pushed to
-   the foot with margin-top: auto without the doors stretching to fill the height. */
+   the foot with margin-top: auto without the doors stretching to fill the height.
+   The student's own hub (student-home.html) wears the same card, built the same way:
+   its brand, greeting and one door, then the balance box and Sign out at the foot. */
 .hub {
     display: flex;
     flex-direction: column;
@@ -419,12 +421,21 @@ a.tag:hover {
     margin-top: clamp(0.5rem, 2vw, 1rem);
 }
 
-/* The balance box on the student's own hub, under the doors: the pale surface the doors
-   are drawn on, so the figure reads as an answer standing on the card rather than one
-   more way further in. It is read when View balance is pressed, so it starts hidden, and
-   [hidden] has to win over the display rule below — the same reason
-   .roster__frame[hidden] and .combo__list[hidden] exist. margin-top: auto is what leaves
-   it low on the card, where the sketch draws it, with the doors left where they are. */
+/* One door alone on the row: the student's own hub, where the balance stands on the card
+   itself now rather than behind a View balance button, so View transaction history is the
+   only door left on it. A single column lets that door take the whole width instead of
+   being drawn at half of it against an empty cell. */
+.hub__actions--single { grid-template-columns: 1fr; }
+
+/* The balance box on the student's own hub, under the door: the pale surface the doors are
+   drawn on, so the figure reads as an answer standing on the card rather than one more way
+   further in. It stands there with the dots in it from the moment the page opens, while
+   studenthome.js reads the figure, and the states that have no figure to draw — no student
+   signed in, no transaction recorded, a read that failed — take it off the card with the
+   hidden attribute, which has to win over the display rule below — the same reason
+   .roster__frame[hidden] and .combo__list[hidden] exist. margin-top: auto is what leaves it
+   low on the card, where the sketch draws it; on the student's card the free height is
+   shared with the foot below, which carries an auto top margin of its own. */
 .hub__balance {
     /* The line inside stands in a span of its own so the box can centre it: a flex
        container takes the text run and the figure as two items, which would drop the
@@ -487,7 +498,10 @@ a.tag:hover {
 
 /* The foot of the card: Sign out on a row of its own, pushed to the right as the sketch
    draws it. It keeps a row separate from the doors, so it can never be mistaken for a
-   way further into the bank. */
+   way further into the bank. Both hubs wear it — the admin's six doors and the student's
+   one — and margin-top: auto is what lands it at the very foot. On the student's card the
+   balance box above it carries the same auto margin, so the free height is split between
+   the two and Sign out is still the last thing on the card. */
 .hub__foot {
     display: flex;
     flex-direction: column;

@@ -1,18 +1,21 @@
 // The student's own hub: student-home.html, the page behind the front door's student
 // door (index.html, app.js).
 //
-// Nothing on this card is asked of the backend until View balance is pressed, and who is
-// signed in is not asked of it at all: the student door wrote the username it signed in
-// with into sessionStorage, and this file reads it back — the same key app.js writes
-// (SIGNED_IN_STUDENT_KEY) and the same key transactionview.js reads for the student's own
-// history page, kept in sync by hand, the way STUDENT_USERNAME_KEY is kept between
-// sessionstorage.js and transactionview.js.
+// Who is signed in is not asked of the backend: the student door wrote the username it
+// signed in with into sessionStorage, and this file reads it back — the same key app.js
+// writes (SIGNED_IN_STUDENT_KEY) and the same key transactionview.js reads for the
+// student's own history page, kept in sync by hand, the way STUDENT_USERNAME_KEY is kept
+// between sessionstorage.js and transactionview.js. The balance is asked for as the card
+// opens rather than when a button on it is pressed — the box stands on the card with the
+// dots in it until that read answers — and Sign out is the one thing this card sends that
+// ends something instead of reading something.
 //
 // The figure in the box is not asked of a balance route of its own. It is the balance the
 // last row of this student's own transaction history ended on, read from the very route the
-// hub's other door opens a page onto (transaction-view-student.html, transactionview.js) —
-// every row of a history carries the balance the account stood at after that transaction,
-// so the last row recorded is where the account stands now, and nothing is added up here:
+// door left on the card opens a page onto (transaction-view-student.html,
+// transactionview.js) — every row of a history carries the balance the account stood at
+// after that transaction, so the last row recorded is where the account stands now, and
+// nothing is added up here:
 //
 //   GET https://api.rongrongwu.com/transaction-student-history?student=<username>
 //   -> [{"user": "Rongrong Wu", "amount": 100, "type": "BONUS BUCKS", "date": null,
@@ -22,6 +25,14 @@
 //      GET /get-balance?student= answers with — 235 for that student, the same figure this
 //      page used to ask that route for)
 //
+// Sign out is the other route this card knows, and it is the same one the admin's hub
+// posts: POST /logout. Its summary in openapi.json says Logoutadmin, but the cookie it
+// empties is session_id — the one cookie GET /current-student,
+// GET /transaction-student-history and every other protected route read — and checked live
+// with curl it answers 200 with that cookie emptied even when no session was sent, so there
+// is no student session for it to turn away. There is therefore no student logout of its
+// own to wait for.
+//
 // This file is the page's own script, so the readers it needs are kept here rather than
 // shared: studentpicker.js, jobrotation.js, transactionview.js and sessionstorage.js do
 // the same, and no page ever loads two of them.
@@ -30,7 +41,7 @@
 // app.js, which writes it, and in transactionview.js, which reads it for the history.
 const SIGNED_IN_STUDENT_KEY = 'student_login';
 
-// Where one student's transactions are read from: the history route the hub's other door
+// Where one student's transactions are read from: the history route the door on the card
 // opens a page onto, in the ?student= query every other student route in the API takes. It
 // answers the rows of that account, oldest first, each carrying the balance the account
 // ended it on — and the last of them is the balance this page draws. Kept in sync by hand
@@ -44,14 +55,28 @@ const HISTORY_URL = 'https://api.rongrongwu.com/transaction-student-history';
 // trusted; GET /transaction-student-history sends it as "balance" (checked live).
 const BALANCE_KEYS = ['ending_balance', 'balance_after', 'end_balance', 'balance'];
 
-// The card: the name in the greeting, the two doors, the balance box and the figure in
-// it, and the status line under the doors.
+// Ending the session: POST /logout, the route the admin's own hub posts as well. Kept in
+// sync by hand with LOGOUT_URL in app.js — one route, written out in the two files that
+// post it, the way the session keys are.
+const LOGOUT_URL = 'https://api.rongrongwu.com/logout';
+
+// The front door, index.html — the sign-in card. That is where a browser that has just
+// given up its session belongs, since the card holds nothing but the signing in; kept in
+// sync with SIGN_IN_URL in app.js, which sends the admin's hub the same way.
+const SIGN_IN_URL = '/index.html';
+
+// How long the sentence that says what just happened is left standing before the browser
+// is handed back to the sign-in card — the same moment app.js gives the admin's own.
+const REDIRECT_DELAY_MS = 900;
+
+// The card: the name in the greeting, the one door left on it, the balance box and the
+// figure in it, the status line under the door, and Sign out at the foot.
 const studentNameField = document.getElementById('studentname');
 const studentBalanceBox = document.getElementById('studentbalance');
 const studentBalanceFigure = document.getElementById('studentbalancefigure');
 const studentStatus = document.getElementById('studentstatus');
-const viewBalanceButton = document.getElementById('viewbalance');
 const viewHistoryDoor = document.getElementById('viewhistory');
+const signOutButton = document.getElementById('signout');
 
 // The line the hub says everything on — the same one-paragraph shape showHomeMessage,
 // showRosterMessage and showHistoryMessage write into their own blocks, so an error is
@@ -75,15 +100,14 @@ function signedInStudent() {
     return (sessionStorage.getItem(SIGNED_IN_STUDENT_KEY) || '').trim();
 }
 
-// Both doors switched off the way the history page switches its Refresh off:
+// The one door left switched off the way the history page switches its Refresh off:
 // aria-disabled, which styles.css greys out and makes unclickable, plus no tab stop. It
-// is what the hub does with no student behind it, since there is no account to read a
-// balance for and no history to open.
-function lockDoors() {
-    for (const door of [viewBalanceButton, viewHistoryDoor]) {
-        door?.setAttribute('aria-disabled', 'true');
-        door?.setAttribute('tabindex', '-1');
-    }
+// is what the hub does with no student behind it, since there is no history of nobody's to
+// open. Sign out is deliberately left alone: it ends whatever session this browser is
+// holding, which is a real thing to do even when it holds no student.
+function lockDoor() {
+    viewHistoryDoor?.setAttribute('aria-disabled', 'true');
+    viewHistoryDoor?.setAttribute('tabindex', '-1');
 }
 
 // The first of the named fields a record carries a value in, or null when it carries none
@@ -180,10 +204,11 @@ async function studentBalance(name) {
     return balance;
 }
 
-// The page starts itself: the greeting is filled in as the page opens from the username
-// the front door stored, and the balance is read when it is asked for. There is nothing
-// to read for without a name, so the doors are switched off and the status line explains
-// what is missing instead.
+// The page starts itself: the greeting is filled in as the page opens from the username the
+// front door stored, and the balance is read straight after it, into the box that is already
+// standing on the card. There is nothing to read for without a name, so the door is switched
+// off, the box is taken off the card — the dots in the markup would never become a figure —
+// and the status line explains what is missing instead.
 if (studentStatus) {
     const student = signedInStudent();
 
@@ -191,36 +216,35 @@ if (studentStatus) {
         if (studentNameField) {
             studentNameField.textContent = student;
         }
+
+        showStudentBalance(student);
     } else {
+        if (studentBalanceBox) {
+            studentBalanceBox.hidden = true;
+        }
+
         showStudentMessage(studentStatus, 'No student is signed in on this browser, so there is no account to show. Sign in with the student door on the front page.', true);
-        lockDoors();
+        lockDoor();
     }
 }
 
-// View balance: the balance of the student this browser signed in as, in the box under
-// the doors — read off the last row of that student's own transaction history, the route
-// the other door opens a page onto. One read at a time — the button goes grey and
-// unclickable for the round trip, the state every other button in the app is put in while
-// it waits — and a read that failed puts the box away rather than leaving the figure of the
-// read before standing there as if it were current.
-viewBalanceButton?.addEventListener('click', async function () {
-    const student = signedInStudent();
-
-    if (!student) {
-        showStudentMessage(studentStatus, 'No student is signed in on this browser, so there is no balance to read. Sign in with the student door on the front page.', true);
-        return;
-    }
-
-    viewBalanceButton.setAttribute('aria-disabled', 'true');
+// The balance of the student this browser signed in as, in the box on the card — read off
+// the last row of that student's own transaction history, the route the door above it opens
+// a page onto. The card makes this read as it opens, so there is no button to put in the
+// waiting state: the dots the box is drawn with are what stands in for the round trip. A
+// read that failed puts the box away rather than leaving the figure of the read before
+// standing there as if it were current, and since there is no button to press again, the
+// status line asks for the page itself to be reloaded — a reload is what asks this again.
+async function showStudentBalance(student) {
     showStudentMessage(studentStatus, `Reading the transactions recorded for “${student}”, for the balance the last one ended on…`, false);
 
     try {
         const balance = await studentBalance(student);
 
         // A student the backend has recorded nothing for has no last row, so there is no
-        // figure to draw: the box stays away and the line under the doors says why, the
-        // same way the history page says it. A zero is not written there in its place — a
-        // zero is a balance, and this is the absence of one.
+        // figure to draw: the box goes away and the line under the door says why, the same
+        // way the history page says it. A zero is not written there in its place — a zero is
+        // a balance, and this is the absence of one.
         if (balance === null) {
             if (studentBalanceBox) {
                 studentBalanceBox.hidden = true;
@@ -249,8 +273,48 @@ viewBalanceButton?.addEventListener('click', async function () {
             studentBalanceBox.hidden = true;
         }
 
-        showStudentMessage(studentStatus, `The balance on “${student}” could not be read from the transaction history API. Press View balance to ask again.`, true);
-    } finally {
-        viewBalanceButton.removeAttribute('aria-disabled');
+        showStudentMessage(studentStatus, `The balance on “${student}” could not be read from the transaction history API. Reload this page to ask again.`, true);
+    }
+}
+
+// Sign out: POST /logout — the route the admin's own hub posts (app.js, LOGOUT_URL), and the
+// one route that ends a session, whichever of the front door's two doors opened it: both
+// logins are held in the same session_id cookie, and that is the cookie this route empties.
+// The username the student door stored is given up here as well, so the hub behind the
+// sign-in card cannot open on a student who has just left. The confirmed student of the
+// transaction flow (STUDENT_USERNAME_KEY, sessionstorage.js) is deliberately left alone: that
+// is an admin's choice about whose transaction is being filled in, and not this page's to
+// clear.
+signOutButton?.addEventListener('click', async function () {
+    // One sign-out at a time: the button goes grey and unclickable for the round trip, the
+    // same .btn[aria-disabled="true"] state the two forms are put in while they wait.
+    signOutButton.setAttribute('aria-disabled', 'true');
+    showStudentMessage(studentStatus, 'Signing this student out…', false);
+
+    try {
+        const response = await fetch(LOGOUT_URL, {
+            method: 'POST',
+            credentials: 'include' // carry the session cookie out with it
+        });
+
+        if (!response.ok) {
+            console.error('Logout error:', response.status);
+            showStudentMessage(studentStatus, `Sign out failed (${response.status}) — the session is still open, so this student is still signed in.`, true);
+            signOutButton.removeAttribute('aria-disabled');   // nothing was given up: let them try again
+            return;
+        }
+
+        sessionStorage.removeItem(SIGNED_IN_STUDENT_KEY);
+        showStudentMessage(studentStatus, 'Signed out — taking you back to the sign-in card…', false);
+
+        // Deliberately not re-enabled on this path: the session is gone, so a second press
+        // while the front door is on its way would only sign out nobody.
+        window.setTimeout(function () {
+            window.location.href = SIGN_IN_URL;
+        }, REDIRECT_DELAY_MS);
+    } catch (error) {
+        console.error('Network Error:', error);
+        showStudentMessage(studentStatus, 'Network error — the logout API could not be reached, so this student is still signed in.', true);
+        signOutButton.removeAttribute('aria-disabled');
     }
 });

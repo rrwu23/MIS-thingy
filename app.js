@@ -1262,12 +1262,15 @@ function reasonSlugFromType(type) {
 //           reason and its figure ("Exceptional effort (10 pts)"), the Other page's
 //           memo box exactly as typed, null when that box was left empty
 //
-// Checked live while this was written: the deployed route still declares the older
-// TransactionRecord - openapi.json requires student, type, slug and reason and has no
-// `user` field at all, and a body of these five answers 422 {"detail": [{"type":
-// "missing", "loc": ["body", "student"], "msg": "Field required"}, ...]} about the three
-// it no longer gets. The body below is the five fields the rows carry, as asked for; the
-// route needs the same five on its side.
+// Checked live: the route takes these five fields now. openapi.json declares
+// Body_transaction_record_transaction_record_post with `user` and `amount` required and
+// `type` (default ""), `date` and `memo` optional, and a body of these five answers 200 -
+// fetched straight back out of GET /transaction-student-history?student=..., the row
+// carries the type and the memo exactly as they were sent. The older TransactionRecord the
+// route used to declare (student, type, slug, reason) is still in the schema, unread.
+// Nothing of this browser's session is what authorizes the write: the same body answered
+// 200 with no cookie at all, so the five fields below are the whole of what this page has
+// to get right.
 const RECORD_URL = 'https://api.rongrongwu.com/transaction-record';
 
 // The date every recorded transaction is sent with, so a row this app writes carries
@@ -1969,7 +1972,9 @@ async function runApproval() {
 // - user, amount, type, date, memo - and nothing else. What the pages keep in their own
 // transaction object is more than this (the label the question reads, the reasons the
 // memo is built from), and none of that goes over the wire: `user` is the student the row
-// belongs to, and the reason a row is written under is in its memo.
+// belongs to, `type` is what the row is filed under, and the reason it was written for is
+// in the memo - except on the Other page, which has no list to take a type from, where the
+// reason the admin typed is the type and the memo is whatever went in the memo box.
 function transactionBody(transaction) {
     return {
         user: transaction.student,
