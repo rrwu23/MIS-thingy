@@ -1,0 +1,89 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Bonura bank</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Comfortaa:wght@300..700&display=swap">
+    <link rel="stylesheet" href="styles.css?v=16">
+    <script src="app.js?v=13" defer></script>
+    <script src="studentpicker.js?v=4" defer></script>
+</head>
+<body>
+    <!-- The page behind the hub's "Remove student" door, drawn the way its sketch draws it:
+         one card, cut from the bank's teal like every other page, the page's own name
+         under the bank's, a box for the student's name and the remove button at the foot.
+         The box wears transaction1.html's typing dropdown (studentpicker.js), so a name
+         never has to be remembered exactly — only the accounts of the signed-in admin come
+         up. Only a signed-in admin may remove a student, so app.js asks the backend for
+         permission as the page loads — the remove button stays grey until it has answered —
+         and asks again when the button is pressed, because a session can expire while the
+         page is open. Pressing remove removes nothing by itself. It puts the question in
+         front of the admin — the app's own Yes/No dialog, the one the reason pages approve
+         a transaction with — and only an answered Yes is allowed to go on to the removal.
+         That step lives in app.js's "Remove student page" section, which is where a request
+         to take a student away would be sent from the day the backend has a route for it. -->
+    <div class="page">
+        <main class="card card--remove">
+            <header class="bar">
+                <h1 class="card__title">Bonura bank</h1>
+                <a class="tag" href="/home.html">&#8592; Home</a>
+            </header>
+
+            <!-- The page's own name, and the whole of what it does said out loud, the way
+                 every other inner page opens. The last sentence is the honest one: no route
+                 on the backend takes a student away, so an answered Yes is met with that
+                 rather than with a student gone. It is the sentence to drop when the route
+                 arrives. -->
+            <p class="card__hint"><strong>Remove student.</strong> Type the name of the student to take away and press remove. Only a signed-in admin may remove one, so the page asks the backend for permission as it loads &mdash; the remove button stays grey until it has answered &mdash; and asks again when the button is pressed. The name is read back to you once more, and the question is asked before anything happens: Yes takes the student away for good &mdash; it cannot be undone &mdash; and No leaves them alone. Nothing is done while the question stands. The backend has no route that takes a student away yet, so an answered Yes is met with that, and the account stays where it is.</p>
+
+            <!-- The name and the button, and nothing else: the removal is one name, and the
+                 question under the button is what guards it. The label is the sketch's own
+                 wording over the box, in sentence case rather than in the small caps the
+                 other pages' fields are labelled in (.card--remove .field label says so),
+                 and the name typed in comes back exactly as it was typed, trimmed. The box
+                 wears transaction1.html's typing dropdown: studentpicker.js is loaded above,
+                 finds this field by its data-student-picker attribute, and fills
+                 #removestudentlist with the accounts whose initials match what has been
+                 typed, so rong finds Rongrong Wu. The field keeps its own id and name
+                 (removestudentname) because that is the field app.js's remove page reads
+                 when the form is submitted; the picker only ever writes the chosen name
+                 into it. autocomplete is off because the browser's own suggestions have
+                 nothing to do with the accounts on the backend. -->
+            <form id="removeform" class="remove">
+                <div class="field">
+                    <label for="removestudentname">Enter student name</label>
+                    <div class="combo">
+                        <input type="text" id="removestudentname" name="removestudentname"
+                               autocomplete="off" required
+                               data-student-picker
+                               role="combobox" aria-expanded="false"
+                               aria-controls="removestudentlist"
+                               aria-autocomplete="list" aria-describedby="removestudenthint">
+                        <ul id="removestudentlist" class="combo__list" role="listbox"
+                            aria-label="Student accounts" hidden></ul>
+                    </div>
+
+                    <p id="removestudenthint" class="combo__hint" role="status"
+                       aria-live="polite" hidden></p>
+                </div>
+
+                <!-- The one button, at the foot of the card, wearing the doors' pale box
+                     with an ink outline as the sketch draws it. It submits the form, so
+                     Enter in the box presses it too; app.js answers the submit and nothing
+                     may leave this page as a query string. -->
+                <div class="remove__actions">
+                    <button type="submit" id="removebutton" class="btn btn--door">remove</button>
+                </div>
+            </form>
+
+            <!-- Everything the page has to say: the box left empty, the question answered
+                 with No, and what an answered Yes was met with. -->
+            <div id="removeresults" class="results" role="status" aria-live="polite"
+                 data-empty="No student removed yet — type a name and press remove."></div>
+        </main>
+    </div>
+</body>
+</html>
