@@ -57,9 +57,6 @@
        accent: the fill, the deeper tint its hairline is drawn in, and the ink that stands
        on top of it. .card--remove hands the three of them to the accent variables inside
        that card, which is how every control standing on a card is re-themed at once. */
-    --remove:      #1ed81f;
-    --remove-deep: #0b7a12;
-    --remove-ink:  #05300a;
 
     /* text */
     --text:       #052e2a;
@@ -999,12 +996,6 @@ a.tag:hover {
    own tiers, and the fields, the tag, the remove button, the status line and the <code>
    chip all follow without a rule of their own. The card's own fill, hairline and ink come
    from those same variables, so nothing else about .card has to be repeated here. */
-.card--remove {
-    --accent:      var(--remove);
-    --accent-deep: var(--remove-deep);
-    --accent-ink:  var(--remove-ink);
-    --accent-ink-soft: rgba(5, 48, 10, 0.74);
-}
 
 /* The form under the page's own line: the box at the top of it and the remove button at the
    foot of the card, which is where the sketch puts the two of them. flex: 1 1 auto stretches
