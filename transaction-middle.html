@@ -1,0 +1,37 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Bonura bank</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Comfortaa:wght@300..700&display=swap">
+    <link rel="stylesheet" href="styles.css?v=16">
+    <script src="sessionstorage.js?v=3" defer></script>
+</head>
+<body>
+    <div class="page">
+        <main class="card">
+            <header class="bar">
+                <h1 class="card__title">Bonura bank</h1>
+                <a class="tag" href="/home.html">&#8592; Home</a>
+            </header>
+
+            <p class="card__hint"><strong>Transaction type.</strong> Student: <strong id="transactionstudent">&hellip;</strong></p>
+
+            <!-- The four types are doors, not buttons: the same pale boxes the hub's five
+                 doors are, because they are four equal choices between ways further in —
+                 none of them is the one button that commits anything. -->
+            <nav class="actions" aria-label="Transaction types">
+                <a class="btn btn--door" href="/transaction_bonus.html">Bonus</a>
+                <a class="btn btn--door" href="/transaction_fines.html">Fine</a>
+                <a class="btn btn--door" href="/transaction-other.html">Others</a>
+                <a class="btn btn--door" href="/transaction_spending.html">Expense</a>
+            </nav>
+
+            <p class="footnote">Wrong student? <a class="tag" href="/transaction1.html">&#8592; Back</a></p>
+        </main>
+    </div>
+</body>
+</html>

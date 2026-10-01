@@ -1,0 +1,60 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Bonura bank</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Comfortaa:wght@300..700&display=swap">
+    <link rel="stylesheet" href="styles.css?v=16">
+    <script src="app.js?v=13" defer></script>
+</head>
+<body>
+    <div class="page">
+        <main class="card">
+            <header class="bar">
+                <h1 class="card__title">Bonura bank</h1>
+                <a class="tag" href="/home.html">&#8592; Home</a>
+            </header>
+
+            <section class="panel" aria-labelledby="reasontitle">
+                <!-- The page's own name, which used to be a heading — the card's heading is
+                     the bank's name now — kept with the id the panel is labelled by. -->
+                <p class="panel__title" id="reasontitle">Select bonus</p>
+
+                <!-- data-reason-type tells app.js which /reasons/{slug} list to
+                     ask for: it carries the type column value exactly, so "BONUS
+                     BUCKS" asks for /reasons/bonus-bucks. The options below are the
+                     fallback, kept in the dropdown whenever the backend cannot
+                     answer; they are the exact reason column values, each one both
+                     the value and the text. The live list comes back with the
+                     amounts from the table's amount column: 5 up to 100, a bonus
+                     being money in, so the sign is kept. -->
+                <select id="reason" name="reason" data-reason-type="BONUS BUCKS" aria-label="Select bonus">
+                    <option value="" selected>Choose a bonus&hellip;</option>
+                    <option value="Above &amp; Beyond behaviour">Above &amp; Beyond behaviour</option>
+                    <option value="Birthday Bonus">Birthday Bonus</option>
+                    <option value="Exceptional effort">Exceptional effort</option>
+                    <option value="Kindness / helping someone">Kindness / helping someone</option>
+                    <option value="Other Staff Member Compliment">Other Staff Member Compliment</option>
+                    <option value="Principal / VP Compliment">Principal / VP Compliment</option>
+                    <option value="Random Bonura Bonus">Random Bonura Bonus</option>
+                    <option value="WOW Work (exceptional quality/effort)">WOW Work (exceptional quality/effort)</option>
+                </select>
+
+                <div class="form__actions">
+                    <button type="button" class="btn btn--primary" id="reasonnext" aria-disabled="true">
+                        Next
+                    </button>
+                </div>
+            </section>
+
+            <div id="reasonresults" class="results" role="status" aria-live="polite"
+                 data-empty="Asking the backend for the bonus list&hellip;"></div>
+
+            <p class="footnote">Wrong student? <a class="tag" href="/transaction-middle.html">&#8592; Back</a></p>
+        </main>
+    </div>
+</body>
+</html>
