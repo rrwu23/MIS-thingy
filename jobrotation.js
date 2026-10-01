@@ -2,8 +2,17 @@
 //
 // The teacher gives every one of the signed-in admin's students a job — one text box
 // per student, the students listed in alphabetical order — and presses Rotate to send
-// the whole list. Four routes stand behind the page, all of them taking the session
+// the whole list. Five routes stand behind the page, all of them taking the session
 // cookie:
+//   POST /adduser                   the app's admin-session probe, the one every other
+//                                   protected flow asks (app.js's ADMIN_CHECK_URL,
+//                                   sessionstorage.js's PERMISSION_URL): an empty body
+//                                   answers 401 {"detail": "Not logged in"} with no
+//                                   session, and 422 (or 2xx) when the cookie was
+//                                   accepted, because the empty body is all that was
+//                                   refused. No account can be created by it, and nothing
+//                                   is listed or sent until it has answered — asked as the
+//                                   page opens, and again before Rotate sends.
 //   GET  /current-admin               which admin this browser is signed in as;
 //                                     401 {"detail": "Not logged in"} with no session
 //   GET  /getuser?supervisor=<admin>  that admin's students — the exact filter the
@@ -40,7 +49,8 @@
 // every job that is wrong — one that is not in the job list, with the closest job the
 // list does have offered as a suggestion — and nothing is sent while any of them stands.
 // A box left empty is not wrong: that student is simply not given a job. The same job on
-// two students is allowed and is sent as typed.
+// two students is allowed and is sent as typed. The backend is then asked for admin powers
+// once more, and the list only leaves the page on an accepted session.
 //
 // This file is the page's own script, so the readers it needs are kept here rather
 // than shared: studentpicker.js and sessionstorage.js do the same, and no page ever
@@ -48,6 +58,14 @@
 
 const JOB_STUDENTS_URL = 'https://api.rongrongwu.com/getuser';
 const JOB_ADMIN_URL = 'https://api.rongrongwu.com/current-admin';
+
+// The app's admin-session probe, the route app.js (ADMIN_CHECK_URL) and sessionstorage.js
+// (PERMISSION_URL) ask as well — POST with an empty body, because an empty body is refused
+// before anything else is looked at, which is how the app hears whether the session cookie
+// is still good. Spelled and kept here rather than shared: no page ever loads two of these
+// scripts, so each one carries the routes it asks.
+const JOB_PERMISSION_URL = 'https://api.rongrongwu.com/adduser';
+
 const JOBS_URL = 'https://api.rongrongwu.com/get-jobs';
 const SET_JOBS_URL = 'https://api.rongrongwu.com/set-jobs';
 
@@ -128,6 +146,49 @@ function firstField(source, keys) {
     }
 
     return null;
+}
+
+// Asks the backend whether this browser still holds an admin session, with the empty-body
+// POST /adduser probe above. Answers with the verdict and with the sentence the page should
+// show for it — the shape app.js's checkAdminPermission answers in — and every refusal is
+// an error the page says out loud rather than something to read in the console.
+//   401 {"detail": "Not logged in"} -> no session
+//   422 (or 2xx)                    -> only the empty body was refused, so the session
+//                                      cookie was accepted and the admin is logged in.
+//                                      An empty body can never create a user, so the
+//                                      check changes nothing.
+async function jobAdminPermission() {
+    try {
+        const response = await fetch(JOB_PERMISSION_URL, {
+            method: 'POST',
+            credentials: 'include', // the admin session cookie
+            body: new FormData()    // empty body: cannot add an account
+        });
+
+        if (response.ok || response.status === 422) {
+            return { granted: true, text: 'Admin login confirmed by the backend.' };
+        }
+
+        if (response.status === 401) {
+            console.error('Admin check: the backend refused the request — not logged in.');
+            return {
+                granted: false,
+                text: 'Not logged in — the backend refused the request. Log into the admin account first, then reload this page.'
+            };
+        }
+
+        console.error('Admin check error:', response.status, await response.text());
+        return {
+            granted: false,
+            text: `Unexpected reply from the API (${response.status}) — your login could not be confirmed. Log into the admin account and reload this page.`
+        };
+    } catch (error) {
+        console.error('Network Error:', error);
+        return {
+            granted: false,
+            text: 'Network error — the login check could not reach the API. Log into the admin account and reload this page.'
+        };
+    }
 }
 
 // The admin behind the session cookie, or '' when the backend will not name one.
@@ -495,7 +556,9 @@ function describeJobError(result) {
 // wrong the teacher is told exactly which jobs are wrong — in an alert, and again on
 // the status line under the form — and nothing leaves the page. A clean list is sent
 // to POST /set-jobs as the two parallel arrays its body takes: the students that were
-// given a job, and the job each of them gets, in the same order.
+// given a job, and the job each of them gets, in the same order. The backend is asked
+// for admin powers once more in between, so a page left open until the session expired
+// cannot send the list on a login that is gone.
 async function rotateJobs() {
     if (!ready) return;   // still reading, or nothing to send
     if (rotating) return; // one send at a time, however fast the clicks or Enters
@@ -521,9 +584,22 @@ async function rotateJobs() {
 
     rotating = true;
     setRotateEnabled(false);
-    showJobMessage(`Sending ${count} job${count === 1 ? '' : 's'} to /set-jobs…`, false);
+    showJobMessage('Asking the backend whether this browser still holds an admin session…', false);
 
     try {
+        // The backend is asked for admin powers once more before anything is sent: the page
+        // may have been open since the first check and an admin session can expire in
+        // between — the same re-ask app.js's approving pages make before they write. The
+        // `finally` below puts the button back whether the list went or not.
+        const permission = await jobAdminPermission();
+
+        if (!permission.granted) {
+            showJobMessage(permission.text, true);
+            return;
+        }
+
+        showJobMessage(`Sending ${count} job${count === 1 ? '' : 's'} to /set-jobs…`, false);
+
         const response = await fetch(SET_JOBS_URL, {
             method: 'POST',
             credentials: 'include', // the admin session cookie
@@ -555,14 +631,27 @@ async function rotateJobs() {
     }
 }
 
-// The page starts itself: read the signed-in admin, list that admin's students in
-// alphabetical order in a text box each, then read the job list the typing is checked
-// against. Pages without the rows (every page that does not load this script) start
-// nothing at all.
+// The page starts itself: ask the backend whether this browser still holds an admin session,
+// then read the signed-in admin, list that admin's students in alphabetical order in a text
+// box each, and finally read the job list the typing is checked against. Nothing after the
+// first step happens without a session, and pages without the rows (every page that does not
+// load this script) start nothing at all.
 async function openJobPage() {
     if (!jobRows) return;
 
     setRotateEnabled(false);
+    showJobMessage('Asking the backend whether this browser still holds an admin session…', false);
+
+    // The admin session is confirmed before anything is listed. Only the students of the
+    // admin behind the session cookie may be given a job, so with no session there is
+    // nobody to list and nothing to send: the page stops here and says so.
+    const permission = await jobAdminPermission();
+
+    if (!permission.granted) {
+        showJobMessage(permission.text, true);
+        return;
+    }
+
     showJobMessage('Reading your students and the job list…', false);
 
     const admin = await loggedInAdmin();

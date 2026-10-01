@@ -1026,6 +1026,44 @@ function showRemoveMessage(text, isError) {
     removeResults.replaceChildren(paragraph);
 }
 
+// Sets the remove button's greyed-out state, the same attribute styles.css styles for
+// .btn — the state the two Next buttons wear while the backend is being asked.
+function setRemoveEnabled(enabled) {
+    if (!removeButton) return;
+
+    if (enabled) {
+        removeButton.removeAttribute('aria-disabled');
+    } else {
+        removeButton.setAttribute('aria-disabled', 'true');
+    }
+}
+
+// Opening remove.html: ask the backend whether this browser still holds an admin session,
+// with the one probe every other protected flow asks — POST /adduser with an empty body,
+// the request ADMIN_CHECK_URL below is read for, which answers 401 "Not logged in" with no
+// session. A removal is only ever aimed at the students of the admin that is signed in, so
+// nothing is removed, and the question is not even put up, while the session has not been
+// confirmed: the button is grey and unclickable until it has been, and the status line
+// under the form says what the backend answered.
+async function openRemovePage() {
+    if (!removeForm) return; // every other page loads app.js for its own form only
+
+    setRemoveEnabled(false);
+
+    const check = await checkAdminPermission();
+    setRemoveEnabled(check.granted);
+
+    // Whose students may be removed is not asked here: the box wears the typing dropdown,
+    // and that list only ever holds the signed-in admin's own accounts. The invitation to
+    // type a name is added once the session was accepted — there is nothing to type for
+    // while it has not been.
+    const nextStep = check.granted
+        ? ' Type the name of the student to remove, then press remove.'
+        : '';
+
+    showRemoveMessage(`${check.text}${nextStep}`, check.isError);
+}
+
 removeForm?.addEventListener('submit', async function (event) {
     event.preventDefault();
 
@@ -1038,6 +1076,21 @@ removeForm?.addEventListener('submit', async function (event) {
         removeNameField?.focus();
         return;
     }
+
+    // The backend is asked for admin powers once more here, because the page may have been
+    // open since the first check and an admin session can expire in between — the same
+    // re-ask the approving pages make before they write, and what stops a name typed into a
+    // page whose button was left grey being carried any further by pressing Enter. Only the
+    // question below is guarded by it: the removal itself still has nowhere to be sent.
+    setRemoveEnabled(false);
+    const check = await checkAdminPermission();
+
+    if (!check.granted) {
+        showRemoveMessage(check.text, true);
+        return;
+    }
+
+    setRemoveEnabled(true);
 
     // The question stands between the name and the removal, and one removal runs at a time:
     // while it is up, a second press could only put the same question up again.
@@ -2362,4 +2415,12 @@ otherForm?.addEventListener('submit', function (event) {
 // The page starts itself: ask the backend for admin powers, then say on the status line
 // what it answered.
 openOtherPage();
+
+// remove.html starts itself the same way, and its one line is down here rather than at the
+// foot of its own section above because the check it starts with is the one shared
+// checkAdminPermission and the ADMIN_CHECK_URL it reads is declared this far down: a const
+// cannot be read before the line that declares it, and the whole file is read before
+// anything is asked. The boot calls above find none of their own elements on remove.html
+// and start nothing, so this last line is the only one with work to do there.
+openRemovePage();
 
