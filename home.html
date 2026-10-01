@@ -7,8 +7,8 @@
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Comfortaa:wght@300..700&display=swap">
-    <link rel="stylesheet" href="styles.css?v=13">
-    <script src="app.js?v=11" defer></script>
+    <link rel="stylesheet" href="styles.css?v=14">
+    <script src="app.js?v=12" defer></script>
 </head>
 <body>
     <!-- index.html is the front door: the sign-in card, and nothing else. This is the
@@ -30,20 +30,25 @@
                 <p class="hub__question">Would you like to:</p>
             </div>
 
-            <!-- The doors. All but Remove student open a page of their own, so they are
-                 links: View students opens students.html, where the students of this admin
-                 and the balance on each account are listed as a table, and the history
-                 door beside it opens transaction-view-middle.html, which asks for the
-                 student name, and whose Next pops up a table of all that student's
-                 transactions (transaction-view.html). Six doors fill the grid two by two,
-                 three rows deep, and Rotate jobs takes the last of them: it belongs on this
-                 card, being the one page the old foot-of-card chips used to carry. -->
+            <!-- The doors. Each of the six opens a page of its own, so each is a link: View
+                 students opens students.html, where the students of this admin and the
+                 balance on each account are listed as a table, and the history door beside it
+                 opens transaction-view-middle.html, which asks for the student name, and
+                 whose Next pops up a table of all that student's transactions
+                 (transaction-view.html). Six doors fill the grid two by two, three rows
+                 deep, and Rotate jobs takes the last of them: it belongs on this card, being
+                 the one page the old foot-of-card chips used to carry. -->
             <nav class="hub__actions" aria-label="What the bank can do">
                 <a class="btn btn--door" href="/transaction1.html">Add transaction</a>
                 <a class="btn btn--door" href="/addaccount.html">Add student</a>
-                <button type="button" id="removestudent" class="btn btn--door">
-                    Remove student
-                </button>
+                <!-- Remove student was the one door built as a <button>, because there was
+                     nothing behind it but a line on the status strip below. It opens
+                     remove.html now: that page asks for the student's name, puts the
+                     question — Yes or No — in front of the admin, and says what became of
+                     it. The backend still has no route that takes a student away, which is
+                     what an answered Yes reports, but the name is typed and confirmed in
+                     the one place a request would be sent from. -->
+                <a class="btn btn--door" href="/remove.html">Remove student</a>
                 <a class="btn btn--door" href="/students.html">View students</a>
                 <!-- The one door on this card that asks about what has already been
                      recorded rather than what is about to be: it stands beside View
@@ -55,8 +60,8 @@
                 <a class="btn btn--door" href="/job_rotation.html">Rotate jobs</a>
             </nav>
 
-            <!-- Everything the hub has to say: a greeting that could name nobody, Remove
-                 student with no route behind it, a Sign out that did not go through. -->
+            <!-- Everything the hub has to say: a greeting that could name nobody, a Sign out
+                 that did not go through. -->
             <p id="homestatus" class="results" role="status" aria-live="polite"></p>
 
             <!-- The foot of the card. Query accounts, Add admin and Admin login are not

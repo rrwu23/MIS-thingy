@@ -651,8 +651,7 @@ const CURRENT_ADMIN_URL = 'https://api.rongrongwu.com/current-admin';
 const SIGN_IN_URL = '/index.html';
 
 // The status line under the doors, where the hub says everything it has to say: a
-// greeting that could name nobody, Remove student with no route behind it, a Sign out
-// that did not go through.
+// greeting that could name nobody, a Sign out that did not go through.
 const homeStatus = document.getElementById('homestatus');
 
 // Fields the reply may carry the admin name in, most likely first — the route is
@@ -978,20 +977,86 @@ if (rosterRows) {
     });
 }
 
-// The home page's other two doors ------------------------------------------------
-// "Remove student" has nothing behind it: https://api.rongrongwu.com/openapi.json
-// lists two student routes and neither of them takes a student away — POST /adduser
-// makes one and GET /getuser lists them, and there is no delete route at all. So the
-// door says that rather than looking broken, the way index.html's student door does.
-const removeStudentButton = document.getElementById('removestudent');
+// Remove student page -------------------------------------------------------------
+// remove.html, the page behind the hub's "Remove student" door: a box for the student's
+// name, a remove button under it, and, in between, the one question in the app that cannot
+// be undone. The question is the app's own dialog (askConfirmation, below), asked with Yes
+// and No, with Yes drawn in the red the app draws a refusal in.
+const removeForm = document.getElementById('removeform');
+const removeNameField = document.getElementById('removestudentname');
+const removeButton = document.getElementById('removebutton');
+const removeResults = document.getElementById('removeresults');
 
-removeStudentButton?.addEventListener('click', function () {
-    showHomeMessage(
-        homeStatus,
-        'Removing a student has no route on the backend yet — nothing was removed. The students of the admin who is signed in are behind “View students”.',
-        false
-    );
+// The heading of that question: "confirm ..., yes/no" is the shape the approving pages'
+// question is written in, so the two read as the same question about different things.
+const REMOVE_QUESTION = 'confirm remove student, yes/no';
+
+// What the question says under its heading: the student as typed, and what each answer does,
+// the way the transaction question says what Y and N do to the row it names. The name is the
+// whole of what a removal would be aimed at, so it is read back exactly as it was typed —
+// trimmed of the space around it and nothing else — for the admin to read once more.
+function describeRemoval(student) {
+    const head = `“${student}” will be gone forever after this, and it cannot be undone.`;
+    return `${head} Yes removes the student, No leaves them alone.`;
+}
+
+// What answering Yes is met with. remove.html carries the whole conversation, but not the
+// removal itself: https://api.rongrongwu.com/openapi.json lists no route that takes a
+// student away — POST /adduser makes one and GET /getuser lists them, and there is no route
+// that deletes — so there is nowhere to send the name to and the account is still there.
+// This is the one sentence to replace the day the backend grows that route: the name is
+// here, trimmed, and the question has already been answered with Yes.
+function removalNotWiredMessage(student) {
+    const head = `Nothing was removed — “${student}” is still there:`;
+    return `${head} removing a student has no route on the backend yet, so nothing was sent.`;
+}
+
+// Replace the previous status line with a single message — the same one-paragraph shape
+// showHomeMessage, showReasonMessage and showOtherMessage write into their own blocks.
+function showRemoveMessage(text, isError) {
+    if (!removeResults) return;
+
+    const paragraph = document.createElement('p');
+    paragraph.textContent = text;
+
+    if (isError) {
+        paragraph.className = 'results__error';
+    }
+
+    removeResults.replaceChildren(paragraph);
+}
+
+removeForm?.addEventListener('submit', async function (event) {
+    event.preventDefault();
+
+    const student = (removeNameField?.value ?? '').trim();
+
+    // The name is the whole of the request, so a page whose box is empty has nothing to ask
+    // the question about: it points the box out instead.
+    if (!student) {
+        showRemoveMessage('Type the name of the student to remove, then press remove.', true);
+        removeNameField?.focus();
+        return;
+    }
+
+    // The question stands between the name and the removal, and one removal runs at a time:
+    // while it is up, a second press could only put the same question up again.
+    const confirmed = await askConfirmation(REMOVE_QUESTION, describeRemoval(student), {
+        yesLabel: 'Yes',
+        noLabel: 'No',
+        danger: true,
+        returnFocus: removeButton
+    });
+
+    if (!confirmed) {
+        showRemoveMessage(`Nothing was removed — “${student}” was not confirmed with Yes.`, true);
+        return;
+    }
+
+    showRemoveMessage(removalNotWiredMessage(student), true);
 });
+
+// The home page's foot -----------------------------------------------------------
 
 // Sign out: POST /logout is the live route for it (listed in
 // https://api.rongrongwu.com/openapi.json). Checked live with curl: it answers 200
@@ -1572,11 +1637,21 @@ function showReasonMessage(text, isError) {
 // and hidden again until it is needed. Nothing is sent while it is up, and the
 // object it names is exactly the object the request will carry, because both are
 // built from the same `transaction`.
+//
+// remove.html asks the same overlay about a student instead of a transaction, so
+// everything the two questions do not have in common is handed in by the caller: the
+// heading, the sentence under it, the two labels, the treatment the yes answer gets and
+// the button the keyboard goes back to. The approving pages ask with "Y"/"N" and the
+// name of the transaction; the remove page asks with "Yes"/"No", colours Yes as the red a
+// refusal is drawn in (.btn--danger) and names the student who would be gone for good.
 const CONFIRM_QUESTION = 'confirm transaction, Y/N';
 
 let confirmDialog = null;   // the overlay, built the first time anything is approved
+let confirmHeading = null;  // the h2 inside it: what is being asked
 let confirmText = null;     // the sentence inside it: what is about to be written
-let confirmYes = null;      // the Y button, where the focus lands
+let confirmYes = null;      // the yes button, where the focus lands
+let confirmNo = null;       // the no button beside it
+let confirmBack = null;     // where the keyboard goes once the question is answered
 let confirmPending = null;  // { promise, resolve } of the question on screen
 
 // One of the two answers. Both are ordinary .btn buttons, so they look and behave
@@ -1608,7 +1683,6 @@ function buildConfirmDialog() {
     const question = document.createElement('h2');
     question.className = 'confirm__question';
     question.id = 'confirmquestion';
-    question.textContent = CONFIRM_QUESTION;
 
     const text = document.createElement('p');
     text.className = 'confirm__text';
@@ -1618,29 +1692,33 @@ function buildConfirmDialog() {
     actions.className = 'confirm__actions';
 
     confirmYes = confirmButton('Y', 'btn--primary', true);
-    actions.append(confirmYes, confirmButton('N', 'btn--ghost', false));
+    confirmNo = confirmButton('N', 'btn--ghost', false);
+    actions.append(confirmYes, confirmNo);
 
     panel.append(question, text, actions);
     dialog.append(panel);
     document.body.append(dialog);
 
-    // Y and N work as keys too — the question says so — and Escape is the same
-    // answer as N, so the question can always be dismissed without a mouse. The
-    // listener lives on the document because the buttons are the only things inside
-    // the overlay and the keyboard may be anywhere.
+    // The two answers work as keys too — the question says so — and Escape is the same
+    // answer as the quieter one, so the question can always be dismissed without a mouse.
+    // Each key is read off the label that is on the panel at the time, so a question
+    // answered with "Yes"/"No" is answered by y and n exactly as the approving pages'
+    // "Y"/"N" is. The listener lives on the document because the buttons are the only
+    // things inside the overlay and the keyboard may be anywhere.
     document.addEventListener('keydown', function (event) {
         if (dialog.hidden) return;
 
         const key = event.key.toLowerCase();
 
-        if (key === 'y') {
+        if (key === confirmYes.textContent.slice(0, 1).toLowerCase()) {
             answerConfirmation(true);
-        } else if (key === 'n' || key === 'escape') {
+        } else if (key === confirmNo.textContent.slice(0, 1).toLowerCase() || key === 'escape') {
             answerConfirmation(false);
         }
     });
 
     confirmDialog = dialog;
+    confirmHeading = question;
     confirmText = text;
 }
 
@@ -1672,10 +1750,15 @@ function describeTransaction(transaction) {
     return `${head}${forStudent}, ${amount}.${memo} Y writes it to the account, N drops it.`;
 }
 
-// Puts the question on screen and answers true for Y, false for N. A question
-// already up is the question that has to be answered, so a second call shares it
-// instead of stacking another one on top.
-function askConfirmation(transaction) {
+// Puts the question on screen and answers true for the yes button, false for the other.
+// The heading, the sentence under it, the two labels, the treatment Yes gets and the button
+// the keyboard returns to are the caller's, because the two questions this app asks are not
+// the same question: the approving pages put a transaction in front of the admin and answer
+// it with Y and N, while remove.html puts a student there and answers it with Yes and No.
+// The labels default to the approving pages' pair, which is what they ask with. A question
+// already up is the question that has to be answered, so a second call shares it instead of
+// stacking another one on top.
+function askConfirmation(question, text, options = {}) {
     if (confirmPending) {
         return confirmPending.promise;
     }
@@ -1684,7 +1767,16 @@ function askConfirmation(transaction) {
         buildConfirmDialog();
     }
 
-    confirmText.textContent = describeTransaction(transaction);
+    // The dialog is built once and asked many times, so every word on the panel is written
+    // over the last question: the heading, the sentence, both labels and the yes button's
+    // colour — red when the answer destroys something that cannot be brought back.
+    confirmHeading.textContent = question;
+    confirmText.textContent = text;
+    confirmYes.textContent = options.yesLabel ?? 'Y';
+    confirmYes.className = `btn ${options.danger ? 'btn--danger' : 'btn--primary'}`;
+    confirmNo.textContent = options.noLabel ?? 'N';
+
+    confirmBack = options.returnFocus ?? null;
     confirmDialog.hidden = false;
     confirmYes.focus();
 
@@ -1710,10 +1802,10 @@ function answerConfirmation(answer) {
     confirmPending = null;
     confirmDialog.hidden = true;
 
-    // The keyboard goes back to the flow's own button — the reason pages' Next or the
-    // Other page's — rather than being dropped on the body, so the admin can carry on
-    // without reaching for the mouse.
-    (reasonNext ?? otherNext)?.focus();
+    // The keyboard goes back to the button the question was asked from — the reason pages'
+    // Next, the Other page's, or the remove page's — rather than being dropped on the body,
+    // so the admin can carry on without reaching for the mouse.
+    confirmBack?.focus();
 
     pending.resolve(answer);
 }
@@ -1937,7 +2029,9 @@ async function runApproval() {
     // parked or posted until it is answered with Y, so a wrong student or a wrong
     // reason cannot leave this page. N (the N button, the N key or Escape) drops the
     // whole thing, and Next stays live so the same click can be tried again.
-    const confirmed = await askConfirmation(transaction);
+    const confirmed = await askConfirmation(CONFIRM_QUESTION, describeTransaction(transaction), {
+        returnFocus: reasonNext
+    });
 
     if (!confirmed) {
         showReasonMessage(`Nothing was recorded — the "${transaction.label}" transaction${forStudent} was not confirmed with Y.`, true);
@@ -2221,7 +2315,9 @@ async function runOtherApproval() {
         label: reason
     };
 
-    const confirmed = await askConfirmation(transaction);
+    const confirmed = await askConfirmation(CONFIRM_QUESTION, describeTransaction(transaction), {
+        returnFocus: otherNext
+    });
 
     if (!confirmed) {
         const forStudent = transaction.student ? ` for ${transaction.student}` : '';
