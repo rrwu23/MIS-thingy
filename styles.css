@@ -6,9 +6,9 @@
    the page's own content under it, the footnote at the foot. No page draws a white
    glass card any more; the only pale surface left is the Y/N overlay, which is a
    panel over the page rather than part of it.
-   One card breaks the cloth, and deliberately: remove.html wears the vivid green its own
-   sketch fills it with (--remove), a second accent the card hands to the accent variables
-   inside it, so the fields, the tag, the button and the status line there are that green's.
+   No page breaks the cloth any more: remove.html's own sketch fills its card with green,
+   but that second accent (--remove) was dropped, so the Remove student card wears the same
+   teal as every other page and its fields, tag, button and status line are the one accent's.
    Standing on the accent, the accent itself would disappear, so everything resting
    on a card is drawn in the accent's deeper tints instead: --accent-ink for text and
    outlines, --accent-ink-soft for the quiet tier under it, --accent-deep for the 1px
@@ -21,7 +21,7 @@
    fallback shown while the webfont swaps in.
    Loaded by every page in the project.
    Every page links this file as styles.css?v=N, and its own scripts the same way, each
-   asset carrying its own N — this one is at 14. Bump the N of whichever file has
+   asset carrying its own N — this one is at 15. Bump the N of whichever file has
    changed, the stylesheet for a new look or a script for new behaviour: the host sends
    assets with max-age=14400, so without a new URL a browser can go on painting a
    four-hour-old copy — of this file or of app.js — while the HTML around it is
@@ -51,12 +51,6 @@
     --border-hi:  rgba(6, 131, 113, 0.80);
     --danger:     #cf3352;   /* for a red drawn on a pale surface */
     --danger-ink: #8a1b34;   /* the same red, deep enough to read on the accent */
-
-    /* The remove page's card — the one card in the app that is not cut from the accent,
-       the vivid green the Remove student sketch fills it with. It is a whole second
-       accent: the fill, the deeper tint its hairline is drawn in, and the ink that stands
-       on top of it. .card--remove hands the three of them to the accent variables inside
-       that card, which is how every control standing on a card is re-themed at once. */
 
     /* text */
     --text:       #052e2a;
@@ -990,12 +984,12 @@ a.tag:hover {
 .confirm__actions .btn { flex: 1 1 6rem; }
 
 /* --------------------------------------------------------- remove page ---- */
-/* remove.html, the page behind the hub's Remove student door. The sketch draws this card
-   in green rather than in the bank's teal, so the card is given a second accent: the four
-   variables every control standing on a card is drawn with are re-pointed at the green's
-   own tiers, and the fields, the tag, the remove button, the status line and the <code>
-   chip all follow without a rule of their own. The card's own fill, hairline and ink come
-   from those same variables, so nothing else about .card has to be repeated here. */
+/* remove.html, the page behind the hub's Remove student door. Its own sketch fills the card
+   with green, but that second accent has been dropped: the card is cut from the bank's teal
+   like every other page, so the fields, the tag, the remove button, the status line and the
+   <code> chip all follow the one accent without a rule of their own. The card's own fill,
+   hairline and ink come from those same variables, so nothing else about .card has to be
+   repeated here; only the field and the button keep the placement the sketch draws. */
 
 /* The form under the page's own line: the box at the top of it and the remove button at the
    foot of the card, which is where the sketch puts the two of them. flex: 1 1 auto stretches
@@ -1030,11 +1024,11 @@ a.tag:hover {
     font-weight: 600;
     letter-spacing: 0;
     text-transform: none;
-    color: var(--remove-ink);
+    color: var(--accent-ink-soft);
 }
 
 /* The button's own row at the foot of the form — one button, centred, as the sketch draws
-   it, and the doors' pale box with an ink outline, which on this card is the green ink. It
+   it, and the doors' pale box with an ink outline, which on this card is the accent ink. It
    is given a width rather than the whole row, so it reads as the one action it is. */
 .remove__actions {
     align-self: end;
