@@ -8,7 +8,7 @@
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Comfortaa:wght@300..700&display=swap">
     <link rel="stylesheet" href="styles.css?v=21">
-    <script src="app.js?v=17" defer></script>
+    <script src="app.js?v=19" defer></script>
 </head>
 <body>
     <div class="page">
@@ -44,15 +44,20 @@
                     <option value="Untucked chair">Untucked chair</option>
                 </select>
 
-                <!-- The row's date, typed rather than stamped when Next is pressed: app.js
-                     fills the box from the clock as the page loads, so it starts at now, and
-                     whatever it holds is what the row is written with. A text box rather than
-                     <input type="date"> because a row's date is a stamp and not a day — the
-                     history page's own Date column reads YYYY/MM/DD HH:mm — and app.js
-                     refuses a box that is not a stamp, saying so on the status line below. -->
+                <!-- The row's date, picked rather than stamped when Next is pressed: the
+                     browser's own day-and-clock box — the birthday box on addaccount.html is
+                     its plain day side, without the clock — which app.js fills from the clock
+                     as the page loads, so it starts at now. Its calendar is how the row is
+                     filed under another day: every day of every month is on it, January 1st
+                     through December 31st, and the months and years around them are walked
+                     by the control itself. app.js re-cuts what it holds into the history
+                     page's own Date column shape, YYYY/MM/DD HH:mm — a day it holds with no time
+                     on it is filed at 00:00, the time of day being the one part of the stamp
+                     this page may leave off — and refuses a box that holds no whole day,
+                     saying so on the status line below. -->
                 <div class="field">
-                    <label for="transactiondate">Date <span class="hint">YYYY/MM/DD HH:mm</span></label>
-                    <input type="text" id="transactiondate" name="date" autocomplete="off">
+                    <label for="transactiondate">Date <span class="hint">the day and time it happened</span></label>
+                    <input type="datetime-local" id="transactiondate" name="date">
                 </div>
 
                 <div class="form__actions">
