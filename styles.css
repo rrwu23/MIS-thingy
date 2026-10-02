@@ -1049,9 +1049,9 @@ a.tag:hover {
 
 /* ------------------------------------------------------------- roster ---- */
 /* students.html, the page behind the hub's "View students" door: the students of the
-   admin behind the session cookie, one row each, as the two-column table the sketch
-   draws — Student on the left, the balance on the right, and the last student's row
-   closing the table. app.js fills the rows and unhides the frame they stand in.
+   admin behind the session cookie, one row each, as the four-column table the sketch
+   draws — Student, balance, job and job-salary — and the last student's row closing
+   the table. app.js fills the rows and unhides the frame they stand in.
    The table is the pale surface the doors and the fields borrow, so the card's teal
    shows around it, and everything inside keeps the palette a pale surface gets: the
    header row is the accent ink with the card's own pale text on it, the hairlines are
@@ -1141,6 +1141,27 @@ a.tag:hover {
    .roster__table tbody td, which carries more weight than a class on its own and would
    otherwise keep the minus sign the same ink as every other balance. */
 .roster__table td.roster__amount--negative { color: var(--danger); }
+
+/* A job can be a whole sentence, like a name: it wraps inside its own column rather than
+   pushing the balance or the salary beside it out of the table. */
+.roster__job { overflow-wrap: anywhere; }
+
+/* The salary that job pays: the same figure in its own box the balance gets — only as
+   wide as its longest figure, right-aligned with fixed-width digits, so 65 and 100 end on
+   the same edge — but not in the balance's weight, the money already on the account being
+   what the row is read for. */
+.roster__table th.roster__salary,
+.roster__table td.roster__salary {
+    width: 1%;
+    font-variant-numeric: tabular-nums;
+    text-align: right;
+}
+
+.roster__table td.roster__salary { white-space: nowrap; }
+
+/* "JOB-SALARY" is a long word for a column that is only as wide as its figures, so the
+   head of that column is left to wrap onto a second line when the card is narrow. */
+.roster__table th.roster__salary { white-space: normal; }
 
 /* the foot of the section: when the table was last read on the left, the button that
    reads it again on the right. justify-content keeps the button at that edge even

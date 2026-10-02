@@ -7,17 +7,18 @@
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Comfortaa:wght@300..700&display=swap">
-    <link rel="stylesheet" href="styles.css?v=16">
-    <script src="app.js?v=15" defer></script>
+    <link rel="stylesheet" href="styles.css?v=17">
+    <script src="app.js?v=16" defer></script>
 </head>
 <body>
     <!-- The page behind the hub's "View students" door, and the whole of it is the
-         two-column table the sketch draws: the student's name on the left, the balance
-         on their account on the right. It took the place of the bar chart that used to
-         open as a section of the home page, and the same three live routes answer it,
-         so the table lists the students of the admin holding the session cookie and
-         nobody else's. app.js fills the rows in; every other page leaves the empty
-         <tbody> and the hidden frame exactly as they are. -->
+         four-column table the sketch draws: the student's name, the balance on their
+         account, the job that student has been given and the salary that job pays. It
+         took the place of the bar chart that used to open as a section of the home
+         page, and the same live routes answer it, so the table lists the students of
+         the admin holding the session cookie and nobody else's. app.js fills the rows
+         in; every other page leaves the empty <tbody> and the hidden frame exactly as
+         they are. -->
     <div class="page">
         <main class="card">
             <header class="bar">
@@ -28,7 +29,7 @@
             <!-- The page's own name, which used to be the card's heading — the heading is
                  the bank's name now — and it keeps the id the roster section below is
                  labelled by. -->
-            <p class="card__hint"><strong id="studentstitle">Student balances.</strong> Every student of the admin behind this browser's session, alphabetically by name, with the balance on each account. A balance the backend cannot report takes that student off the table rather than standing in as a zero, and the table reads itself again whenever you come back to this tab.</p>
+            <p class="card__hint"><strong id="studentstitle">Student balances.</strong> Every student of the admin behind this browser's session, alphabetically by name, with the balance on their account, the job they have been given and the salary that job pays. A balance the backend cannot report takes that student off the table rather than standing in as a zero; a job or a salary the backend has nothing for is drawn as a dash instead, so the row still says what is missing. The table reads itself again whenever you come back to this tab.</p>
 
             <!-- The line and the table as one section, named by the page's own line
                  above. The frame the table is drawn in stays hidden until there are
@@ -40,17 +41,20 @@
 
                 <div id="rosterframe" class="roster__frame" hidden>
                     <table class="roster__table">
-                        <caption class="sr-only">The students of the signed-in admin and the balance on each of their accounts</caption>
+                        <caption class="sr-only">The students of the signed-in admin, the balance on each of their accounts, the job each student has been given and the salary that job pays</caption>
                         <thead>
                             <tr>
                                 <th scope="col">Student</th>
-                                <th scope="col" class="roster__amount">Balance</th>
+                                <th scope="col" class="roster__amount">balance</th>
+                                <th scope="col" class="roster__job">job</th>
+                                <th scope="col" class="roster__salary">job-salary</th>
                             </tr>
                         </thead>
 
-                        <!-- One row per student, filled by app.js: the name, then the
-                             balance. The table ends with the last student, as the sketch
-                             draws it — no foot, and nothing added up. -->
+                        <!-- One row per student, filled by app.js: the name, the balance,
+                             the job and the salary that job pays. The table ends with the
+                             last student, as the sketch draws it — no foot, and nothing
+                             added up. -->
                         <tbody id="rosterrows"></tbody>
                     </table>
                 </div>

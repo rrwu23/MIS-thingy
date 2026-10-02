@@ -767,27 +767,56 @@ function describeCurrentAdmin(payload) {
 }
 
 // students.html, the page behind the home page's "View students" door, lists one row
-// per student of the admin behind the session cookie: the student's name on the left and
-// the balance on their account on the right, and nothing below the last row — the table
-// is not added up. Three live routes stand behind it, all of them taking the session
-// cookie:
+// per student of the admin behind the session cookie: the student's name, the balance on
+// their account, the job they have been given and the salary that job pays — the four
+// columns the sketch draws, and nothing below the last row, so the table is not added up.
+// Four live routes stand behind it, all of them taking the session cookie:
 //   GET /current-admin                -> which admin this browser is signed in as;
 //                                        401 {"detail": "Not logged in"} with no
 //                                        session, like every other protected route
 //   GET /getuser?supervisor=<admin>   -> that admin's students — the exact filter the
 //                                        transaction flow uses, so only this admin's
-//                                        rows come back
+//                                        rows come back. The route is untyped, and the
+//                                        job a student has been given travels on that
+//                                        student's own account in it (that is the table
+//                                        POST /set-jobs writes to), so the job column is
+//                                        read off this one reply rather than asked for
+//                                        by a route of its own; an account carrying no
+//                                        job is drawn as a dash
 //   GET /get-balance?student=<name>   -> {"user": "Rongrong Wu", "balance": 235},
 //                                        checked live; an unknown student answers 0
 //                                        rather than 404, which is why only names
 //                                        /getuser has listed are ever asked about
+//   GET /reasons/job-salaries         -> {"Attendance Monitor": 65, "Board Manager": 50,
+//                                        …}: the same /reasons/{slug} route and shape
+//                                        the reason pages read, with the reason column's
+//                                        job as the key and its amount as the value,
+//                                        which is the figure the job-salary column pairs
+//                                        a job with. Asked only when a job was read, so a
+//                                        table of students with no jobs costs no request
 const STUDENTS_URL = 'https://api.rongrongwu.com/getuser';
 const BALANCE_URL = 'https://api.rongrongwu.com/get-balance';
 
-// Fields an account object may carry its name and its supervisor in, most likely
-// first — the same order the other pages read them in, the route being untyped.
+// The `type` column value a job's salary is filed under, in the table's own spelling —
+// the same value the reason pages carry in data-reason-type, and the one the slug for the
+// route above is built out of (reasonSlugFromType) rather than spelled by hand.
+const JOB_SALARIES_TYPE = 'JOB SALARIES';
+
+// What a cell is drawn as when the backend has nothing for it: the job an account carries
+// none of, or the salary of a job the salaries list does not price. A dash is not a figure
+// and cannot be misread as one, while a blank cell reads like a mistake and a 0 like a
+// real figure.
+const ROSTER_EMPTY_CELL = '\u2014';
+
+// Fields an account object may carry its name, its supervisor and its job in, most
+// likely first — the same order the other pages read them in, the route being untyped.
 const STUDENT_NAME_KEYS = ['name', 'username', 'account', 'id'];
 const STUDENT_SUPERVISOR_KEYS = ['supervisor', 'owner', 'manager'];
+const STUDENT_JOB_KEYS = ['job', 'job_name', 'jobname', 'job-name', 'position'];
+
+// A job's own figure, for the account that carries one: the salary is the salaries list's
+// to give, and a figure sent with the account is taken over it, being the row's own.
+const STUDENT_JOB_SALARY_KEYS = ['job-salary', 'job_salary', 'jobSalary', 'salary'];
 
 // The table app.js fills and the line above it. students.html is the only page that
 // carries these elements — every other page loads app.js for its own form — so a read
@@ -829,7 +858,7 @@ async function refreshRoster() {
             return;
         }
 
-        showRosterMessage(rosterStatus, `Reading the students of “${admin}” and their balances…`, false);
+        showRosterMessage(rosterStatus, `Reading the students of “${admin}”, their balances, their jobs and the salaries those jobs pay…`, false);
 
         const students = await adminStudents(admin);
 
@@ -842,11 +871,14 @@ async function refreshRoster() {
         // One request per student, all at once. A balance that cannot be read takes
         // that student's row off the table rather than being written as a zero, and the
         // status line says how many fell out, so the table never shows a figure nobody
-        // read.
-        const rows = await Promise.all(students.map(async (name) => ({
-            name,
-            balance: await studentBalance(name).catch((error) => {
-                console.error(`Balance of "${name}" could not be read:`, error);
+        // read. A job that is missing does not take the row off — the student is the
+        // backend's either way — so it is the cell that says so, not the table.
+        const rows = await Promise.all(students.map(async (account) => ({
+            name: account.name,
+            job: account.job,
+            salary: account.salary,
+            balance: await studentBalance(account.name).catch((error) => {
+                console.error(`Balance of "${account.name}" could not be read:`, error);
                 return null;
             })
         })));
@@ -858,21 +890,59 @@ async function refreshRoster() {
             return;
         }
 
+        // The salaries list is asked for only when a job was read that the account
+        // carried no figure for itself: with no jobs there is nothing to price, and a
+        // job the account has already priced needs no second opinion. Two students of the
+        // same job are priced off the same entry, so the column cannot disagree with
+        // itself. A list that cannot be read is not the end of the table either — every
+        // row the backend did answer is still drawn, and the status line says which
+        // column is left as a dash.
+        let salaries = {};
+        let salariesRead = true;
+
+        if (drawn.some((row) => row.job && row.salary === null)) {
+            try {
+                salaries = await jobSalaries();
+            } catch (error) {
+                console.error('Job salaries could not be read:', error);
+                salariesRead = false;
+            }
+        }
+
+        for (const row of drawn) {
+            const figure = row.job ? salaries[row.job] : null;
+
+            if (row.salary === null && typeof figure === 'number' && Number.isFinite(figure)) {
+                row.salary = figure;
+            }
+        }
+
         drawRosterTable(drawn);
 
         const missing = rows.length - drawn.length;
+        const noJob = drawn.filter((row) => !row.job).length;
+        const unpriced = drawn.filter((row) => row.job && row.salary === null).length;
+
         showRosterMessage(
             rosterStatus,
-            `${drawn.length} student${drawn.length === 1 ? '' : 's'} of the admin “${admin}”, alphabetically — the balance on each account.`
+            `${drawn.length} student${drawn.length === 1 ? '' : 's'} of the admin “${admin}”, alphabetically — the balance on each account, the job that student has been given and the salary that job pays.`
             + (missing
                 ? ` ${missing} balance${missing === 1 ? '' : 's'} could not be read, so ${missing === 1 ? 'that student is' : 'those students are'} not in the table.`
-                : ''),
+                : '')
+            + (noJob
+                ? ` ${noJob} account${noJob === 1 ? '' : 's'} carr${noJob === 1 ? 'ies' : 'y'} no job, so ${noJob === 1 ? 'that job and its salary are' : 'those jobs and their salaries are'} left as a dash.`
+                : '')
+            + (!salariesRead
+                ? ' The job salaries could not be read from the backend, so every job-salary cell is left as a dash.'
+                : unpriced
+                    ? ` ${unpriced} job${unpriced === 1 ? '' : 's'} the backend's salaries list does not price, so ${unpriced === 1 ? 'that job-salary cell is' : 'those job-salary cells are'} left as a dash.`
+                    : ''),
             false
         );
     } catch (error) {
         console.error('Student table error:', error);
         clearRosterTable();
-        showRosterMessage(rosterStatus, 'Network error — the students and their balances could not be read from the API. Press Refresh to read them again.', true);
+        showRosterMessage(rosterStatus, 'Network error — the students, their balances, their jobs and the salaries those jobs pay could not be read from the API. Press Refresh to read them again.', true);
     } finally {
         rosterReadRunning = false;
         rosterRefreshButton?.removeAttribute('aria-disabled');
@@ -880,9 +950,10 @@ async function refreshRoster() {
     }
 }
 
-// Fills the table: one row per student, the name in the left column and the balance in
-// the right. Every cell is built as a node rather than with innerHTML, because the names
-// come from the backend.
+// Fills the table: one row per student — the name, the balance, the job that student has
+// been given and the salary that job pays, in the four columns the sketch draws. Every
+// cell is built as a node rather than with innerHTML, because the names come from the
+// backend.
 function drawRosterTable(rows) {
     const body = document.createDocumentFragment();
 
@@ -894,15 +965,27 @@ function drawRosterTable(rows) {
         name.className = 'roster__name';
         name.textContent = row.name;
 
-        // A balance below zero is the one red in the table; the figure itself carries
-        // its own minus sign, so nothing else has to say which way the account went.
+        // A balance below zero is the one red figure in the table; the figure itself
+        // carries its own minus sign, so nothing else has to say which way the account
+        // went.
         const amount = document.createElement('td');
         amount.className = row.balance < 0
             ? 'roster__amount roster__amount--negative'
             : 'roster__amount';
         amount.textContent = String(row.balance);
 
-        line.append(name, amount);
+        // The job and the salary that job pays, each a dash when the backend had nothing
+        // to put there (see ROSTER_EMPTY_CELL): the two cells say what is missing on the
+        // row it is missing from, rather than the row being left out of the table.
+        const job = document.createElement('td');
+        job.className = 'roster__job';
+        job.textContent = row.job || ROSTER_EMPTY_CELL;
+
+        const salary = document.createElement('td');
+        salary.className = 'roster__salary';
+        salary.textContent = row.salary === null ? ROSTER_EMPTY_CELL : String(row.salary);
+
+        line.append(name, amount, job, salary);
         body.append(line);
     }
 
@@ -912,7 +995,7 @@ function drawRosterTable(rows) {
         rosterFrame.hidden = false;
     }
 
-    console.log(`Listed ${rows.length} student(s) and their balances.`, rows);
+    console.log(`Listed ${rows.length} student(s), their balances, jobs and job salaries.`, rows);
 }
 
 // Drops the rows and hides the frame they stand in. A read that failed or came back empty
@@ -1354,11 +1437,14 @@ prefillSupervisorWithCurrentAdmin();
 
 
 
-// The usernames GET /getuser lists for `admin`, sorted and de-duplicated. The
-// ?supervisor= filter is exact — checked live: ?supervisor=test-account answers that
-// admin's three accounts while ?supervisor=nonsense answers [] — and each row's own
-// supervisor field is read again here, so only this admin's students can reach the
-// table on students.html, the same rule the transaction flow follows.
+// The accounts GET /getuser lists for `admin`, sorted by name and de-duplicated, each one
+// as { name, job, salary }: the name the row is drawn under, the job that student has been
+// given ('' when the account carries none, which is every account until a job is rotated
+// onto it), and the job's own figure when the account sent one (null otherwise, which is
+// the salaries list's to fill in). The ?supervisor= filter is exact — checked live:
+// ?supervisor=teacher answers that admin's own account while ?supervisor=lagoon answers []
+// — and each row's own supervisor field is read again here, so only this admin's students
+// can reach the table on students.html, the same rule the transaction flow follows.
 async function adminStudents(admin) {
     const response = await fetch(`${STUDENTS_URL}?${new URLSearchParams({ supervisor: admin })}`, {
         method: 'GET',
@@ -1369,31 +1455,43 @@ async function adminStudents(admin) {
         throw new Error(`GET /getuser answered ${response.status}`);
     }
 
-    const names = new Set();
+    // Keyed by name, so a student the backend lists twice is one row — the first of them
+    // the one drawn.
+    const accounts = new Map();
 
     for (const row of studentRows(await response.json())) {
-        if (row.name && row.supervisor === admin) {
-            names.add(row.name);
+        if (row.name && row.supervisor === admin && !accounts.has(row.name)) {
+            accounts.set(row.name, { name: row.name, job: row.job, salary: row.salary });
         }
     }
 
-    return [...names].sort((a, b) => a.localeCompare(b, undefined, { sensitivity: 'base' }));
+    return [...accounts.values()].sort((a, b) => a.name.localeCompare(b.name, undefined, { sensitivity: 'base' }));
 }
 
-// Every account a GET /getuser payload carries, as { name, supervisor } with the
-// surrounding space trimmed off. The route is untyped, so the shapes accepted mirror
+// Every account a GET /getuser payload carries, as { name, supervisor, job, salary } with
+// the surrounding space trimmed off. The route is untyped, so the shapes accepted mirror
 // the readers in studentpicker.js and sessionstorage.js:
 //   [{"name": "X", "supervisor": "Y"}]                         -> used as is
 //   {"users": [...]} / {"accounts": [...]} / {"data": [...]}   -> the inner list
 //   {"name": "X", "supervisor": "Y"} / "X"                     -> wrapped in an array
 //   null / undefined / ""                                      -> []
-// A bare string names an account with no supervisor, so it can belong to no admin and
+// The job travels on the student's own account — it is what POST /set-jobs writes there —
+// so it is read off the same row the name is: a job the account does not carry is '' rather
+// than a guess, and a figure sent with the account is taken as that job's salary. A bare
+// string names an account with no supervisor and no job, so it can belong to no admin and
 // is dropped by the supervisor check above.
 function studentRows(payload) {
-    return studentEntries(payload).map((entry) => ({
-        name: String(firstField(entry, STUDENT_NAME_KEYS) ?? entry ?? '').trim(),
-        supervisor: String(firstField(entry, STUDENT_SUPERVISOR_KEYS) ?? '').trim()
-    }));
+    return studentEntries(payload).map((entry) => {
+        const sent = firstField(entry, STUDENT_JOB_SALARY_KEYS);
+        const figure = typeof sent === 'string' ? Number(sent.trim()) : sent;
+
+        return {
+            name: String(firstField(entry, STUDENT_NAME_KEYS) ?? entry ?? '').trim(),
+            supervisor: String(firstField(entry, STUDENT_SUPERVISOR_KEYS) ?? '').trim(),
+            job: String(firstField(entry, STUDENT_JOB_KEYS) ?? '').trim(),
+            salary: typeof figure === 'number' && Number.isFinite(figure) ? figure : null
+        };
+    });
 }
 
 function studentEntries(payload) {
@@ -1443,6 +1541,42 @@ async function studentBalance(name) {
     }
 
     return balance;
+}
+
+// The job -> salary list GET /reasons/job-salaries answers — checked live:
+//   {"Attendance Monitor": 65, "Board Manager": 50, "Calendar Helper": 45, …}
+// the same /reasons/{slug} route and shape the reason pages read: a plain map of the
+// reason column to its amount. The slug is built out of the "JOB SALARIES" type value by
+// reasonSlugFromType() rather than spelled by hand, the way the reason pages build theirs,
+// so the request can only ever ask for the type column's own list and no hand-written slug
+// can drift away from it.
+//
+// Answers a plain object of job -> figure, which is what the job-salary column prices the
+// jobs /getuser listed with. A route that cannot be read, or one whose answer carries
+// nothing with both a name and a figure, throws: the caller says so on the status line and
+// leaves that column as a dash, rather than pricing a job out of nothing.
+async function jobSalaries() {
+    const slug = reasonSlugFromType(JOB_SALARIES_TYPE);
+    const response = await fetch(`${REASONS_URL}/${slug}`, {
+        method: 'GET',
+        credentials: 'include' // the salaries are admin data, like the job list
+    });
+
+    if (!response.ok) {
+        throw new Error(`GET /reasons/${slug} answered ${response.status}`);
+    }
+
+    const salaries = {};
+
+    for (const entry of reasonList(await response.json())) {
+        const priced = reasonEntry(entry);
+
+        if (priced && typeof priced.points === 'number') {
+            salaries[priced.value] = priced.points;
+        }
+    }
+
+    return salaries;
 }
 
 // Reason pages --------------------------------------------------------------
