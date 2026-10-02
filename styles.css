@@ -21,7 +21,7 @@
    fallback shown while the webfont swaps in.
    Loaded by every page in the project.
    Every page links this file as styles.css?v=N, and its own scripts the same way, each
-   asset carrying its own N — this one is at 19. Bump the N of whichever file has
+   asset carrying its own N — this one is at 20. Bump the N of whichever file has
    changed, the stylesheet for a new look or a script for new behaviour: the host sends
    assets with max-age=14400, so without a new URL a browser can go on painting a
    four-hour-old copy — of this file or of app.js — while the HTML around it is
@@ -849,13 +849,11 @@ a.tag:hover {
     text-underline-offset: 2px;
 }
 
-.combo__option-hint {
-    flex: 0 0 auto;
-    font-size: 0.78rem;
-    letter-spacing: 0.06em;
-    text-transform: uppercase;
-    color: var(--text-faint);
-}
+/* The muted chip that used to sit at the far end of the option is gone with it: it held
+   the account's supervisor, and the list only ever offers the signed-in admin's own
+   students, so it restated the admin already at the top of the page and read as a label
+   on the student. The row is the name alone now, and studentpicker.js no longer sets
+   aria-label on the option because there is no second span to spell out. */
 
 .combo__hint {
     margin: 0;

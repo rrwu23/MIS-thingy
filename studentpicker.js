@@ -440,8 +440,14 @@ function studentMatchRuns(matchIndexes) {
     return runs;
 }
 
-// One <li role="option">: the name with the matched letters marked, plus the
-// supervisor as a muted aside so two similar names can be told apart.
+// One <li role="option">: the name with the matched letters marked, and nothing else.
+// The account's supervisor used to be drawn at the row's far end as a muted chip, and
+// is gone: every account this list may offer is the signed-in admin's own student — it
+// is the check in fillStudentAccounts() that let it in — so the chip only ever repeated
+// the admin already named at the top of the page, and it read as a label on the student.
+// The options are the account names alone now, which is also what the field is for: the
+// picker writes one name into it. account.supervisor still travels with every account,
+// because that check reads it; it is simply not drawn.
 function makeStudentOption(account, matchIndexes, index) {
     const option = document.createElement('li');
     option.className = 'combo__option';
@@ -454,18 +460,6 @@ function makeStudentOption(account, matchIndexes, index) {
     name.className = 'combo__option-name';
     name.append(markStudentMatch(account.name, matchIndexes));
     option.append(name);
-
-    if (account.supervisor) {
-        const supervisor = document.createElement('span');
-        supervisor.className = 'combo__option-hint';
-        supervisor.textContent = account.supervisor;
-        option.append(supervisor);
-
-        // The supervisor sits next to the name for the eye only, so spell the
-        // option out for screen readers instead of letting them read
-        // "Rongrong Wud" out of the two spans.
-        option.setAttribute('aria-label', `${account.name} — supervisor ${account.supervisor}`);
-    }
 
     return option;
 }
