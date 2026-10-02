@@ -21,7 +21,7 @@
    fallback shown while the webfont swaps in.
    Loaded by every page in the project.
    Every page links this file as styles.css?v=N, and its own scripts the same way, each
-   asset carrying its own N — this one is at 15. Bump the N of whichever file has
+   asset carrying its own N — this one is at 18. Bump the N of whichever file has
    changed, the stylesheet for a new look or a script for new behaviour: the host sends
    assets with max-age=14400, so without a new URL a browser can go on painting a
    four-hour-old copy — of this file or of app.js — while the HTML around it is
@@ -1053,9 +1053,10 @@ a.tag:hover {
    draws — Student, balance, job and job-salary — and the last student's row closing
    the table. app.js fills the rows and unhides the frame they stand in.
    The table is the pale surface the doors and the fields borrow, so the card's teal
-   shows around it, and everything inside keeps the palette a pale surface gets: the
-   header row is the accent ink with the card's own pale text on it, the hairlines are
-   the deeper teal, and a balance below zero is the red that reads on white. */
+   shows around it, and everything inside keeps the palette a pale surface gets: the head
+   row is the four names in the accent ink, in the case the page writes them, the
+   hairlines between the cells are the deeper teal, and a balance below zero is the red
+   that reads on white. */
 .roster {
     display: grid;
     gap: 1.15rem;
@@ -1065,14 +1066,16 @@ a.tag:hover {
    the same line every other page waits and complains on */
 .roster .results { margin-top: 0; }
 
-/* The frame is that pale surface: one rounded box the table is drawn inside, clipped
-   so the filled header row cannot poke past the corners. */
+/* The frame is that pale surface: one box the table is drawn inside. The students page
+   draws it as its sketch does — square at the corners under a single ink hairline, no
+   shadow, the card's teal around it — and, like the history page's box, it scrolls
+   sideways when the table asks for more width than the card has, so the last column is
+   never silently cut off. The history page keeps the rounded frame it draws; that box's
+   own rule, further down, names the frame class it wears. */
 .roster__frame {
-    overflow: hidden;
+    overflow-x: auto;
     background: rgba(255, 255, 255, 0.94);
-    border: 1.5px solid var(--accent-ink);
-    border-radius: var(--radius-sm);
-    box-shadow: 0 10px 22px rgba(4, 48, 43, 0.16);
+    border: 1px solid var(--accent-ink);
 }
 
 /* the class would otherwise win over the browser's own [hidden] rule */
@@ -1090,9 +1093,43 @@ a.tag:hover {
     vertical-align: baseline;
 }
 
-/* the header across the top: the accent ink filled edge to edge, carrying the card's
-   own pale text — the one place in the app where the ink is the background */
-.roster__table thead th {
+/* The students page's head row is drawn as that page's sketch draws it: the four names
+   in the case the page writes them — Student, balance, job, job-salary — in the card's
+   ink on the pale surface, one line each, with the sketch's upright bar standing between
+   them. */
+.roster__table:not(.history__table) thead th {
+    white-space: nowrap;
+    font-size: 1rem;
+    font-weight: 600;
+    letter-spacing: 0;
+    text-transform: none;
+    color: var(--accent-ink);
+}
+
+/* One of the names has a break inside it — job-salary, at its hyphen — and the browser
+   would take that break even from a column wide enough to hold the whole name, which
+   would draw the sketch's last column as "job-" over "salary". So the four names are held
+   on one line, and the line they hold is the table's own minimum width: a card narrower
+   than that has a box that scrolls sideways (see .roster__frame) rather than one that
+   clips the column at the end of the row. */
+
+/* The bar: drawn, not typed, so it belongs to the label and not to the cell — nothing
+   reads it out and nothing copies it. It follows its own label along the line, a little
+   clear of it, the way the sketch writes "Student |", so it can never float away from
+   the name it parts from or settle at a different height when a head beside it wraps.
+   The fourth name ends the line, so that column takes no bar. */
+.roster__table:not(.history__table) thead th:not(:last-child)::after {
+    content: '|';
+    margin-left: 0.65em;
+    font-weight: 400;
+    color: var(--accent-ink-soft);
+}
+
+/* The history table is the one head row drawn some other way: the accent ink filled
+   edge to edge, carrying the card's own pale text, with a hairline down between the
+   cells — the one place in the app where the ink is the background. Both rules name
+   the table class it wears, so they leave the students page's head row alone. */
+.roster__table.history__table thead th {
     background: var(--accent-ink);
     font-size: 0.74rem;
     font-weight: 700;
@@ -1101,9 +1138,7 @@ a.tag:hover {
     color: #f2fffc;
 }
 
-/* the line the sketch draws down between Student and balance, one in the header and
-   one between every pair of cells below it */
-.roster__table thead th + th { border-left: 1px solid rgba(255, 255, 255, 0.35); }
+.roster__table.history__table thead th + th { border-left: 1px solid rgba(255, 255, 255, 0.35); }
 
 .roster__table tbody td {
     font-size: 0.95rem;
@@ -1159,9 +1194,10 @@ a.tag:hover {
 
 .roster__table td.roster__salary { white-space: nowrap; }
 
-/* "JOB-SALARY" is a long word for a column that is only as wide as its figures, so the
-   head of that column is left to wrap onto a second line when the card is narrow. */
-.roster__table th.roster__salary { white-space: normal; }
+/* The salary column is the one column the head row holds open for itself: its figures
+   are narrower than the name above them, so the column is as wide as "job-salary" on its
+   one line (the head row is held on one line above) rather than as wide as its widest
+   figure. */
 
 /* the foot of the section: when the table was last read on the left, the button that
    reads it again on the right. justify-content keeps the button at that edge even
@@ -1189,15 +1225,22 @@ a.tag:hover {
 /* transaction-view.html, the page behind the hub's "View student transaction history"
    door: the transactions of one student, one row each, in the five columns the sketch
    draws. The table is the roster's table, worn by a second page — the same
-   .roster__frame box and the same .roster__table, so the filled head row, the hairline
-   between cells, the tinted every-other row and the red for a figure below zero all come
-   from the rules above and are written once. What is new is only the width: five columns
-   need a tighter cell than two, the date is not left to wrap, a memo or a type
-   can be a whole sentence or a slug with no space in it, and a table wider than the phone
-   it is read on scrolls inside the frame rather than pushing the card out of the window.
-   The two rules that override a roster rule name both classes on purpose: they must win
-   whatever order the two blocks end up in. */
-.roster__frame.history__frame { overflow-x: auto; }
+   .roster__table, so the tinted every-other row and the red for a figure below zero come
+   from the rules above and are written once, as does the frame, so what is left to say
+   here is the two things this page draws differently: its head row is the ink filled
+   band rather than the students page's line of names, and its box is the rounded one
+   with the shadow it has always drawn rather than that page's square one. What else is
+   new is the width: five columns need a tighter cell than two, the date is not left to
+   wrap, a memo or a type can be a whole sentence or a slug with no space in it, and a
+   table wider than the phone it is read on scrolls inside the frame rather than pushing
+   the card out of the window. The rules that override a roster rule name both classes on
+   purpose: they must win whatever order the two blocks end up in. */
+.roster__frame.history__frame {
+    border-width: 1.5px;
+    border-radius: var(--radius-sm);
+    box-shadow: 0 10px 22px rgba(4, 48, 43, 0.16);
+    overflow-x: auto;
+}
 
 /* Five columns have to be given somewhere to land: the table keeps a width of its own
    and the frame above scrolls sideways rather than squeezing "bonus" onto two lines.
@@ -1242,9 +1285,9 @@ a.tag:hover {
 .history__date { white-space: nowrap; }
 
 /* The head of the date column names the shape its stamps are drawn in, and the letters of
-   a shape are read as they are written: the head row is uppercased, which would turn the
-   minutes' mm into the months' MM — in this shape MM is already the month, three letters
-   earlier. This one parenthetical is therefore left exactly as it is written. */
+   a shape are read as they are written: this page's head row is uppercased, which would
+   turn the minutes' mm into the months' MM — in this shape MM is already the month, three
+   letters earlier. This one parenthetical is therefore left exactly as it is written. */
 .roster__table.history__table thead .history__pattern { text-transform: none; }
 
 .roster__table.history__table .history__type,
