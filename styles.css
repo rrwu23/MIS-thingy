@@ -21,7 +21,7 @@
    fallback shown while the webfont swaps in.
    Loaded by every page in the project.
    Every page links this file as styles.css?v=N, and its own scripts the same way, each
-   asset carrying its own N — this one is at 18. Bump the N of whichever file has
+   asset carrying its own N — this one is at 19. Bump the N of whichever file has
    changed, the stylesheet for a new look or a script for new behaviour: the host sends
    assets with max-age=14400, so without a new URL a browser can go on painting a
    four-hour-old copy — of this file or of app.js — while the HTML around it is
@@ -1113,17 +1113,19 @@ a.tag:hover {
    than that has a box that scrolls sideways (see .roster__frame) rather than one that
    clips the column at the end of the row. */
 
-/* The bar: drawn, not typed, so it belongs to the label and not to the cell — nothing
-   reads it out and nothing copies it. It follows its own label along the line, a little
-   clear of it, the way the sketch writes "Student |", so it can never float away from
-   the name it parts from or settle at a different height when a head beside it wraps.
-   The fourth name ends the line, so that column takes no bar. */
-.roster__table:not(.history__table) thead th:not(:last-child)::after {
-    content: '|';
-    margin-left: 0.65em;
-    font-weight: 400;
-    color: var(--accent-ink-soft);
-}
+/* The bar the sketch writes between the names — "Student | balance | job | job-salary" —
+   is drawn on the column's own edge rather than set down as a character after each name.
+   A typed bar stands wherever its name happens to end on the line, so it says nothing about
+   where the column it names is cut: at a 1024px window the balance column's own name stopped
+   16px short of the figures under it, the bar having taken that 16px, and a column wider
+   than its name — "Student", "job" — drew its bar in the middle of itself with the boundary
+   under it away to the right, so that a head row read as four narrow columns over four
+   wide ones. As the cell's left edge the bar is the very line the column is cut on, and
+   being the rows' own hairline (.roster__table tbody td + td, same colour and same width)
+   the two halves of it meet as one line drawn down the table — so each name stands over its
+   own figures at every width, and no glyph is left for a reader or a copy to pick up. The
+   fourth name ends the line, so that column takes no bar. */
+.roster__table:not(.history__table) thead th + th { border-left: 1px solid rgba(6, 131, 113, 0.28); }
 
 /* The history table is the one head row drawn some other way: the accent ink filled
    edge to edge, carrying the card's own pale text, with a hairline down between the
