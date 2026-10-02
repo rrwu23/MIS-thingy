@@ -982,6 +982,10 @@ if (rosterRows) {
 // name, a remove button under it, and, in between, the one question in the app that cannot
 // be undone. The question is the app's own dialog (askConfirmation, below), asked with Yes
 // and No, with Yes drawn in the red the app draws a refusal in.
+// Yes is the only answer that reaches the backend: it sends the name to POST /remove-student,
+// the one route that takes a student away, and the sentence under the form says what came of
+// it. No, and an answered Yes that the backend took nothing away for, leave the account
+// where it is.
 const removeForm = document.getElementById('removeform');
 const removeNameField = document.getElementById('removestudentname');
 const removeButton = document.getElementById('removebutton');
@@ -1000,15 +1004,111 @@ function describeRemoval(student) {
     return `${head} Yes removes the student, No leaves them alone.`;
 }
 
-// What answering Yes is met with. remove.html carries the whole conversation, but not the
-// removal itself: https://api.rongrongwu.com/openapi.json lists no route that takes a
-// student away — POST /adduser makes one and GET /getuser lists them, and there is no route
-// that deletes — so there is nowhere to send the name to and the account is still there.
-// This is the one sentence to replace the day the backend grows that route: the name is
-// here, trimmed, and the question has already been answered with Yes.
-function removalNotWiredMessage(student) {
-    const head = `Nothing was removed — “${student}” is still there:`;
-    return `${head} removing a student has no route on the backend yet, so nothing was sent.`;
+// The removal itself: POST /remove-student, the route that takes a student away, listed in
+// https://api.rongrongwu.com/openapi.json and checked live with curl. It is asked for with
+// JSON — the body's one field is `student`, {"student": "Rongrong Wu"} and nothing else —
+// and, unlike /adduser, it names no session cookie of its own in openapi.json: a request
+// without one is answered 200 (checked live: {"message": "student not found", "student":
+// "___no_such_student___", "deleted": 0}). The admin gate on this page is therefore the
+// page's own rule rather than the route's — the cookie still travels with the request, the
+// way it does everywhere else, but the route would take a name from anyone who sent one.
+// What its answers are read for is the count of accounts that went, not the status: a name
+// the backend does not know is answered 200 as well, so a sentence may only say "removed"
+// once `deleted` is a number above zero. A body without `student` is refused with
+// 422 {"detail": [{"type": "missing", "loc": ["body", "student"], "msg": "Field required"}]}.
+const REMOVE_STUDENT_URL = 'https://api.rongrongwu.com/remove-student';
+
+// The body the route is written with: exactly the one field it asks for, the name as it was
+// typed (trimmed by the submit handler), and nothing else — the same "only what the route
+// declares" shape transactionBody() keeps to on the transaction pages.
+function removalBody(student) {
+    return { student };
+}
+
+// How many accounts the answer says were taken away, or null when it does not say with a
+// number. Only this count may turn an answer into a removal: 200 on its own means no such
+// thing here, since a name that is on no account is answered 200 too.
+function removedCountIn(result) {
+    const deleted = result?.deleted;
+
+    return typeof deleted === 'number' ? deleted : null;
+}
+
+// What answering Yes is met with once the backend has taken the student away. The count is
+// read back as well, because a name is not a key: an account that was made twice is taken
+// away twice by the one request, and a removal that said "one" while it took two would be a
+// half-honest sentence.
+function removedMessage(student, count) {
+    if (count === 1) {
+        return `Removed — “${student}” is gone. The account was deleted from the backend.`;
+    }
+
+    return `Removed — ${count} accounts named “${student}” were deleted from the backend.`;
+}
+
+// What answering Yes is met with when the backend answered 200 but took nothing away: no
+// account carries that name, so the removal was a no-op and every list is as it was. Said as
+// an error, because the admin asked for something that did not happen — but nothing is wrong
+// with the backend, so the name is left in the box to be looked at again, and the dropdown
+// under it is the way to a spelling the backend does know.
+function removalNotFoundMessage(student) {
+    return `Nothing was removed — the backend knows no student named “${student}”, so nothing was deleted. Check the spelling, or pick the account from the dropdown.`;
+}
+
+// The write itself, in the shape sendTransaction() and the sign-out use: the one name as
+// JSON, the session cookie travelling with it, and one answer either way — { ok: true, count }
+// once the backend has taken the account away, { ok: false, text } with the sentence to show
+// when it took nothing away, refused, or could not be reached.
+async function sendRemoval(student) {
+    const body = removalBody(student);
+    console.log('Removing:', body);
+
+    try {
+        const response = await fetch(REMOVE_STUDENT_URL, {
+            method: 'POST',
+            credentials: 'include', // carry the admin session cookie along
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify(body)
+        });
+
+        // A refusal can answer with something that is not JSON, so the body is read once
+        // and never trusted to parse.
+        const result = await response.json().catch(() => null);
+
+        if (!response.ok) {
+            console.error('Remove student error:', result);
+            return {
+                ok: false,
+                text: `Nothing was removed — the backend refused the request (${response.status}): ${describeError(result)}`
+            };
+        }
+
+        const count = removedCountIn(result);
+
+        // A 200 that does not say how many accounts went says nothing about this one, and
+        // nothing may be claimed about it on the strength of the status alone.
+        if (count === null) {
+            console.error('Remove student error:', result);
+            return {
+                ok: false,
+                text: `Nothing was removed — the backend answered ${response.status} without saying how many accounts it took away, so there is nothing to report about the account.`
+            };
+        }
+
+        if (count === 0) {
+            console.log('Remove student:', result);
+            return { ok: false, text: removalNotFoundMessage(student) };
+        }
+
+        console.log('Student removed:', result);
+        return { ok: true, count };
+    } catch (error) {
+        console.error('Network Error:', error);
+        return {
+            ok: false,
+            text: 'Network error — the removal could not reach the API, so nothing was removed.'
+        };
+    }
 }
 
 // Replace the previous status line with a single message — the same one-paragraph shape
@@ -1080,8 +1180,9 @@ removeForm?.addEventListener('submit', async function (event) {
     // The backend is asked for admin powers once more here, because the page may have been
     // open since the first check and an admin session can expire in between — the same
     // re-ask the approving pages make before they write, and what stops a name typed into a
-    // page whose button was left grey being carried any further by pressing Enter. Only the
-    // question below is guarded by it: the removal itself still has nowhere to be sent.
+    // page whose button was left grey being carried any further by pressing Enter. Both the
+    // question below and the removal behind it are guarded by it: the name is only sent once
+    // the question has been answered with Yes.
     setRemoveEnabled(false);
     const check = await checkAdminPermission();
 
@@ -1106,7 +1207,36 @@ removeForm?.addEventListener('submit', async function (event) {
         return;
     }
 
-    showRemoveMessage(removalNotWiredMessage(student), true);
+    // Yes is what sends the name, and it is sent with the button grey for the round trip, so
+    // no second press can be a second removal of the same student.
+    setRemoveEnabled(false);
+    showRemoveMessage(`Removing “${student}”…`, false);
+
+    const sent = await sendRemoval(student);
+
+    // What came of it, in one line: the removal and its count, or the reason nothing was
+    // removed, drawn as an error. The home page's balance doors are where a removal shows, so
+    // a second press is left possible here rather than the admin being sent away — students
+    // may leave more than one at a time.
+    showRemoveMessage(sent.ok ? removedMessage(student, sent.count) : sent.text, !sent.ok);
+
+    // A removal that went through leaves the box empty and ready for the next student. The
+    // dropdown is shut with it — a list still standing open would be offering a name that is
+    // no longer on the backend — by giving the field the same `input` event typing into it
+    // would have given it, and the accounts behind it are read again, because studentpicker.js
+    // fetched them once as the page opened and still counts the student just removed.
+    // That one line reaches into the picker's own start-up — the bare loadStudentAccounts()
+    // its last line runs — and is written with ?. because eight of the nine pages that load
+    // app.js have no picker and no such function. The caret is left in the box, and the
+    // button is put back.
+    if (sent.ok && removeNameField) {
+        removeNameField.value = '';
+        removeNameField.dispatchEvent(new Event('input', { bubbles: true }));
+        window.loadStudentAccounts?.();
+        removeNameField.focus();
+    }
+
+    setRemoveEnabled(true);
 });
 
 // The home page's foot -----------------------------------------------------------

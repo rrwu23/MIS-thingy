@@ -8,7 +8,7 @@
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Comfortaa:wght@300..700&display=swap">
     <link rel="stylesheet" href="styles.css?v=16">
-    <script src="app.js?v=13" defer></script>
+    <script src="app.js?v=14" defer></script>
     <script src="studentpicker.js?v=4" defer></script>
 </head>
 <body>
@@ -23,8 +23,10 @@
          page is open. Pressing remove removes nothing by itself. It puts the question in
          front of the admin — the app's own Yes/No dialog, the one the reason pages approve
          a transaction with — and only an answered Yes is allowed to go on to the removal.
-         That step lives in app.js's "Remove student page" section, which is where a request
-         to take a student away would be sent from the day the backend has a route for it. -->
+         That step lives in app.js's "Remove student page" section, and it is where the request
+         goes: an answered Yes sends the name to POST /remove-student, the route that takes a
+         student away. What the backend made of the name is what the line under the form
+         says — an account gone, or a name the backend does not know. -->
     <div class="page">
         <main class="card card--remove">
             <header class="bar">
@@ -33,11 +35,11 @@
             </header>
 
             <!-- The page's own name, and the whole of what it does said out loud, the way
-                 every other inner page opens. The last sentence is the honest one: no route
-                 on the backend takes a student away, so an answered Yes is met with that
-                 rather than with a student gone. It is the sentence to drop when the route
-                 arrives. -->
-            <p class="card__hint"><strong>Remove student.</strong> Type the name of the student to take away and press remove. Only a signed-in admin may remove one, so the page asks the backend for permission as it loads &mdash; the remove button stays grey until it has answered &mdash; and asks again when the button is pressed. The name is read back to you once more, and the question is asked before anything happens: Yes takes the student away for good &mdash; it cannot be undone &mdash; and No leaves them alone. Nothing is done while the question stands. The backend has no route that takes a student away yet, so an answered Yes is met with that, and the account stays where it is.</p>
+                 every other inner page opens. The last sentence is the honest one about the
+                 route behind Yes: the name is sent to POST /remove-student, and the sentence
+                 under the form is what says whether an account of that name was there to take
+                 away — the page never claims a removal the backend did not report. -->
+            <p class="card__hint"><strong>Remove student.</strong> Type the name of the student to take away and press remove. Only a signed-in admin may remove one, so the page asks the backend for permission as it loads &mdash; the remove button stays grey until it has answered &mdash; and asks again when the button is pressed. The name is read back to you once more, and the question is asked before anything happens: Yes takes the student away for good &mdash; it cannot be undone &mdash; and No leaves them alone. Nothing is done while the question stands. An answered Yes is sent to the backend, and what came of it is said just below: the account gone, or nothing removed because no student of that name is on the backend.</p>
 
             <!-- The name and the button, and nothing else: the removal is one name, and the
                  question under the button is what guards it. The label is the sketch's own

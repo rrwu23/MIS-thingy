@@ -8,7 +8,7 @@
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Comfortaa:wght@300..700&display=swap">
     <link rel="stylesheet" href="styles.css?v=16">
-    <script src="app.js?v=13" defer></script>
+    <script src="app.js?v=14" defer></script>
 </head>
 <body>
     <!-- index.html is the front door: the sign-in card, and nothing else. This is the
@@ -44,10 +44,8 @@
                 <!-- Remove student was the one door built as a <button>, because there was
                      nothing behind it but a line on the status strip below. It opens
                      remove.html now: that page asks for the student's name, puts the
-                     question — Yes or No — in front of the admin, and says what became of
-                     it. The backend still has no route that takes a student away, which is
-                     what an answered Yes reports, but the name is typed and confirmed in
-                     the one place a request would be sent from. -->
+                     question — Yes or No — in front of the admin, and, on an answered Yes,
+                     sends the name to POST /remove-student and reports what came of it. -->
                 <a class="btn btn--door" href="/remove.html">Remove student</a>
                 <a class="btn btn--door" href="/students.html">View students</a>
                 <!-- The one door on this card that asks about what has already been
