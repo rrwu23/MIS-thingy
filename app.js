@@ -1643,12 +1643,13 @@ function reasonSlugFromType(type) {
 // to get right.
 const RECORD_URL = 'https://api.rongrongwu.com/transaction-record';
 
-// The date every recorded transaction is sent with, so a row this app writes carries
-// the same stamp a row the backend writes does: YYYY/MM/DD HH:mm, as in
+// The clock reading the date box is filled with, in the shape a row's `date` carries, so a
+// row this app writes reads like a row the backend writes: YYYY/MM/DD HH:mm, as in
 // 2026/09/29 16:17 — the shape the history column names, read the way a pattern is
 // written, where MM is the month and mm the minute and the space holds the date and the
-// time apart. Both approving pages fill `date` in from here, so the reason pages and the
-// Other page cannot drift into two shapes.
+// time apart. It is the default the four transaction-type pages' boxes are filled with, and
+// the clock a box nobody has typed in is filled with once more when the transaction is
+// built, so the reason pages and the Other page cannot drift into two shapes or two moments.
 //
 // The route takes `date` as a plain string and keeps no stamp of its own, so the shape
 // is this app's to choose, and choosing the history column's own shape keeps the row the
@@ -1657,9 +1658,10 @@ const RECORD_URL = 'https://api.rongrongwu.com/transaction-record';
 //
 // The parts are read off the local clock by hand rather than through toISOString(), which
 // works in UTC and would date an evening transaction tomorrow on this side of the world.
-// The clock is read when the transaction is built, not when the request leaves, so the
-// stamp is the moment the admin approved it — the moment the Y/N question named — even if
-// the answer is given a minute later.
+// As a box's default this is the moment the page was opened, and because the box is filled
+// once more when the transaction is built (transactionDate), a row left to that default is
+// still stamped with the moment the admin approved it — the moment the Y/N question named —
+// even if the answer is given a minute later.
 function transactionStamp() {
     const now = new Date();
     const month = String(now.getMonth() + 1).padStart(2, '0');
@@ -1669,6 +1671,99 @@ function transactionStamp() {
 
     return `${now.getFullYear()}/${month}/${day} ${hour}:${minute}`;
 }
+
+// The date box ----------------------------------------------------------------
+// The four transaction-type pages - the three reason lists and the Other page - carry one
+// box for the row's date, so a transaction can be filed under the day and minute it
+// happened rather than under the moment it was typed in. It is a text box rather than
+// <input type="date"> because a row's date is a stamp and not a day: the history column
+// reads YYYY/MM/DD HH:mm (transactionview.js), and a date input carries no time of day at
+// all. The id below is the one all four pages give it. The box is filled from the clock as
+// the page loads, so it starts at now, and whatever it holds at approval is what the row
+// is written with.
+const dateField = document.getElementById('transactiondate');
+
+if (dateField) {
+    dateField.value = transactionStamp();
+}
+
+// True once the admin has typed in the box themselves. Until then the box means "now", and
+// the clock is read into it once more when the transaction is built, so a page left open
+// for an hour still writes the minute it happened - the rule the stamp kept before the box
+// existed. A stamp the admin typed is theirs, and is never written over.
+let dateTyped = false;
+
+dateField?.addEventListener('input', function () {
+    dateTyped = true;
+});
+
+// A stamp as the box is written: the day in three parts, a space, then the clock in two.
+// The minute may carry either separator a clock is written with - the colon this app and
+// the history column use (16:17) and the slash the same stamp is sometimes typed with
+// (16/17) - and either is re-cut into the colon, so a row this app sends reads like a row
+// the backend writes.
+const TYPED_STAMP = /^(\d{4})\/(\d{2})\/(\d{2}) (\d{2})[:/](\d{2})$/;
+
+// The last day of a month, for the check below. month is 1-based, and day 0 of the month
+// after it is its last day, so 28, 29, 30 and 31 come out right in a leap year too, instead
+// of coming from a table that has to be kept in step with the calendar by hand.
+function lastDayOfMonth(year, month) {
+    return new Date(year, month, 0).getDate();
+}
+
+// What the box holds, in the shape the row is written with, or null when it holds no stamp.
+// The parts are checked as well as the shape, which is not what the birthday check does:
+// that field is a date input, with a picker behind it, and this box is free text, so an
+// impossible 2026/02/30 25:61 would otherwise be sent exactly as typed. A day its month does
+// not have and a clock reading past 23:59 are refused here rather than guessed at.
+function readStamp(value) {
+    const parts = TYPED_STAMP.exec(String(value).trim());
+
+    if (!parts) {
+        return null;
+    }
+
+    const year = Number(parts[1]);
+    const month = Number(parts[2]);
+    const day = Number(parts[3]);
+    const hour = Number(parts[4]);
+    const minute = Number(parts[5]);
+
+    if (month < 1 || month > 12) {
+        return null;
+    }
+
+    if (day < 1 || day > lastDayOfMonth(year, month)) {
+        return null;
+    }
+
+    if (hour > 23 || minute > 59) {
+        return null;
+    }
+
+    return `${parts[1]}/${parts[2]}/${parts[3]} ${parts[4]}:${parts[5]}`;
+}
+
+// The date the row is written with, or null when the box does not hold a stamp - each page
+// says what is wrong with it on its own status line, the way the Other page does with the
+// amount. A page carrying no such box at all (none of the four that approve a transaction is
+// without one) writes the row with the clock, so a page added without a box records the
+// minute it happened instead of refusing.
+function transactionDate() {
+    if (!dateField) {
+        return transactionStamp();
+    }
+
+    if (!dateTyped) {
+        dateField.value = transactionStamp();
+    }
+
+    return readStamp(dateField.value);
+}
+
+// What the four pages' status line says when the date box does not hold a stamp. One sentence
+// for all of them, so the four cannot word the same refusal two ways.
+const DATE_PROMPT = 'The date has to be written as YYYY/MM/DD HH:mm, as in 2026/09/29 16:17 — a day that exists and a time the clock reads.';
 
 // Protected route used to ask the backend whether this browser still holds an
 // admin session. GET /current-admin answers the same question (the home page
@@ -2288,6 +2383,17 @@ async function runApproval() {
         return;
     }
 
+    // The row's date is checked before the backend is asked for anything, like the Other
+    // page's amount: a box holding no stamp is a reason to stop and say so, not something to
+    // send and find out about afterwards.
+    const date = transactionDate();
+
+    if (date === null) {
+        showReasonMessage(DATE_PROMPT, true);
+        dateField?.focus();
+        return;
+    }
+
     setApproveEnabled(false);
     const check = await checkAdminPermission();
 
@@ -2308,17 +2414,17 @@ async function runApproval() {
     // row says what the reason was worth without the reader doing the sum.
     // amount is the figure that goes with that reason, negative for the two types that
     // spend money, null when the reason carries no figure at all (the built-in fallback
-    // list of a page, which carries its reason texts and no figures). date is the moment
-    // of this approval, in the history column's own shape (transactionStamp()), so the
-    // row is written with the time it happened, not with whatever a later read makes of
-    // it. label is only what the eye saw, and is not sent: the question and the status
+    // list of a page, which carries its reason texts and no figures). date is what the date
+    // box holds, in the history column's own shape: the clock, while the box is still the
+    // page's own, and the admin's own stamp once they have typed one. label is only what the
+    // eye saw, and is not sent: the question and the status
     // line name the transaction with it, and the memo is written from it.
     const label = option ? option.textContent : reasonSelect.value;
     const transaction = {
         student: sessionStorage.getItem(STUDENT_KEY) || '',
         type: reasonType,
         amount: optionAmount(option),
-        date: transactionStamp(),
+        date: date,
         memo: label,
         label: label
     };
@@ -2444,6 +2550,16 @@ function recordedMessage(transaction) {
 // button that a recorded or refused one left grey.
 reasonSelect?.addEventListener('change', function () {
     if (reasonSelect.value) {
+        setApproveEnabled(true);
+    }
+});
+
+// So is another date: the box is part of the row that gets written, so typing in it brings
+// Next back the way choosing another reason does — but with a reason in the dropdown, since
+// the box on its own has nothing to file. (The Other page needs no line here: its date box
+// is inside its form, whose own input listener already covers every box in it.)
+dateField?.addEventListener('input', function () {
+    if (reasonSelect?.value) {
         setApproveEnabled(true);
     }
 });
@@ -2593,6 +2709,17 @@ async function runOtherApproval() {
         return;
     }
 
+    // The same check the reason pages make of their date box, said on this page's status
+    // line: the row cannot be written without a stamp, so the box is asked about before
+    // anything is sent.
+    const date = transactionDate();
+
+    if (date === null) {
+        showOtherMessage(DATE_PROMPT, true);
+        dateField?.focus();
+        return;
+    }
+
     setOtherEnabled(false);
     const check = await checkAdminPermission();
 
@@ -2607,15 +2734,15 @@ async function runOtherApproval() {
     // reason with the figure the row is written with ("Lost library book (-25 pts)"), that
     // being what this page has to file the row under, amount is what the first box holds
     // with the admin's own sign, and memo is the text of the memo box or null when it was
-    // left empty. date is the moment of this approval in the history column's own shape
-    // (transactionStamp()) — the same stamp, built by the same function, so the two
-    // approving pages cannot date a row two ways. label is only what the eye saw: the
-    // question and the status line name the transaction with it, and it is not sent.
+    // left empty. date is what the date box holds, in the history column's own shape — the
+    // same box, read through the same function, so the two approving pages cannot date a row
+    // two ways. label is only what the eye saw: the question and the status line name the
+    // transaction with it, and it is not sent.
     const transaction = {
         student: sessionStorage.getItem(STUDENT_KEY) || '',
         type: amountLabel(reason, amount),
         amount: amount,
-        date: transactionStamp(),
+        date: date,
         memo: otherMemoValue(),
         label: reason
     };

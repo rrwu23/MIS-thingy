@@ -7,8 +7,8 @@
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Comfortaa:wght@300..700&display=swap">
-    <link rel="stylesheet" href="styles.css?v=20">
-    <script src="app.js?v=16" defer></script>
+    <link rel="stylesheet" href="styles.css?v=21">
+    <script src="app.js?v=17" defer></script>
 </head>
 <body>
     <div class="page">
@@ -42,6 +42,17 @@
                     <option value="Random Bonura Bonus">Random Bonura Bonus</option>
                     <option value="WOW Work (exceptional quality/effort)">WOW Work (exceptional quality/effort)</option>
                 </select>
+
+                <!-- The row's date, typed rather than stamped when Next is pressed: app.js
+                     fills the box from the clock as the page loads, so it starts at now, and
+                     whatever it holds is what the row is written with. A text box rather than
+                     <input type="date"> because a row's date is a stamp and not a day — the
+                     history page's own Date column reads YYYY/MM/DD HH:mm — and app.js
+                     refuses a box that is not a stamp, saying so on the status line below. -->
+                <div class="field">
+                    <label for="transactiondate">Date <span class="hint">YYYY/MM/DD HH:mm</span></label>
+                    <input type="text" id="transactiondate" name="date" autocomplete="off">
+                </div>
 
                 <div class="form__actions">
                     <button type="button" class="btn btn--primary" id="reasonnext" aria-disabled="true">

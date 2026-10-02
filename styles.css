@@ -21,7 +21,7 @@
    fallback shown while the webfont swaps in.
    Loaded by every page in the project.
    Every page links this file as styles.css?v=N, and its own scripts the same way, each
-   asset carrying its own N — this one is at 20. Bump the N of whichever file has
+   asset carrying its own N — this one is at 21. Bump the N of whichever file has
    changed, the stylesheet for a new look or a script for new behaviour: the host sends
    assets with max-age=14400, so without a new URL a browser can go on painting a
    four-hour-old copy — of this file or of app.js — while the HTML around it is
@@ -393,6 +393,12 @@ a.tag:hover {
     outline: 2px solid var(--accent-ink);
     outline-offset: 3px;
 }
+
+/* The date box the four transaction-type pages carry — the three reason lists below their
+   dropdown, and the Other page's in its form — wears the .field treatment the rest of the
+   app's boxes wear, and on a reason page that box is held to the dropdown's own width so the
+   two of them line up down the centre of the panel. */
+.panel .field { width: min(100%, 26rem); }
 
 /* --------------------------------------------------------- home page hub ---- */
 /* home.html, the page behind the front door: one card filled with the accent, like
