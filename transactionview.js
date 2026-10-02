@@ -316,19 +316,18 @@ function drawnValue(column, value) {
 // as in 2026/09/29 16:17, read the way a pattern is written: MM is the month and mm the
 // minute, and the space is what holds the date and the time apart. A stamp arrives here
 // in one of two separators: the ISO one this app writes itself, 2026-09-29 and
-// 2026-09-29T16:17:00 (todayISO() in app.js, the one shape an <input type="date">
-// reports), and the slashes the backend stamps a transaction with, 2026/09/29/16/17.
+// 2026-09-29T16:17:00 (the one shape an <input type="date"> reports), and the slashes
+// the backend stamps a transaction with, 2026/09/29/16/17.
 // Both are re-cut into the shape above for the same two reasons: a date and a time are
 // held apart by a space where a person reads them, and the minute is marked with a colon
 // where a clock writes it. So 2026-09-29T16:17:00 and 2026/09/29/16/17 both come out
 // 2026/09/29 16:17. A date with no time on it keeps the three parts it has — the hour and
 // the minute are the backend's to send, and a time nobody recorded is not invented. The
-// parts are read as they were written, never shifted into this machine's clock, the way
-// todayISO() is careful not to be, so seconds, fractions of a second and a trailing
-// timezone are read past rather than shown. A value in any other shape is shown exactly
-// as it came, rather than guessed at, and the whole value has to be the stamp for any of
-// this to happen: half a date left behind in a cell would be worse than one drawn in a
-// shape nobody planned, so the pattern is anchored at both ends.
+// parts are read as they were written, never shifted into this machine's clock, so seconds,
+// fractions of a second and a trailing timezone are read past rather than shown. A value in
+// any other shape is shown exactly as it came, rather than guessed at, and the whole value
+// has to be the stamp for any of this to happen: half a date left behind in a cell would be
+// worse than one drawn in a shape nobody planned, so the pattern is anchored at both ends.
 const STAMP = /^(\d{4})[-/](\d{2})[-/](\d{2})(?:[T/ ](\d{2})[:/](\d{2})(?:[:/]\d{2}(?:\.\d+)?)?(?:Z|[+-]\d{2}:?\d{2})?)?$/;
 
 function historyDate(value) {

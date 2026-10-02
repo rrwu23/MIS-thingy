@@ -14,40 +14,26 @@ function sameUsername(first, second) {
     return first.trim().toLowerCase() === second.trim().toLowerCase();
 }
 
-// Today as every date in this project is written: YYYY-MM-DD, the one shape an
-// <input type="date"> reports and a date column reads. The parts are read off the
-// local calendar by hand rather than with toISOString(), which works in UTC and
-// would name tomorrow for a few evening hours on this side of the world.
-function todayISO() {
-    const now = new Date();
-    const month = String(now.getMonth() + 1).padStart(2, '0');
-    const day = String(now.getDate()).padStart(2, '0');
-    return `${now.getFullYear()}-${month}-${day}`;
-}
-
-// The add account page's birthday check. A date input answers with YYYY-MM-DD, or
-// with an empty string when it could not make sense of what was typed, so the shape
-// is tested first and the day is then compared with today. Both sides are the same
-// shape, so a plain string compare settles it and no second Date has to be built;
-// the pattern is what keeps the compare honest if the field is ever typed by hand.
-// A birthday that has not happened yet is a typo, not a birthday, and is what the
-// empty string case covers too.
+// The add account page's birthday check. A date input answers with YYYY-MM-DD, the one shape
+// a date column reads, or with an empty string when it could not make sense of what was
+// typed, so the shape is the whole test: a day written in it is a day the browser could name.
+// The pattern is what catches a value that did not come from a date input at all, the way a
+// hand-typed or scripted one can.
+//
+// Every day is taken, a birthday long past and a birthday still to come alike, and whichever
+// day arrives is stored exactly as typed. The field is a date of record, not a rule about who
+// may hold an account, so nothing caps it at today: it carries no max attribute for the
+// browser to grey the coming days out with, and no check here compares it with today.
 const ISO_DATE = /^\d{4}-\d{2}-\d{2}$/;
 
-function isPastOrToday(value, today) {
-    return ISO_DATE.test(value) && value <= today;
+function isISODate(value) {
+    return ISO_DATE.test(value);
 }
 
-// The birthday field, on the one page that has it (app.js is loaded by every page).
-// The date input is handed the same newest day the check below uses, as its max
-// attribute, so the calendar the browser opens has the coming days greyed out and the
-// browser's own validation explains them. The check still decides on submit, in case
-// a browser ignores the attribute or the page is driven by script instead of a click.
+// The birthday field, on the one page that has it (app.js is loaded by every page). It is
+// left as the page writes it — required, type="date", no newest day — and the check below
+// still decides on submit, in case the page is driven by script instead of by a click.
 const birthdayField = form?.elements.namedItem('birthday');
-
-if (birthdayField) {
-    birthdayField.max = todayISO(); // a birthday cannot lie in the future
-}
 
 // 2. Listen for the submit event
 form?.addEventListener('submit', async function(event) {
@@ -64,11 +50,13 @@ form?.addEventListener('submit', async function(event) {
       return;
   }
 
-  // The birthday is checked here too, before anything is sent: it has to be a real
-  // day that has already arrived. The field points itself out on the way back, the
-  // way the browser would have, so the admin is not left hunting for the box.
-  if (birthdayField && !isPastOrToday(birthdayField.value, todayISO())) {
-      alert('Error: The birthday has to be a real date that is not in the future — the account was not created.');
+  // The birthday is checked here too, before anything is sent: it has to be a real date, in
+  // the one shape a date column reads. Any day of any year goes through, a day still to come
+  // included, because nothing about the account turns on the day being behind us. The field
+  // points itself out on the way back, the way the browser would have, so the admin is not
+  // left hunting for the box.
+  if (birthdayField && !isISODate(birthdayField.value)) {
+      alert('Error: The birthday has to be a real date — the account was not created.');
       birthdayField.focus();
       return;
   }
@@ -1533,11 +1521,11 @@ const RECORD_URL = 'https://api.rongrongwu.com/transaction-record';
 // app wrote and the rows the backend wrote reading alike — transactionview.js re-cuts
 // both into that one shape, and reads back a stamp written this way unchanged.
 //
-// The parts are read off the local clock by hand, the same care todayISO() takes, rather
-// than through toISOString(), which works in UTC and would date an evening transaction
-// tomorrow on this side of the world. The clock is read when the transaction is built,
-// not when the request leaves, so the stamp is the moment the admin approved it — the
-// moment the Y/N question named — even if the answer is given a minute later.
+// The parts are read off the local clock by hand rather than through toISOString(), which
+// works in UTC and would date an evening transaction tomorrow on this side of the world.
+// The clock is read when the transaction is built, not when the request leaves, so the
+// stamp is the moment the admin approved it — the moment the Y/N question named — even if
+// the answer is given a minute later.
 function transactionStamp() {
     const now = new Date();
     const month = String(now.getMonth() + 1).padStart(2, '0');

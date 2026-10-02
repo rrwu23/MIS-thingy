@@ -8,7 +8,7 @@
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Comfortaa:wght@300..700&display=swap">
     <link rel="stylesheet" href="styles.css?v=16">
-    <script src="app.js?v=14" defer></script>
+    <script src="app.js?v=15" defer></script>
 </head>
 <body>
     <div class="page">
@@ -42,8 +42,9 @@
                      password. A date input is used rather than a free-text box because
                      the browser hands the value over in the one shape a date column
                      reads, YYYY-MM-DD, and offers a calendar instead of text that would
-                     have to be parsed. app.js caps it at today, so a birthday still to
-                     come cannot be picked or submitted. -->
+                     have to be parsed. Any day on that calendar is taken, one still to
+                     come included: app.js checks the shape of what arrived and nothing
+                     about which day it is. -->
                 <div class="field">
                     <label for="birthday">Birthday <span class="hint">YYYY-MM-DD</span></label>
                     <input type="date" id="birthday" name="birthday" required>
