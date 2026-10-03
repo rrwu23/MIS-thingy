@@ -34,10 +34,11 @@
 // answers the app's Y/N question before anything is sent. The fifth column is not among
 // them — the ending balance is the figure the backend worked out for the account, so it is
 // drawn as it was read and never retyped. A change is a delete and then a write, in that
-// order, because that is what the routes offer: POST /delete takes a row away by its date,
-// and the new row goes to the very same POST /transaction-record the four transaction-type
-// pages write with. The student's own page carries none of this: a student does not take
-// their own transactions away, so no row there has a delete button and none of them opens.
+// order, because that is what the routes offer: POST /delete takes a row away by the id
+// the backend sent for it, and the new row goes to the very same POST /transaction-record
+// the four transaction-type pages write with. The student's own page carries none of this:
+// a student does not take their own transactions away, so no row there has a delete button
+// and none of them opens.
 //
 // This file is the page's own script, so the readers it needs are kept here rather
 // than shared: studentpicker.js, jobrotation.js and sessionstorage.js do the same, and
@@ -45,11 +46,12 @@
 
 // Where the transactions of one student are read from, the admin's way in: the student
 // goes in a ?student= query, the shape every other student route in the API takes
-// (GET /get-balance?student=). The route is not in
-// https://api.rongrongwu.com/openapi.json today and answers 404 {"detail": "Not Found"}
-// when it is asked (checked live), so the page says what the backend answered rather
-// than showing a table with no rows in it, which would read as "this student never had a
-// transaction".
+// (GET /get-balance?student=). The route is listed in
+// https://api.rongrongwu.com/openapi.json and answers 200 with a list of records (checked
+// live). Each record carries the transaction's own id beside the five columns the table
+// draws, and that id is the field a delete names the row by. A read that was refused says
+// what the backend answered rather than showing a table with no rows in it, which would
+// read as "this student never had a transaction".
 const ADMIN_HISTORY_URL = 'https://api.rongrongwu.com/gettransactions';
 
 // The student's own way in: the transactions of the student this browser signed in as, in
@@ -356,28 +358,40 @@ function historyRow(record) {
     }
 
     if (CAN_CHANGE_ROWS) {
-        line.classList.add('history__row--changeable');
+        // A row the backend sent no id for is drawn as the read left it and nothing more. The
+        // two routes that take a row away and write another in its place both name the row by
+        // its id, so with no id there is nothing they could be asked: the cell that answers
+        // "what may be done with this transaction" is left empty, and the row does not open —
+        // a change would have to take the old row away first, which is the very thing that
+        // cannot be named. The cell is still there, so the last column of every row stands
+        // under the head row's last column.
+        const identified = rowId(record) !== null;
+
+        if (identified) {
+            line.classList.add('history__row--changeable');
+
+            // The row is opened by a click on it or by Enter on it, so the keyboard has the
+            // same way in as the mouse. tabindex is what makes a row reachable at all;
+            // nothing about the row claims to be a control — the delete button beside it is
+            // the control in the row, and the line over the table is what says a row opens.
+            line.tabIndex = 0;
+            line.addEventListener('click', function (event) {
+                // the delete button's own click, and the typing in an open row, are answered
+                // by the boxes and buttons themselves
+                if (event.target.closest('button, input')) return;
+
+                openRow(line, record);
+            });
+            line.addEventListener('keydown', function (event) {
+                if (event.target !== line) return; // a button in the row answers its own keys
+                if (event.key !== 'Enter' && event.key !== ' ') return;
+
+                event.preventDefault();
+                openRow(line, record);
+            });
+        }
+
         line.append(changeCell(line, record));
-
-        // The row is opened by a click on it or by Enter on it, so the keyboard has the same
-        // way in as the mouse. tabindex is what makes a row reachable at all; nothing about
-        // the row claims to be a control — the delete button beside it is the control in the
-        // row, and the line over the table is what says a row opens.
-        line.tabIndex = 0;
-        line.addEventListener('click', function (event) {
-            // the delete button's own click, and the typing in an open row, are answered by
-            // the boxes and buttons themselves
-            if (event.target.closest('button, input')) return;
-
-            openRow(line, record);
-        });
-        line.addEventListener('keydown', function (event) {
-            if (event.target !== line) return; // a button in the row answers its own keys
-            if (event.key !== 'Enter' && event.key !== ' ') return;
-
-            event.preventDefault();
-            openRow(line, record);
-        });
     }
 
     return line;
@@ -388,6 +402,8 @@ function historyRow(record) {
 // cell, so the last column of the table always holds what the row is asking for. The head
 // row above it leaves the column unnamed — an unnamed head cell would be a screen reader's
 // blank over the buttons — so the page's own head row puts a word there that nobody sees.
+// A row the backend sent no id for has no state to be in: the cell is drawn empty, which is
+// the column's own question answered with nothing (see showRowActions).
 function changeCell(line, record) {
     const cell = document.createElement('td');
     cell.className = 'history__actions';
@@ -400,7 +416,16 @@ function changeCell(line, record) {
 // The delete button of a row that is closed: the app's red (.btn--danger), because it takes
 // a transaction away and this app has no undo. Its label names the row it belongs to, since
 // a column of buttons all reading "delete" says nothing about which row any of them is on.
+// A row the backend sent no id for gets no button at all: the route that takes a row away
+// names it by its id, so there is nothing this button could ask for. The cell is emptied
+// rather than left standing, which is the column's own question — "what may be done with
+// this transaction" — answered with nothing.
 function showRowActions(cell, line, record) {
+    if (rowId(record) === null) {
+        cell.replaceChildren();
+        return;
+    }
+
     const remove = document.createElement('button');
     remove.type = 'button';
     remove.className = 'btn btn--danger';
@@ -442,6 +467,28 @@ function rowDate(record) {
     const value = firstField(record, HISTORY_COLUMNS[0].keys);
 
     return value === null ? '—' : historyDate(value);
+}
+
+// The field a row is identified to the backend by. GET /gettransactions answers each record
+// with the transaction's own id beside the five columns the table draws — {"date": …,
+// "amount": …, "id": 5, "balance": …} (checked live) — and POST /delete names the row it is
+// to take away with that id and nothing else. So this is the one value on a record that is
+// about that transaction and no other: a date is only unique to the minute and two rows can
+// share one, which is why the delete stopped being asked by date.
+//
+// Only unambiguous names for a transaction's own identifier are read, and nothing is ever
+// guessed at — the named field is the field, whatever it carries. Two names rather than one
+// because the routes are untyped and have spelled the same idea twice before (…_id), and
+// because the alternative failure is worse than a miss: reading some other field as an id
+// would point the delete at the wrong row, where reading none at all only means the row
+// cannot be asked about — which is the safe half of the two.
+const TRANSACTION_ID_KEYS = ['id', 'transaction_id'];
+
+// The transaction's own id, as the backend sent it, or null when the record carries none. An
+// id of 0 is an id like any other: the value is asked for being present, not for being true,
+// the way every other field on this page is read.
+function rowId(record) {
+    return firstField(record, TRANSACTION_ID_KEYS);
 }
 
 // The date column is drawn in the shape the head of the column names — YYYY/MM/DD HH:mm,
@@ -525,14 +572,16 @@ function showHistoryMessage(results, text, isError) {
 }
 
 // ------------------------------------------------------- the two routes ----
-// Where a transaction is taken away: POST /delete, asked with the row's own date and nothing
-// else — {"date": "2026/10/02/15/29"} — which is the one field the route names.
+// Where a transaction is taken away: POST /delete, asked with the row's own id and nothing
+// else — {"id": 5} — which is the one field the route names.
 //
-// The date goes exactly as the record carried it, never as the table drew it: the drawn stamp
-// is this page's own re-cutting (historyDate), and a row that is to be found again is found by
-// the string the backend itself sent. openapi.json does not list this route today and a POST
-// to it answers 404 {"detail": "Not Found"} (checked live), so a refused delete is spelled out
-// on the status line rather than passed over as if the row were gone.
+// The id goes exactly as the record carried it, never re-cut, re-typed or guessed at: a row
+// that is to be found again is found by the value the backend itself sent, and the id is the
+// one value on a record that is about that transaction and no other. A date would not do: it
+// is unique only to the minute, so two rows of one account can share one, and the route would
+// then have two rows to choose between. openapi.json does not list this route today and a
+// POST to it answers 404 {"detail": "Not Found"} (checked live), so a refused delete is
+// spelled out on the status line rather than passed over as if the row were gone.
 const DELETE_URL = 'https://api.rongrongwu.com/delete';
 
 // Where the new row of a change is written: the very route, with the very five fields, that
@@ -739,7 +788,7 @@ function reportChange(text, isError, read) {
     showHistoryMessage(historyStatus, `${text}${tail}`, isError || Boolean(read && historyStatusError));
 }
 
-// The delete button: the question first, then POST /delete with the row's own date, then the
+// The delete button: the question first, then POST /delete with the row's own id, then the
 // read that shows the account without it.
 async function removeRow(record, button) {
     // A row open for retyping is the admin's typing, and the read a delete ends with would
@@ -875,11 +924,20 @@ async function postJson(url, body) {
     }
 }
 
-// POST /delete, asked with the row's own date. Answers { ok, text }: the sentence the status
+// POST /delete, asked with the row's own id. Answers { ok, text }: the sentence the status
 // line has to carry when it was refused, and nothing when it was not.
 async function deleteRecord(record) {
     const where = `the row of ${rowDate(record)}`;
-    const answer = await postJson(DELETE_URL, { date: firstField(record, HISTORY_COLUMNS[0].keys) });
+    const id = rowId(record);
+
+    // A row with no id cannot be named to the route, so the request is never made: a body
+    // carrying nothing but an absent field would be asking the backend to take away whatever
+    // it liked, and this app has no undo. The refusal names the row in the table's own words.
+    if (id === null) {
+        return { ok: false, text: `the backend sent no id for ${where}, so POST /delete had nothing to name it by and nothing was deleted. Press Refresh and try again.` };
+    }
+
+    const answer = await postJson(DELETE_URL, { id });
 
     if (answer.ok) return { ok: true, text: '' };
 
@@ -913,7 +971,7 @@ async function writeRecord(transaction, student) {
 }
 
 // The change itself: the old row is taken away first and the new row written after it, in that
-// order, because those are the two routes — /delete takes a row away by its date, and
+// order, because those are the two routes — /delete takes a row away by its id, and
 // /transaction-record writes one. A delete that was refused stops there: a refusal cannot be
 // written over, so nothing goes to the second route and the account keeps the row it had. A
 // write that was refused leaves the account a row short, and that is said outright — there is

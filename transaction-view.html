@@ -28,10 +28,13 @@
          which is the one thing the script reads off the page rather than being told: a
          sixth column, whose cells hold each row's delete button — and, while a row is
          open for retyping, the save and cancel pair that takes its place. Both are the
-         admin's: a change is a POST /delete of the old row by its date and then a POST
-         /transaction-record of the row that replaces it, and neither route is a student's
-         to call. transaction-view-student.html is the same table with the five columns
-         the sketch draws and nothing at the end of a row. -->
+         admin's: a change is a POST /delete of the old row by the id the read gave it and
+         then a POST /transaction-record of the row that replaces it, and neither route is
+         a student's to call. A row the read gave no id for offers neither — the column
+         that asks what may be done with a transaction stays empty. The fifth column's
+         ending balance is drawn as it was read and is never retyped: it is the backend's
+         own figure for the account. transaction-view-student.html is the same table with
+         the five columns the sketch draws and nothing at the end of a row. -->
     <div class="page">
         <main class="card">
             <header class="bar">
