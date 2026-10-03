@@ -770,6 +770,10 @@ function describeCurrentAdmin(payload) {
 // per student of the admin behind the session cookie: the student's name, the balance on
 // their account, the job they have been given and the salary that job pays — the four
 // columns the sketch draws, and nothing below the last row, so the table is not added up.
+// The rows are ranked by that balance and not by the name: the smallest balance stands
+// first and the largest last, so the table reads as a ladder from the student who owes
+// the most down to nothing and up to the student who holds the most, and a name only
+// decides between two students the backend priced the same (see rankRosterRows).
 // Four live routes stand behind it, all of them taking the session cookie:
 //   GET /current-admin                -> which admin this browser is signed in as;
 //                                        401 {"detail": "Not logged in"} with no
@@ -890,6 +894,13 @@ async function refreshRoster() {
             return;
         }
 
+        // Ranked by the balance, the smallest first. `rows` arrives alphabetically
+        // (adminStudents) and sorting is stable, so two students the backend priced the
+        // same keep their name order rather than being shuffled about by whichever
+        // balance the backend happened to answer first. A student whose balance could not
+        // be read is not ranked at all — that row is off the table (see `drawn` above).
+        rankRosterRows(drawn);
+
         // The salaries list is asked for only when a job was read that the account
         // carried no figure for itself: with no jobs there is nothing to price, and a
         // job the account has already priced needs no second opinion. Two students of the
@@ -922,10 +933,14 @@ async function refreshRoster() {
         const missing = rows.length - drawn.length;
         const noJob = drawn.filter((row) => !row.job).length;
         const unpriced = drawn.filter((row) => row.job && row.salary === null).length;
+        const tied = drawn.filter((row, index) => index > 0 && row.balance === drawn[index - 1].balance).length;
 
         showRosterMessage(
             rosterStatus,
-            `${drawn.length} student${drawn.length === 1 ? '' : 's'} of the admin “${admin}”, alphabetically — the balance on each account, the job that student has been given and the salary that job pays.`
+            `${drawn.length} student${drawn.length === 1 ? '' : 's'} of the admin “${admin}”, ranked by balance, the smallest first — the balance on each account, the job that student has been given and the salary that job pays.`
+            + (tied
+                ? ` ${tied} of them share${tied === 1 ? 's' : ''} a balance with the student above, so ${tied === 1 ? 'that pair keeps' : 'those students keep'} their name order.`
+                : '')
             + (missing
                 ? ` ${missing} balance${missing === 1 ? '' : 's'} could not be read, so ${missing === 1 ? 'that student is' : 'those students are'} not in the table.`
                 : '')
@@ -948,6 +963,21 @@ async function refreshRoster() {
         rosterRefreshButton?.removeAttribute('aria-disabled');
         stampRoster();
     }
+}
+
+// The table's ranking: by the balance on the account, from the smallest to the largest —
+// a student who is overdrawn stands above a student who is level, who stands above the
+// biggest holder on the page. The comparison is the figure itself and not its text, so
+// -10 is ranked below 9 rather than after it, which is what comparing the two as strings
+// would say (the '-' sorts before the digits); that is the same reading a balance is
+// given in its own cell (drawRosterTable). The sort is stable, so the name order the rows
+// arrive in — adminStudents sorts by name — is what decides between two students holding
+// the same balance: the account ranks the row, and the name only ever breaks its rank.
+// The rows handed in are the ones a balance was read for, so no row is ever ranked on a
+// figure nobody read.
+function rankRosterRows(rows) {
+    rows.sort((a, b) => a.balance - b.balance);
+    return rows;
 }
 
 // Fills the table: one row per student — the name, the balance, the job that student has
@@ -1445,6 +1475,11 @@ prefillSupervisorWithCurrentAdmin();
 // ?supervisor=teacher answers that admin's own account while ?supervisor=lagoon answers []
 // — and each row's own supervisor field is read again here, so only this admin's students
 // can reach the table on students.html, the same rule the transaction flow follows.
+// The alphabetical order arranged here is the table's tie-break as well as this list's
+// own order: students.html ranks its rows by the balance it reads from /get-balance, and
+// a balance two students share is decided by the name order this sort puts them in
+// (rankRosterRows). The sort has to stay here for that to hold — rows are ranked after
+// the balances come back, so the name order is already in hand by then, not re-decided.
 async function adminStudents(admin) {
     const response = await fetch(`${STUDENTS_URL}?${new URLSearchParams({ supervisor: admin })}`, {
         method: 'GET',
