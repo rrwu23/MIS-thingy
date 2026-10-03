@@ -36,9 +36,17 @@
 // drawn as it was read and never retyped. A change is a delete and then a write, in that
 // order, because that is what the routes offer: POST /delete takes a row away by the id
 // the backend sent for it, and the new row goes to the very same POST /transaction-record
-// the four transaction-type pages write with. The student's own page carries none of this:
-// a student does not take their own transactions away, so no row there has a delete button
-// and none of them opens.
+// the four transaction-type pages write with.
+//
+// The student's own page carries none of this, and not by drawing alone: it has no sixth
+// column for a delete button to stand in, no row of it opens, and the script refuses both
+// routes outright on any page that is not the admin's (CAN_CHANGE_ROWS below), so nothing a
+// student's browser can reach takes a transaction away or writes one over it. On the
+// admin's page neither request leaves either without the backend first being asked whether
+// this browser holds an admin session at all: the empty-body POST /adduser probe the rest
+// of the app asks that question with (adminSession below). A session that has run out — or
+// a browser that never held one — is refused by the backend and told so on the status line,
+// whatever the page in front of it is drawing.
 //
 // This file is the page's own script, so the readers it needs are kept here rather
 // than shared: studentpicker.js, jobrotation.js and sessionstorage.js do the same, and
@@ -62,22 +70,33 @@ const ADMIN_HISTORY_URL = 'https://api.rongrongwu.com/gettransactions';
 const STUDENT_HISTORY_URL = 'https://api.rongrongwu.com/transaction-student-history';
 
 // Which of the two pages this script is standing on, which the page says about itself:
-// transaction-view-student.html carries data-history="student" on its <body>, and
-// transaction-view.html carries nothing of the sort. Everything that differs between the
-// two hangs off this one word — whose username is read, and which route answers.
+// transaction-view-student.html carries data-history="student" on its <body>, and the
+// admin's carries data-history="admin". Everything that differs between the two hangs off
+// these two words — whose username is read, which route answers, and whether anything on
+// the page may be changed.
 const OWN_HISTORY = document.body?.dataset.history === 'student';
 
 const HISTORY_URL = OWN_HISTORY ? STUDENT_HISTORY_URL : ADMIN_HISTORY_URL;
 
 // The route as it is written in a sentence, for the lines that name it out loud.
 const HISTORY_ROUTE = OWN_HISTORY ? '/transaction-student-history' : '/gettransactions';
-// Whether this page may change what it lists, which the admin's page and only the admin's page
-// may: a student does not take their own transactions away, and the two routes a change is made
-// with — POST /delete and POST /transaction-record — are the admin's. The page says which it is
-// in the one word OWN_HISTORY reads, so this is read off the same word rather than a second
-// flag: the student's page is the one that carries data-history="student", carries no sixth
-// column for a delete button to stand in, and leaves every row closed.
-const CAN_CHANGE_ROWS = !OWN_HISTORY;
+
+// Whether this page may change what it lists, which the admin's page and only the admin's
+// page may: a student does not take their own transactions away, and the two routes a change
+// is made with — POST /delete and POST /transaction-record — are the admin's. The page has
+// to say so about itself, so this asks for the one word the admin's page carries rather than
+// for the student's page's word being absent: only transaction-view.html says
+// data-history="admin", and only it draws the sixth column, opens a row for retyping and
+// asks either route.
+//
+// Read that way round on purpose. Asking "is this the student's page?" answers "no" for
+// every page that says nothing at all — a page that has not been written yet, a page whose
+// own word is misspelled, a copy of this table saved under another name — and each of those
+// would then be handed the delete buttons. Asking "is this the admin's page?" fails shut
+// instead: a page nobody has vouched for is a table and nothing more, which is the safe half
+// of the two. The routes are held to the same rule inside themselves (deleteRecord and
+// writeRecord below), so the page cannot be changed by a caller either.
+const CAN_CHANGE_ROWS = document.body?.dataset.history === 'admin';
 
 
 
@@ -590,6 +609,14 @@ const DELETE_URL = 'https://api.rongrongwu.com/delete';
 // two flows cannot drift into two shapes.
 const RECORD_URL = 'https://api.rongrongwu.com/transaction-record';
 
+// Where this browser is asked whether it still holds an admin session, which is asked
+// immediately before either of the two routes above is called: the app's own probe, POST
+// /adduser with an empty body — the very request app.js (ADMIN_CHECK_URL), sessionstorage.js
+// (PERMISSION_URL) and jobrotation.js (JOB_PERMISSION_URL) ask the same question with. The
+// empty body is the point of it: whatever the backend does with the request, it cannot have
+// been asked to create an account, so the probe changes nothing.
+const ADMIN_CHECK_URL = 'https://api.rongrongwu.com/adduser';
+
 // The four columns a row is retyped in: the date, the amount, the type and the memo — the four
 // an admin fills in by hand on the approving pages, so the four this page hands back. The
 // fifth column is not one of them: the ending balance is the figure the account stood at after
@@ -899,6 +926,45 @@ function backendDetail(result) {
     return '';
 }
 
+// The admin session, asked about before either route below changes anything. POST /adduser
+// with an empty body is the probe the rest of the app asks this question with — app.js's
+// checkAdminPermission, sessionstorage.js's checkLoginPermission, jobrotation.js's — so the
+// sentence a refusal puts on the status line is the sentence those pages show for it.
+//   422, or any 2xx   the body was the only thing refused, so the cookie was accepted:
+//                      an admin session stands behind this browser
+//   401                Not logged in — no admin session, and no row may be changed
+// Anything else, or no answer at all, is not a yes: this page writes only for an admin the
+// backend itself has just called one, so an answer it cannot read has to be taken as no.
+async function adminSession() {
+    try {
+        const response = await fetch(ADMIN_CHECK_URL, {
+            method: 'POST',
+            credentials: 'include', // the admin session cookie travels with the probe
+            body: new FormData()    // empty body: a probe cannot add an account
+        });
+
+        if (response.ok || response.status === 422) {
+            return { granted: true, text: '' };
+        }
+
+        if (response.status === 401) {
+            return {
+                granted: false,
+                text: 'the backend refused the request — not logged in. Log into the admin account and try again.'
+            };
+        }
+
+        return {
+            granted: false,
+            text: `the backend answered the admin check with ${response.status}, so it cannot be said that these are an admin's to change.`
+        };
+    } catch (error) {
+        console.error('Admin check error:', error);
+
+        return { granted: false, text: 'the admin check could not reach the API.' };
+    }
+}
+
 // One POST of a change, as both routes are asked: the body as JSON, the session cookie
 // travelling with it — the same credentials every read on this page uses — and the answer read
 // without being trusted to parse, since a refusal can carry anything. Answers { ok, status,
@@ -926,15 +992,39 @@ async function postJson(url, body) {
 
 // POST /delete, asked with the row's own id. Answers { ok, text }: the sentence the status
 // line has to carry when it was refused, and nothing when it was not.
+//
+// Three things stand between a row and this request, and the request is the last thing to
+// happen: the page has to be one that may change what it lists, the row has to carry an id
+// for the route to name it by, and the backend has to answer the admin check with yes. The
+// first two are read off the page and off the row, so they are asked first — refusing there
+// costs nothing — and the backend is asked about the session last, as late as it can be,
+// because a session that runs out between the check and the request is the very thing the
+// check is for.
 async function deleteRecord(record) {
     const where = `the row of ${rowDate(record)}`;
     const id = rowId(record);
+
+    // A page that may not change what it lists is refused here and not by its drawing alone:
+    // the student's own page draws no delete button, and this is the same rule standing where
+    // the request would leave from. Nothing is sent, and the backend is asked nothing.
+    if (!CAN_CHANGE_ROWS) {
+        return { ok: false, text: `this page does not change transactions, so ${where} was not deleted — a row is only ever taken away from the admin's history page.` };
+    }
 
     // A row with no id cannot be named to the route, so the request is never made: a body
     // carrying nothing but an absent field would be asking the backend to take away whatever
     // it liked, and this app has no undo. The refusal names the row in the table's own words.
     if (id === null) {
         return { ok: false, text: `the backend sent no id for ${where}, so POST /delete had nothing to name it by and nothing was deleted. Press Refresh and try again.` };
+    }
+
+    // Whose session this is, asked immediately before the row is taken away: the id and the
+    // cookie travel together, and the request only goes out once the backend has said the
+    // cookie is an admin's.
+    const session = await adminSession();
+
+    if (!session.granted) {
+        return { ok: false, text: `no admin session stands behind this browser, so ${where} is still there — ${session.text}` };
     }
 
     const answer = await postJson(DELETE_URL, { id });
@@ -953,8 +1043,24 @@ async function deleteRecord(record) {
 }
 
 // POST /transaction-record, the write an approved transaction is recorded with, asked with the
-// same five fields of the same body. Answers the same { ok, text } pair.
+// same five fields of the same body. Answers the same { ok, text } pair, and the same two
+// things stand in front of the request: the page has to be one that may change what it lists,
+// and the backend has to answer the admin check with yes, asked immediately before the row
+// leaves. This is the write the four transaction-type pages also make, through the one
+// function they both send with, and the same check stands there too (app.js's
+// sendTransaction), so no page in this app writes a transaction without the backend having
+// said whose session is asking.
 async function writeRecord(transaction, student) {
+    if (!CAN_CHANGE_ROWS) {
+        return { ok: false, text: `this page does not change transactions, so nothing was written for “${student}” — a row is only ever written over from the admin's history page.` };
+    }
+
+    const session = await adminSession();
+
+    if (!session.granted) {
+        return { ok: false, text: `no admin session stands behind this browser, so nothing was written for “${student}” — ${session.text}` };
+    }
+
     const answer = await postJson(RECORD_URL, transaction);
 
     if (answer.ok) return { ok: true, text: '' };
@@ -976,6 +1082,13 @@ async function writeRecord(transaction, student) {
 // written over, so nothing goes to the second route and the account keeps the row it had. A
 // write that was refused leaves the account a row short, and that is said outright — there is
 // no undo here, and the way back is to write the row again by hand.
+//
+// Each of the two routes asks the backend about the session itself before it changes anything
+// (adminSession, in both), so a change asks about it twice: once in front of the delete and
+// once in front of the write. That pair is not a wasted one — by the time the write is asked
+// about, the delete has already left, and a session that ran out in between is exactly what
+// the second check is there to catch. What it catches is the write half's refusal, which
+// leaves the account a row short, and the sentence below says so.
 //
 // Answers { text, isError, stale }: what the status line has to say, whether it is the red
 // line, and whether the table is out of date and has to be read again — which it is as soon as

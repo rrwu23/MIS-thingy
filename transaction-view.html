@@ -9,9 +9,14 @@
     <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Comfortaa:wght@300..700&display=swap">
     <link rel="stylesheet" href="styles.css?v=22">
     <script src="sessionstorage.js?v=3" defer></script>
-    <script src="transactionview.js?v=7" defer></script>
+    <script src="transactionview.js?v=8" defer></script>
 </head>
-<body>
+<!-- data-history="admin" is the word the script reads off the page: it is what says this is
+     the history page that may change what it lists — the sixth column with the delete
+     button, the rows that open for retyping, and the two routes a change is made of. The
+     student's own page carries data-history="student" and is given none of it, and a page
+     carrying neither word is given none of it either: the word has to be there. -->
+<body data-history="admin">
     <!-- The second page of the history flow: the sketch's card with the student's name
          across the top and one table under it, the transactions recorded for that name.
          transactionview.js fills both in — the name in the title, the rows in the table —
@@ -25,16 +30,21 @@
          rather than two; what is new about it is in the history block of styles.css.
 
          This page is also the one of the two history pages that may change what it lists,
-         which is the one thing the script reads off the page rather than being told: a
-         sixth column, whose cells hold each row's delete button — and, while a row is
-         open for retyping, the save and cancel pair that takes its place. Both are the
-         admin's: a change is a POST /delete of the old row by the id the read gave it and
-         then a POST /transaction-record of the row that replaces it, and neither route is
-         a student's to call. A row the read gave no id for offers neither — the column
-         that asks what may be done with a transaction stays empty. The fifth column's
-         ending balance is drawn as it was read and is never retyped: it is the backend's
-         own figure for the account. transaction-view-student.html is the same table with
-         the five columns the sketch draws and nothing at the end of a row. -->
+         and the word above is what says so: a sixth column, whose cells hold each row's
+         delete button — and, while a row is open for retyping, the save and cancel pair
+         that takes its place. Both are the admin's: a change is a POST /delete of the old
+         row by the id the read gave it and then a POST /transaction-record of the row that
+         replaces it, and neither route is a student's to call. The word is asked for rather
+         than assumed — a page that does not carry it, the student's own above all, is a
+         table and nothing more, and the script refuses both routes there even when
+         something else on the page calls them. Neither request leaves here either until the
+         backend has answered the empty-body POST /adduser probe that says whose session is
+         asking, so a session that has run out is refused by the backend and said out loud
+         rather than sent and found out about. A row the read gave no id for offers neither
+         — the column that asks what may be done with a transaction stays empty. The fifth
+         column's ending balance is drawn as it was read and is never retyped: it is the
+         backend's own figure for the account. transaction-view-student.html is the same
+         table with the five columns the sketch draws and nothing at the end of a row. -->
     <div class="page">
         <main class="card">
             <header class="bar">

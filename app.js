@@ -2501,6 +2501,18 @@ function transactionBody(transaction) {
 async function sendTransaction(transaction) {
     const body = transactionBody(transaction);
 
+    // The row is only written for an admin, and the backend is the only thing that can say who
+    // is one: the empty-body POST /adduser probe is asked here, at the last moment before the
+    // row leaves. The approving pages have already asked it once — before the Y/N question —
+    // but an answer given there is not an answer given here, and a session that ran out in
+    // between is precisely what this check is for. A refusal writes nothing, so nothing is
+    // parked either: this transaction was never on its way.
+    const check = await checkAdminPermission();
+
+    if (!check.granted) {
+        return { ok: false, text: `Nothing was recorded — ${check.text}` };
+    }
+
     sessionStorage.setItem(PENDING_KEY, JSON.stringify(body));
     console.log('Approved:', body);
 

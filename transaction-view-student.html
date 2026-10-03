@@ -8,12 +8,14 @@
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Comfortaa:wght@300..700&display=swap">
     <link rel="stylesheet" href="styles.css?v=22">
-    <script src="transactionview.js?v=7" defer></script>
+    <script src="transactionview.js?v=8" defer></script>
 </head>
 <!-- data-history="student" is what tells transactionview.js which of the two history
      pages it is standing on: the student's own page, where the student is the one the
-     front door signed in (app.js) and the route is the student's own. Without it the
-     script reads the page as the admin's, transaction-view.html. -->
+     front door signed in (app.js) and the route is the student's own. It is also half of
+     how the script decides whether anything on the page may be changed: the admin's page
+     says data-history="admin" and gets the sixth column, the rows that open, and the two
+     routes a change is made of; this page says "student" and gets none of them. -->
 <body data-history="student">
     <!-- The student's own history, and it is the admin's page in the student's own form:
          the same card, the same five-column table and the same script — only the student is
@@ -30,7 +32,12 @@
          The table is the admin's page's table minus its last column: the query above is
          the only difference the read has, and data-history="student" on the <body> is the
          only difference the drawing has — the page where a row may be deleted or retyped
-         is transaction-view.html, so none of that is on offer here. -->
+         is transaction-view.html, which says data-history="admin" about itself, and that
+         word is what puts the sixth column and both routes on it. So none of that is on
+         offer here: no row of this table carries a delete button, none of them opens, and
+         the script refuses both routes on this page should anything else call them — a
+         student does not take their own transactions away, and neither route is asked of
+         the backend from here, session check or no session check. -->
     <div class="page">
         <main class="card">
             <header class="bar">
