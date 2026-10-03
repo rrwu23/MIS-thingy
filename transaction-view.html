@@ -7,9 +7,9 @@
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Comfortaa:wght@300..700&display=swap">
-    <link rel="stylesheet" href="styles.css?v=21">
+    <link rel="stylesheet" href="styles.css?v=22">
     <script src="sessionstorage.js?v=3" defer></script>
-    <script src="transactionview.js?v=6" defer></script>
+    <script src="transactionview.js?v=7" defer></script>
 </head>
 <body>
     <!-- The second page of the history flow: the sketch's card with the student's name
@@ -22,7 +22,16 @@
 
          The table wears the students page's table classes (.roster__frame,
          .roster__table, .roster__amount) because it is that table with five columns
-         rather than two; what is new about it is in the history block of styles.css. -->
+         rather than two; what is new about it is in the history block of styles.css.
+
+         This page is also the one of the two history pages that may change what it lists,
+         which is the one thing the script reads off the page rather than being told: a
+         sixth column, whose cells hold each row's delete button — and, while a row is
+         open for retyping, the save and cancel pair that takes its place. Both are the
+         admin's: a change is a POST /delete of the old row by its date and then a POST
+         /transaction-record of the row that replaces it, and neither route is a student's
+         to call. transaction-view-student.html is the same table with the five columns
+         the sketch draws and nothing at the end of a row. -->
     <div class="page">
         <main class="card">
             <header class="bar">
@@ -37,7 +46,7 @@
                  stand in until the read answers; a name nobody confirmed leaves the
                  sentence transaction-middle.html also leaves, rather than a table with no
                  student behind it. -->
-            <p class="card__hint"><strong>Transaction history.</strong> Student: <strong id="historystudent">&hellip;</strong> Every transaction the backend has recorded for this student — the date, the amount, what it was for, any memo, and the balance the account ended on. Nothing here is added up: each ending balance is the figure that transaction carries, and a field the backend does not send is shown as a dash.</p>
+            <p class="card__hint"><strong>Transaction history.</strong> Student: <strong id="historystudent">&hellip;</strong> Every transaction the backend has recorded for this student — the date, the amount, what it was for, any memo, and the balance the account ended on. Nothing here is added up: each ending balance is the figure that transaction carries, and a field the backend does not send is shown as a dash. <strong>To edit a transaction, click it:</strong> its date, its amount, its type and its memo open in boxes and that row&#8217;s delete button becomes save and cancel. The delete button takes the row away, and the ending balance is not among the boxes — it is the backend&#8217;s own figure for the account. Neither can be brought back, so each is asked about once more before anything is sent.</p>
 
             <section class="roster" aria-labelledby="historystudent">
                 <div id="historystatus" class="results" role="status" aria-live="polite"
@@ -63,6 +72,15 @@
                                 <th scope="col">Type</th>
                                 <th scope="col">Memo</th>
                                 <th scope="col" class="roster__amount history__amount-head">Ending balance</th>
+                                <!-- The sixth column is this page's alone: what may be done
+                                     with the row — its delete button, and the save and cancel
+                                     pair that takes its place while the row is open. Its head
+                                     cell carries a word nobody sees, because the cell under it
+                                     holds buttons rather than a value, and a head cell left
+                                     empty would leave those buttons under a blank column.
+                                     transactionview.js writes those buttons into every row of
+                                     this table and none into the student's own. -->
+                                <th scope="col"><span class="sr-only">What may be done with this transaction</span></th>
                             </tr>
                         </thead>
 

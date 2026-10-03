@@ -27,6 +27,18 @@
 // One row per transaction, in the five columns the sketch draws: the date, the amount,
 // the type, the memo, and the balance the account ended on.
 //
+// The admin's page — and only the admin's page — can take a row away and put another one
+// in its place. The red delete button at the end of each row takes that row away, and a
+// click on the row itself (anywhere but that button) opens it for retyping: the date, the
+// amount, the type and the memo become boxes holding what the row reads now, and a save
+// answers the app's Y/N question before anything is sent. The fifth column is not among
+// them — the ending balance is the figure the backend worked out for the account, so it is
+// drawn as it was read and never retyped. A change is a delete and then a write, in that
+// order, because that is what the routes offer: POST /delete takes a row away by its date,
+// and the new row goes to the very same POST /transaction-record the four transaction-type
+// pages write with. The student's own page carries none of this: a student does not take
+// their own transactions away, so no row there has a delete button and none of them opens.
+//
 // This file is the page's own script, so the readers it needs are kept here rather
 // than shared: studentpicker.js, jobrotation.js and sessionstorage.js do the same, and
 // no page ever loads two of them.
@@ -57,6 +69,15 @@ const HISTORY_URL = OWN_HISTORY ? STUDENT_HISTORY_URL : ADMIN_HISTORY_URL;
 
 // The route as it is written in a sentence, for the lines that name it out loud.
 const HISTORY_ROUTE = OWN_HISTORY ? '/transaction-student-history' : '/gettransactions';
+// Whether this page may change what it lists, which the admin's page and only the admin's page
+// may: a student does not take their own transactions away, and the two routes a change is made
+// with — POST /delete and POST /transaction-record — are the admin's. The page says which it is
+// in the one word OWN_HISTORY reads, so this is read off the same word rather than a second
+// flag: the student's page is the one that carries data-history="student", carries no sixth
+// column for a delete button to stand in, and leaves every row closed.
+const CAN_CHANGE_ROWS = !OWN_HISTORY;
+
+
 
 // The student whose history this is, on the admin's page: the username
 // transaction-view-middle.html had the backend confirm. Kept in sync with
@@ -83,27 +104,44 @@ const SIGNED_IN_STUDENT_KEY = 'student_login';
 // fixed-width digits — and the red for a figure below zero. date marks the one column
 // that is re-cut rather than shown as it came: historyDate() draws it in the shape the
 // head of the column names, YYYY/MM/DD HH:mm.
+//
+// label is the column's own word — the one the head row of the page writes over it — and
+// field is the name the backend's transaction body carries the column under, the five
+// fields of POST /transaction-record. The pairs are here for the admin's page: a change is
+// sent as those five fields, so it needs the backend's names, and the words that name a row
+// out loud — the delete button, the question the dialog asks — use the head row's. The
+// ending balance is the one column with no field: a change does not send it back, which is
+// the whole of what "the ending balance cannot be retyped" means.
 const HISTORY_COLUMNS = [
     {
         keys: ['date', 'created_at', 'timestamp', 'time'],
+        label: 'Date',
+        field: 'date',
         className: 'history__date',
         date: true
     },
     {
         keys: ['amount', 'bonura_bucks', 'value', 'points'],
+        label: 'Amount',
+        field: 'amount',
         className: 'roster__amount',
         numeric: true
     },
     {
         keys: ['type', 'category', 'kind'],
+        label: 'Type',
+        field: 'type',
         className: 'history__type'
     },
     {
         keys: ['memo', 'note', 'notes'],
+        label: 'Memo',
+        field: 'memo',
         className: 'history__memo'
     },
     {
         keys: ['ending_balance', 'balance_after', 'end_balance', 'balance'],
+        label: 'Ending balance',
         className: 'roster__amount',
         numeric: true
     }
@@ -134,9 +172,20 @@ let historyReadRunning = false;
 // The stored student, then the transactions recorded for them, then the rows. Anything
 // that is not a table is spelled out on the status line above it, and the rows of the
 // read before are dropped rather than left standing as if they were current.
+//
+// Answers whether it read at all: false from the two guards — a page with no table to fill
+// and a read already on its way — and true from every read that went out, including one the
+// backend refused, because a refusal is something the status line has to say. A change below
+// reads the account again once it has written, and folds the read's own sentence into what
+// it has to say: the false is what tells it whether there is a sentence there to fold in.
 async function readHistory() {
-    if (!historyRows) return; // only the two history pages have the table
-    if (historyReadRunning) return;
+    if (!historyRows) return false; // only the two history pages have the table
+    if (historyReadRunning) return false;
+
+    // A read paints the table again from what the backend holds, so it closes any row that
+    // is open for retyping: those boxes are about to be replaced by the read's own cells,
+    // and a save pressed after that would be about boxes no longer on the page.
+    editingRow = null;
 
     // Whose history this is: on the admin's page the username the page before this one had
     // the backend confirm, and on the student's own page the student this browser signed
@@ -154,7 +203,7 @@ async function readHistory() {
         showHistoryMessage(historyStatus, OWN_HISTORY
             ? `No student is signed in on this browser, so there is no history to read. Sign in with the student door on the front page.`
             : `No student was confirmed by the backend, so no transaction could be read. Go back one page and enter a name that exists.`, true);
-        return;
+        return true;
     }
 
     if (historyStudent) {
@@ -177,13 +226,13 @@ async function readHistory() {
         if (response.status === 404) {
             clearHistoryTable();
             showHistoryMessage(historyStatus, `The backend has no route for reading a student’s transactions yet — GET ${HISTORY_ROUTE} answered 404, so there is nothing to show for “${student}”. Nothing that has been recorded was changed.`, true);
-            return;
+            return true;
         }
 
         if (!response.ok) {
             clearHistoryTable();
             showHistoryMessage(historyStatus, `The transactions of “${student}” could not be read — the backend answered ${response.status}. Press Refresh to ask again.`, true);
-            return;
+            return true;
         }
 
         const records = historyRecords(await response.json().catch(() => null));
@@ -191,7 +240,7 @@ async function readHistory() {
         if (!records.length) {
             clearHistoryTable();
             showHistoryMessage(historyStatus, `The backend lists no transaction for “${student}”.`, false);
-            return;
+            return true;
         }
 
         drawHistoryTable(records);
@@ -210,6 +259,8 @@ async function readHistory() {
         historyRefreshButton?.removeAttribute('tabindex');
         stampHistory();
     }
+
+    return true;
 }
 
 // The first of the named fields a record carries a value in, or null when it carries
@@ -265,21 +316,22 @@ function isRecord(entry) {
     return entry !== null && typeof entry === 'object';
 }
 
+// The records of the read the table is showing, kept so a cancelled row can be drawn back
+// exactly as the read left it: the table is painted again from these records rather than the
+// edited cells patched back one by one, which would be a second place the drawing of a row
+// could go wrong.
+let historyLastRead = [];
+
 // Fills the table: one row per transaction, the five columns in the sketch's order.
 // Every cell is built as a node rather than with innerHTML, because the values come
 // from the backend.
 function drawHistoryTable(records) {
     const body = document.createDocumentFragment();
 
+    historyLastRead = records;
+
     for (const record of records) {
-        const line = document.createElement('tr');
-        line.className = 'roster__row';
-
-        for (const column of HISTORY_COLUMNS) {
-            line.append(historyCell(column, firstField(record, column.keys)));
-        }
-
-        body.append(line);
+        body.append(historyRow(record));
     }
 
     historyRows.replaceChildren(body);
@@ -289,6 +341,76 @@ function drawHistoryTable(records) {
     }
 
     console.log(`Listed ${records.length} transaction(s).`, records);
+}
+
+// One row: the five cells of the sketch's table, and — on the admin's page — the cell that
+// holds what may be done with it. The record itself is closed over by the row's own
+// listeners, so the delete button and the click that opens the row are about the very
+// transaction the row was drawn from, and not about the cells as they happen to read.
+function historyRow(record) {
+    const line = document.createElement('tr');
+    line.className = 'roster__row';
+
+    for (const column of HISTORY_COLUMNS) {
+        line.append(historyCell(column, firstField(record, column.keys)));
+    }
+
+    if (CAN_CHANGE_ROWS) {
+        line.classList.add('history__row--changeable');
+        line.append(changeCell(line, record));
+
+        // The row is opened by a click on it or by Enter on it, so the keyboard has the same
+        // way in as the mouse. tabindex is what makes a row reachable at all; nothing about
+        // the row claims to be a control — the delete button beside it is the control in the
+        // row, and the line over the table is what says a row opens.
+        line.tabIndex = 0;
+        line.addEventListener('click', function (event) {
+            // the delete button's own click, and the typing in an open row, are answered by
+            // the boxes and buttons themselves
+            if (event.target.closest('button, input')) return;
+
+            openRow(line, record);
+        });
+        line.addEventListener('keydown', function (event) {
+            if (event.target !== line) return; // a button in the row answers its own keys
+            if (event.key !== 'Enter' && event.key !== ' ') return;
+
+            event.preventDefault();
+            openRow(line, record);
+        });
+    }
+
+    return line;
+}
+
+// The last cell of a changeable row: the red delete button while the row stands as it was
+// read, and the save and cancel pair while it is open for retyping. Both states are the same
+// cell, so the last column of the table always holds what the row is asking for. The head
+// row above it leaves the column unnamed — an unnamed head cell would be a screen reader's
+// blank over the buttons — so the page's own head row puts a word there that nobody sees.
+function changeCell(line, record) {
+    const cell = document.createElement('td');
+    cell.className = 'history__actions';
+
+    showRowActions(cell, line, record);
+
+    return cell;
+}
+
+// The delete button of a row that is closed: the app's red (.btn--danger), because it takes
+// a transaction away and this app has no undo. Its label names the row it belongs to, since
+// a column of buttons all reading "delete" says nothing about which row any of them is on.
+function showRowActions(cell, line, record) {
+    const remove = document.createElement('button');
+    remove.type = 'button';
+    remove.className = 'btn btn--danger';
+    remove.textContent = 'delete';
+    remove.setAttribute('aria-label', `Delete the transaction of ${rowDate(record)}`);
+    remove.addEventListener('click', function () {
+        removeRow(record, remove);
+    });
+
+    cell.replaceChildren(remove);
 }
 
 // One cell: the value as the backend sent it. The two numeric columns take the
@@ -310,6 +432,16 @@ function historyCell(column, value) {
 
 function drawnValue(column, value) {
     return column.date ? historyDate(value) : String(value);
+}
+
+// A row's own date as the table drew it, for the words that have to name one row among many:
+// the delete button says which row it belongs to, and the line a delete or a change is
+// reported on names the row it took away. A record carrying no date at all is named the way
+// its cell was drawn — a dash — rather than by an empty word.
+function rowDate(record) {
+    const value = firstField(record, HISTORY_COLUMNS[0].keys);
+
+    return value === null ? '—' : historyDate(value);
 }
 
 // The date column is drawn in the shape the head of the column names — YYYY/MM/DD HH:mm,
@@ -364,11 +496,23 @@ function stampHistory() {
     historyStamp.textContent = `Last read at ${new Date().toLocaleTimeString()}.`;
 }
 
+// What the status line above the table last said, and whether it was the red variant. The
+// change below reads the account again once it has written, and has to say what it did *and*
+// what the read found; the read writes its own sentence first, so it is kept here to be read
+// back — the change's sentence carries the read's after it.
+let historyStatusText = '';
+let historyStatusError = false;
+
 // Replace the previous status line above the table with a single message — the same
 // one-paragraph shape showRosterMessage, showHomeMessage and showReasonMessage write
 // into their own blocks, so an error is the red variant of the same panel.
 function showHistoryMessage(results, text, isError) {
     if (!results) return;
+
+    if (results === historyStatus) {
+        historyStatusText = text;
+        historyStatusError = Boolean(isError);
+    }
 
     const paragraph = document.createElement('p');
     paragraph.textContent = text;
@@ -380,6 +524,578 @@ function showHistoryMessage(results, text, isError) {
     results.replaceChildren(paragraph);
 }
 
+// ------------------------------------------------------- the two routes ----
+// Where a transaction is taken away: POST /delete, asked with the row's own date and nothing
+// else — {"date": "2026/10/02/15/29"} — which is the one field the route names.
+//
+// The date goes exactly as the record carried it, never as the table drew it: the drawn stamp
+// is this page's own re-cutting (historyDate), and a row that is to be found again is found by
+// the string the backend itself sent. openapi.json does not list this route today and a POST
+// to it answers 404 {"detail": "Not Found"} (checked live), so a refused delete is spelled out
+// on the status line rather than passed over as if the row were gone.
+const DELETE_URL = 'https://api.rongrongwu.com/delete';
+
+// Where the new row of a change is written: the very route, with the very five fields, that
+// the four transaction-type pages record an approved transaction with — user, amount, type,
+// date, memo — so a row this page writes and a row those pages write come out alike, and the
+// two flows cannot drift into two shapes.
+const RECORD_URL = 'https://api.rongrongwu.com/transaction-record';
+
+// The four columns a row is retyped in: the date, the amount, the type and the memo — the four
+// an admin fills in by hand on the approving pages, so the four this page hands back. The
+// fifth column is not one of them: the ending balance is the figure the account stood at after
+// the row, worked out by the backend and written on the record by the backend, so it is drawn
+// as it was read and is nobody's to retype. The row that is written carries no balance at all:
+// the old row's figure goes with the old row, and the backend is what puts the rows that are
+// left back together.
+const CHANGE_COLUMNS = HISTORY_COLUMNS.slice(0, 4);
+
+// The two questions this page asks, in the "…, Y/N" shape the approving pages ask theirs in.
+const DELETE_QUESTION = 'confirm delete transaction, Y/N';
+const CHANGE_QUESTION = 'confirm change transaction, Y/N';
+
+// The row that is open for retyping — { line, cell, record, boxes } — or null when no row is
+// open. One row at a time: while a row is open its boxes are the admin's typing, and a second
+// row opening over them would throw that typing away, so a click on another row, or on another
+// row's delete, is left unanswered until this row is saved or cancelled.
+let editingRow = null;
+
+// True while a delete or a change is on its way to the backend, so a second click cannot ask
+// the same question about the same row twice.
+let changeRunning = false;
+
+// Every column of a row as the table drew it, keyed by the field a change is sent under: what
+// the boxes of an open row start from, and what the words about a change name. A field the
+// record carries nothing in is an empty string here — a box left empty rather than holding the
+// dash the cell drew, because a dash is a drawing and not a value.
+function drawnRow(record) {
+    const row = {};
+
+    for (const column of CHANGE_COLUMNS) {
+        const value = firstField(record, column.keys);
+        row[column.field] = value === null ? '' : drawnValue(column, value);
+    }
+
+    return row;
+}
+
+// One row as a sentence: every column that may be retyped, named the way the head row of the
+// table names it — "date 2026/09/29 16:17, amount 63, type …" — so a question names the very
+// columns the boxes under it are holding. A column carrying nothing is named as its cell in
+// the table drew it: a dash.
+function rowWords(parts) {
+    return CHANGE_COLUMNS
+        .map((column) => `${column.label.toLowerCase()} ${parts[column.field] || '—'}`)
+        .join(', ');
+}
+
+// Whose row this is: the name the record itself carries, or — a record that names nobody — the
+// student this page was confirmed with, which is the name the read is asked with, and so the
+// account every row on the page belongs to.
+function rowStudent(record) {
+    return firstField(record, ['user', 'student', 'name'])
+        ?? sessionStorage.getItem(HISTORY_STUDENT_KEY)
+        ?? '';
+}
+
+
+// -------------------------------------------------------- opening a row ----
+// Opens a row for retyping: the four columns a change may touch become boxes holding what the
+// row reads now, the ending balance is left exactly as it was drawn, and the delete button is
+// replaced by the save and cancel pair. Nothing is sent yet — the question comes first, and a
+// cancelled row leaves nothing behind.
+function openRow(line, record) {
+    if (editingRow || changeRunning) return; // one row at a time (see editingRow)
+
+    const values = drawnRow(record);
+    const boxes = [];
+
+    CHANGE_COLUMNS.forEach(function (column, index) {
+        const cell = line.children[index];
+        if (!cell) return;
+
+        const box = document.createElement('input');
+        box.type = 'text';
+        box.className = 'history__box';
+        box.value = values[column.field];
+        box.setAttribute('aria-label', `${column.label} of this transaction`);
+        if (column.numeric) box.inputMode = 'decimal';
+
+        cell.replaceChildren(box);
+        boxes.push(box);
+    });
+
+    const cell = line.children[HISTORY_COLUMNS.length]; // the last cell: the buttons
+    if (!cell || boxes.length !== CHANGE_COLUMNS.length) return;
+
+    line.classList.add('history__row--open');
+    editingRow = { line, cell, record, boxes };
+
+    showEditActions(cell);
+    boxes[0].focus(); // the keyboard lands in the first box, ready to be retyped
+}
+
+// The two buttons an open row asks with, in the place the delete button stood: save answers the
+// question, cancel puts the row back as it was read. Save is the app's ink button and cancel
+// the quiet one beside it, so the heavier-looking of the two is also the one that writes.
+function showEditActions(cell) {
+    const save = document.createElement('button');
+    save.type = 'button';
+    save.className = 'btn btn--primary';
+    save.textContent = 'save';
+    save.addEventListener('click', function () {
+        submitChange(save);
+    });
+
+    const cancel = document.createElement('button');
+    cancel.type = 'button';
+    cancel.className = 'btn btn--ghost';
+    cancel.textContent = 'cancel';
+    cancel.addEventListener('click', cancelRow);
+
+    cell.replaceChildren(save, cancel);
+}
+
+// The cancel button: the row is closed and the table is drawn again from the records of the
+// read, so the row goes back to exactly what it was read as. Nothing is sent, and nothing has
+// to be remembered about the cells as they stood before the boxes replaced them. The keyboard
+// is put back on the row that was open, so the same row can be opened again without reaching
+// for the table.
+function cancelRow() {
+    const edit = editingRow;
+
+    if (!edit) return;
+
+    editingRow = null;
+    drawHistoryTable(historyLastRead);
+
+    const index = historyLastRead.indexOf(edit.record);
+    if (index >= 0) historyRows?.children[index]?.focus();
+}
+
+// What the four boxes hold, as the fields a change is sent under. Each value is trimmed: a box
+// left holding a space holds nothing.
+function typedChange(boxes) {
+    const change = {};
+
+    CHANGE_COLUMNS.forEach(function (column, index) {
+        change[column.field] = boxes[index]?.value.trim() ?? '';
+    });
+
+    return change;
+}
+
+// What is wrong with the typed row — said on the status line, with the field whose box has to
+// be put right — or null when there is nothing wrong with it. Two of the four boxes can be
+// wrong, and they are the two the approving pages are strict about: the date, which has to be
+// a stamp this table can read back (the shapes STAMP reads, 2026/09/29 16:17 and
+// 2026/09/29/16/17 among them), since a date drawn as it was typed would be a row nobody could
+// read a moment out of; and the amount, which has to be a figure, since a balance cannot be
+// worked out around "sixty". The type and the memo are free text, and either may be left
+// empty: a row carrying a date and a figure is a row.
+function untypedRow(change) {
+    if (!STAMP.test(change.date)) {
+        return {
+            field: 'date',
+            text: 'The date box has to hold a day — YYYY/MM/DD HH:mm, as in 2026/09/29 16:17, or the same stamp with slashes on their own — before the row can be written. The date the table drew can be typed back as it stands.'
+        };
+    }
+
+    if (change.amount === '' || !Number.isFinite(Number(change.amount))) {
+        return {
+            field: 'amount',
+            text: 'The amount box has to hold a figure — 63, or -25 for a type that takes points away — before the row can be written.'
+        };
+    }
+
+    return null;
+}
+
+
+// ----------------------------------------------------------- the buttons ----
+// What the delete question says: the row as the table reads it, in the table's own words, and
+// the fact that this app has no undo.
+function describeDelete(student, record) {
+    return `The row of “${student}” — ${rowWords(drawnRow(record))} — is taken away for good: this app has no undo. Y deletes it, N drops it.`;
+}
+
+// What the change question says: the row as the table reads it, and then the row the boxes
+// hold. Both halves are named in the table's own words, so the question reads as the two rows
+// the admin can see — the one standing in the table and the one their typing would write. The
+// second half is written from the boxes' own text, because that text is exactly what will be
+// sent: nothing here re-cuts a typed date the way the column draws one.
+function describeChange(student, record, change) {
+    return `The row of “${student}” — ${rowWords(drawnRow(record))} — is taken away and this row is written in its place: ${rowWords(change)}. Y replaces it, N drops it.`;
+}
+
+// Says what came of a delete or a change on the status line above the table, with the sentence
+// the read that followed it wrote after it: the change is what was done, and the read is what
+// the account holds now — which is what the table under the line is showing. A read that was
+// refused makes the whole line the red one, whatever the change came to, because the admin has
+// to know the table is not current.
+function reportChange(text, isError, read) {
+    const tail = read && historyStatusText ? ` ${historyStatusText}` : '';
+
+    showHistoryMessage(historyStatus, `${text}${tail}`, isError || Boolean(read && historyStatusError));
+}
+
+// The delete button: the question first, then POST /delete with the row's own date, then the
+// read that shows the account without it.
+async function removeRow(record, button) {
+    // A row open for retyping is the admin's typing, and the read a delete ends with would
+    // throw it away: the delete of another row is not asked while one is open.
+    if (editingRow) {
+        showHistoryMessage(historyStatus, 'Save or cancel the row you are changing first — reading the account again now would drop what you have typed.', true);
+        return;
+    }
+
+    if (changeRunning) return;
+
+    const student = rowStudent(record);
+    const confirmed = await askConfirmation(DELETE_QUESTION, describeDelete(student, record), {
+        danger: true,
+        returnFocus: button
+    });
+
+    if (!confirmed) return;
+
+    changeRunning = true;
+
+    const removed = await deleteRecord(record);
+
+    if (!removed.ok) {
+        changeRunning = false;
+        reportChange(`Nothing was deleted — ${removed.text}`, true, false);
+        return;
+    }
+
+    const read = await readHistory();
+    changeRunning = false;
+
+    reportChange(`Deleted — the row of ${rowDate(record)} for “${student}” is gone from the account.`, false, read);
+}
+
+// The save button: reads the boxes, refuses a row that is not one, and puts the question in
+// front of the admin. Nothing is sent while the question is up, and the object the question
+// names is the object the request will carry — built here, once, from the boxes.
+async function submitChange(button) {
+    const edit = editingRow;
+
+    if (!edit || changeRunning) return;
+
+    const change = typedChange(edit.boxes);
+    const problem = untypedRow(change);
+
+    if (problem) {
+        // the row stays open, holding what was typed, with the keyboard put back in the box
+        // that has to be put right
+        showHistoryMessage(historyStatus, problem.text, true);
+        edit.boxes[CHANGE_COLUMNS.findIndex((column) => column.field === problem.field)]?.focus();
+        return;
+    }
+
+    const student = rowStudent(edit.record);
+    const transaction = {
+        user: student,
+        amount: Number(change.amount),
+        type: change.type,
+        date: change.date,
+        memo: change.memo === '' ? null : change.memo
+    };
+
+    const confirmed = await askConfirmation(CHANGE_QUESTION, describeChange(student, edit.record, change), {
+        danger: true,
+        returnFocus: button
+    });
+
+    if (!confirmed) return;
+
+    changeRunning = true;
+
+    const outcome = await sendChange(student, edit.record, transaction);
+
+    // A change the backend refused wrote nothing, so the table still stands as it was read and
+    // the row is left open, holding what was typed, for the box that was refused to be put
+    // right and save pressed again.
+    if (!outcome.stale) {
+        changeRunning = false;
+        reportChange(outcome.text, outcome.isError, false);
+        return;
+    }
+
+    // The delete went through, so the table is out of date whether or not the write did: it is
+    // read again, and the open row is closed by that read.
+    const read = await readHistory();
+    changeRunning = false;
+
+    reportChange(outcome.text, outcome.isError, read);
+}
+
+
+// ---------------------------------------------------------- the requests ----
+// What the backend said about a refusal, after the status code: the `detail` its refusals
+// carry, read the way app.js reads the same field — a sentence, or the messages out of a list
+// of them — and nothing at all when it said neither.
+function backendDetail(result) {
+    const detail = result?.detail;
+
+    if (typeof detail === 'string' && detail) {
+        return `: ${detail}`;
+    }
+
+    if (Array.isArray(detail)) {
+        return `: ${detail.map((item) => item.msg).join('; ')}`;
+    }
+
+    return '';
+}
+
+// One POST of a change, as both routes are asked: the body as JSON, the session cookie
+// travelling with it — the same credentials every read on this page uses — and the answer read
+// without being trusted to parse, since a refusal can carry anything. Answers { ok, status,
+// result }, where a status of 0 is the network itself being gone, which no HTTP status can say.
+async function postJson(url, body) {
+    try {
+        const response = await fetch(url, {
+            method: 'POST',
+            credentials: 'include',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify(body)
+        });
+
+        return {
+            ok: response.ok,
+            status: response.status,
+            result: await response.json().catch(() => null)
+        };
+    } catch (error) {
+        console.error(`${url} error:`, error);
+
+        return { ok: false, status: 0, result: null };
+    }
+}
+
+// POST /delete, asked with the row's own date. Answers { ok, text }: the sentence the status
+// line has to carry when it was refused, and nothing when it was not.
+async function deleteRecord(record) {
+    const where = `the row of ${rowDate(record)}`;
+    const answer = await postJson(DELETE_URL, { date: firstField(record, HISTORY_COLUMNS[0].keys) });
+
+    if (answer.ok) return { ok: true, text: '' };
+
+    if (answer.status === 404) {
+        return { ok: false, text: `the backend has no route for deleting a transaction yet — POST /delete answered 404, so ${where} is still there.` };
+    }
+
+    if (answer.status === 0) {
+        return { ok: false, text: `POST /delete could not reach the API, so ${where} was not deleted.` };
+    }
+
+    return { ok: false, text: `the backend refused the delete of ${where} (${answer.status})${backendDetail(answer.result)}.` };
+}
+
+// POST /transaction-record, the write an approved transaction is recorded with, asked with the
+// same five fields of the same body. Answers the same { ok, text } pair.
+async function writeRecord(transaction, student) {
+    const answer = await postJson(RECORD_URL, transaction);
+
+    if (answer.ok) return { ok: true, text: '' };
+
+    if (answer.status === 404) {
+        return { ok: false, text: 'the backend has no route for writing a transaction — POST /transaction-record answered 404.' };
+    }
+
+    if (answer.status === 0) {
+        return { ok: false, text: `POST /transaction-record could not reach the API, so nothing was written for “${student}”.` };
+    }
+
+    return { ok: false, text: `the backend refused the new row of “${student}” (${answer.status})${backendDetail(answer.result)}.` };
+}
+
+// The change itself: the old row is taken away first and the new row written after it, in that
+// order, because those are the two routes — /delete takes a row away by its date, and
+// /transaction-record writes one. A delete that was refused stops there: a refusal cannot be
+// written over, so nothing goes to the second route and the account keeps the row it had. A
+// write that was refused leaves the account a row short, and that is said outright — there is
+// no undo here, and the way back is to write the row again by hand.
+//
+// Answers { text, isError, stale }: what the status line has to say, whether it is the red
+// line, and whether the table is out of date and has to be read again — which it is as soon as
+// the delete went through, whether or not the write did.
+async function sendChange(student, record, transaction) {
+    const removed = await deleteRecord(record);
+
+    if (!removed.ok) {
+        return { text: `Nothing was changed — ${removed.text}`, isError: true, stale: false };
+    }
+
+    const written = await writeRecord(transaction, student);
+
+    if (!written.ok) {
+        return {
+            text: `The row of ${rowDate(record)} was taken away, but nothing stands in its place — ${written.text} The account holds one transaction fewer, and writing the row again by hand is the only way back.`,
+            isError: true,
+            stale: true
+        };
+    }
+
+    return {
+        text: `Changed — the row of ${rowDate(record)} was taken away and a row of ${rowWords(transaction)} was written for “${student}”.`,
+        isError: false,
+        stale: true
+    };
+}
+
+
+// ------------------------------------------------------- the Y/N question ----
+// Taking a transaction away — and replacing one, which takes the old row away first — cannot
+// be undone, so the choice is put in front of the admin once more: "confirm delete
+// transaction, Y/N" and "confirm change transaction, Y/N", answered with two buttons.
+// window.confirm() would answer OK/Cancel, which is not what those questions ask, so the
+// question is the app's own dialog — the same overlay the approving pages and remove.html ask
+// theirs with, .confirm in styles.css — built on first use and hidden again until it is
+// needed. Nothing is sent while it is up, and the row it names is the row the request will
+// carry, because both are built from the same record and the same boxes.
+//
+// Both questions this page asks are asked the approving pages' way, with Y and N and no
+// heading of their own — the question itself is the heading — so only two things are handed in
+// by the caller: the sentence under it, and whether the yes answer is to be the red one. Both
+// of this page's are, because each takes a row away for good.
+const CONFIRM_YES = 'Y';
+const CONFIRM_NO = 'N';
+
+let confirmDialog = null;   // the overlay, built the first time anything is deleted or changed
+let confirmHeading = null;  // the h2 inside it: what is being asked
+let confirmText = null;     // the sentence inside it: the row that is about to go
+let confirmYes = null;      // the yes button, where the focus lands
+let confirmNo = null;       // the no button beside it
+let confirmBack = null;     // where the keyboard goes once the question is answered
+let confirmPending = null;  // { promise, resolve } of the question on screen
+
+// One of the two answers. Both are ordinary .btn buttons, so they look and behave like every
+// other button on the page.
+function confirmButton(label, variant, answer) {
+    const button = document.createElement('button');
+    button.type = 'button';
+    button.className = `btn ${variant}`;
+    button.textContent = label;
+    button.addEventListener('click', function () {
+        answerConfirmation(answer);
+    });
+
+    return button;
+}
+
+// The overlay the two questions are asked in: the same .confirm markup app.js builds, so it is
+// styled by the same rules and reads to a screen reader as the same dialog.
+function buildConfirmDialog() {
+    const dialog = document.createElement('div');
+    dialog.className = 'confirm';
+    dialog.hidden = true;
+    dialog.setAttribute('role', 'dialog');
+    dialog.setAttribute('aria-modal', 'true');
+    dialog.setAttribute('aria-labelledby', 'confirmquestion');
+    dialog.setAttribute('aria-describedby', 'confirmtext');
+
+    const panel = document.createElement('div');
+    panel.className = 'confirm__panel';
+
+    const question = document.createElement('h2');
+    question.className = 'confirm__question';
+    question.id = 'confirmquestion';
+
+    const text = document.createElement('p');
+    text.className = 'confirm__text';
+    text.id = 'confirmtext';
+
+    const actions = document.createElement('div');
+    actions.className = 'confirm__actions';
+
+    confirmYes = confirmButton(CONFIRM_YES, 'btn--primary', true);
+    confirmNo = confirmButton(CONFIRM_NO, 'btn--ghost', false);
+    actions.append(confirmYes, confirmNo);
+
+    panel.append(question, text, actions);
+    dialog.append(panel);
+    document.body.append(dialog);
+
+    // The two answers work as keys too — the question says so — and Escape is the same answer
+    // as the quieter one, so the question can always be dismissed without a mouse. The
+    // listener lives on the document because the buttons are the only things inside the
+    // overlay and the keyboard may be anywhere.
+    document.addEventListener('keydown', function (event) {
+        if (dialog.hidden) return;
+
+        const key = event.key.toLowerCase();
+
+        if (key === CONFIRM_YES.toLowerCase()) {
+            answerConfirmation(true);
+        } else if (key === CONFIRM_NO.toLowerCase() || key === 'escape') {
+            answerConfirmation(false);
+        }
+    });
+
+    confirmDialog = dialog;
+    confirmHeading = question;
+    confirmText = text;
+}
+
+// Puts the question on screen and answers true for the yes button, false for the other. The
+// sentence under it and the treatment the yes answer gets are the caller's, because the two
+// questions this page asks are not the same question. A question already up is the question
+// that has to be answered, so a second call shares it instead of stacking another one on top.
+function askConfirmation(question, text, options = {}) {
+    if (confirmPending) {
+        return confirmPending.promise;
+    }
+
+    if (!confirmDialog) {
+        buildConfirmDialog();
+    }
+
+    // The dialog is built once and asked many times, so every word on the panel is written
+    // over the last question: the heading, the sentence and the yes button's colour — red when
+    // the answer destroys something that cannot be brought back.
+    confirmHeading.textContent = question;
+    confirmText.textContent = text;
+    confirmYes.className = `btn ${options.danger ? 'btn--danger' : 'btn--primary'}`;
+
+    confirmBack = options.returnFocus ?? null;
+    confirmDialog.hidden = false;
+    confirmYes.focus();
+
+    const pending = { promise: null, resolve: null };
+    pending.promise = new Promise(function (resolve) {
+        pending.resolve = resolve;
+    });
+    confirmPending = pending;
+
+    return pending.promise;
+}
+
+// Answers the question and takes it off the screen. The first answer is the answer: once it is
+// gone there is nothing left to resolve, so a second click or key cannot change what was
+// decided.
+function answerConfirmation(answer) {
+    const pending = confirmPending;
+
+    if (!pending) {
+        return;
+    }
+
+    confirmPending = null;
+    confirmDialog.hidden = true;
+
+    // The keyboard goes back to the button the question was asked from — the row's delete, or
+    // the row's save — rather than being dropped on the body, so the admin can carry on
+    // without reaching for the mouse. On a save the row is still open and that button is still
+    // there; on a delete the table is read again and its rows replaced, so the focus goes to
+    // the body with the button it was on.
+    confirmBack?.focus();
+
+    pending.resolve(answer);
+}
+
 // Switches Refresh off the same way the flow's Next link is switched off: aria-disabled,
 // which styles.css greys out and makes unclickable, plus no tab stop. It is what the
 // page does with no confirmed student behind it, since there is nothing to read.
@@ -389,6 +1105,7 @@ function lockHistory() {
     historyRefreshButton.setAttribute('aria-disabled', 'true');
     historyRefreshButton.setAttribute('tabindex', '-1');
 }
+
 
 // The page starts itself: the first read happens as the page opens, Refresh reads again
 // on demand, and a read started in another tab — or a transaction written there — turns

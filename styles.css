@@ -21,7 +21,7 @@
    fallback shown while the webfont swaps in.
    Loaded by every page in the project.
    Every page links this file as styles.css?v=N, and its own scripts the same way, each
-   asset carrying its own N — this one is at 21. Bump the N of whichever file has
+   asset carrying its own N — this one is at 22. Bump the N of whichever file has
    changed, the stylesheet for a new look or a script for new behaviour: the host sends
    assets with max-age=14400, so without a new URL a browser can go on painting a
    four-hour-old copy — of this file or of app.js — while the HTML around it is
@@ -269,7 +269,8 @@ a.tag:hover {
    already draws a refusal in, filled rather than outlined, and the quieter answer beside it
    keeps the ordinary outline — the heavier-looking of the two is then also the heavier one
    to have pressed by mistake. It stands on the Y/N overlay's white panel, so it is the pale
-   surface's red (--danger) and not the deep one drawn on a card. */
+   surface's red (--danger) and not the deep one a card draws — the history table's delete
+   button is that other red, under .card .btn--danger below. */
 .btn--danger {
     color: #fff5f7;
     background: var(--danger);
@@ -335,6 +336,28 @@ a.tag:hover {
     background: rgba(255, 255, 255, 0.45);
     border-color: var(--accent-ink);
 }
+
+/* The same red on a card is the deep one. The history table's delete button stands on the
+   accent, where --danger — mixed for a pale surface — would glare, so a red drawn here is
+   --danger-ink, for the reason every other control up here changes palette: the colour the
+   card does not supply has to be brought to it. Filled rather than outlined, for the reason
+   the pale one is filled: the button that takes a transaction away with no undo is the
+   heaviest thing in its row. This is also what keeps its label readable where the row's
+   other buttons sit: at this size --danger carries to about the letter the ink does. */
+.card .btn--danger {
+    color: #fff5f7;
+    background: var(--danger-ink);
+    border-color: var(--danger-ink);
+    box-shadow: 0 10px 22px rgba(138, 27, 52, 0.26);
+}
+
+.card .btn--danger:hover {
+    background: #6e1229;
+    border-color: #6e1229;
+    box-shadow: 0 14px 28px rgba(138, 27, 52, 0.32);
+}
+
+.card .btn--danger:active { transform: translateY(0); }
 
 /* the ring the .btn rule draws is the deeper teal, which would wash out against the
    card — on the card it is the accent ink, like the outline of the button it rings */
@@ -1240,7 +1263,17 @@ a.tag:hover {
    wrap, a memo or a type can be a whole sentence or a slug with no space in it, and a
    table wider than the phone it is read on scrolls inside the frame rather than pushing
    the card out of the window. The rules that override a roster rule name both classes on
-   purpose: they must win whatever order the two blocks end up in. */
+   purpose: they must win whatever order the two blocks end up in.
+
+   The admin's page — transaction-view.html — carries one column more than the sketch's
+   five: the controls at the end of each row. The red delete button takes that transaction
+   away, and the four boxes that open over a row it is clicked on retype it — that row's
+   cell holding save and cancel where the delete button was. The student's own page, which
+   is the same table and the same script, carries none of it, so every rule below is written
+   against the classes transactionview.js puts on those rows and cells
+   (.history__row--changeable, .history__row--open, .history__actions, .history__box) rather
+   than against the table — and the head row of the student's page keeps the five words it
+   has always had, while the admin's sixth column is given a word nobody sees. */
 .roster__frame.history__frame {
     border-width: 1.5px;
     border-radius: var(--radius-sm);
@@ -1298,6 +1331,78 @@ a.tag:hover {
 
 .roster__table.history__table .history__type,
 .roster__table.history__table .history__memo { overflow-wrap: anywhere; }
+
+/* The sixth column: what may be done with a row. It is as wide as the widest thing that
+   ever stands in it — the save and cancel pair, which asks about 5.6rem where the delete
+   button alone asks about 3.4rem — because a table column is as wide as its widest cell,
+   and it never wraps: the two buttons would otherwise take one line each and make the row
+   the height of a paragraph. Only the admin's page gives its rows this class. */
+.roster__table.history__table .history__actions { white-space: nowrap; }
+
+/* The controls are the app's own buttons at the size a cell can carry: the letter of a
+   table cell rather than the letter of a page, since each stands beside 0.95rem text, and
+   the same pair of palettes as the pages' own controls — the button that carries an action
+   out is the filled ink one, the one that backs out of it the ink outline. The shadow the
+   page's filled buttons carry comes off here: the frame clips it, and two shadows a button
+   apart on the same line read as a smudge. */
+.roster__table.history__table .history__actions .btn {
+    padding: 0.3rem 0.55rem;
+    font-size: 0.78rem;
+    letter-spacing: 0.01em;
+    border-radius: calc(var(--radius-sm) - 3px);
+    box-shadow: none;
+}
+
+.roster__table.history__table .history__actions .btn + .btn { margin-left: 0.4rem; }
+
+/* A row the backend answered for can be opened by clicking it, and says so under the
+   pointer: the cursor turns into the hand and the row takes the tint the roster's rows
+   already take, a shade stronger than .roster__row:hover's, because a click here does
+   something. A read that was refused, or a backend that would not take a change, leaves the
+   rows plain and without the hand. */
+.history__row--changeable { cursor: pointer; }
+
+.roster__row.history__row--changeable:hover { background: rgba(33, 255, 218, 0.42); }
+
+/* The open row holds the tint while the pointer is away from it, so the boxes on the page
+   are always boxes on the row being worked on. One shade stronger again than the hover,
+   since it is the row that stops being the backend's and starts being the typist's. */
+.roster__table.history__table tr.history__row--open { background: rgba(33, 255, 218, 0.58); }
+
+/* The boxes a row is retyped in: the page's own fields — a pale box with an ink outline on
+   the accent card (.field input) — cut down to a cell. Nothing else moves: the cell keeps
+   its own padding and its place in the table, so a row the same width as its neighbours
+   opens without the table shifting under the pointer that clicked it. The ink is the cell's
+   own rather than the field's, so a figure below zero is retyped in the red the figure was
+   read in, and the figure's digits stay fixed-width, so an amount does not step sideways
+   when it is opened. */
+.roster__table.history__table .history__box {
+    width: 100%;
+    min-width: 3.5rem;
+    padding: 0.3rem 0.4rem;
+    font-family: inherit;
+    font-size: 0.88rem;
+    color: inherit;
+    background: var(--surface);
+    border: 1.5px solid var(--accent-ink);
+    border-radius: calc(var(--radius-sm) - 3px);
+}
+
+.roster__table.history__table .history__box:hover { background: var(--surface-3); }
+
+.roster__table.history__table .history__box:focus {
+    outline: none;
+    background: var(--surface-3);
+    box-shadow: var(--ring);
+}
+
+/* the two figure columns: the same figures in the same box, so what is typed and the
+   balance under it end on the same edge — the right one */
+.roster__table.history__table td.roster__amount .history__box {
+    text-align: right;
+    font-variant-numeric: tabular-nums;
+    font-weight: 650;
+}
 
 /* ------------------------------------------------------------ footnote ---- */
 /* The foot of the card: the line that says where else you could have gone. margin-top:

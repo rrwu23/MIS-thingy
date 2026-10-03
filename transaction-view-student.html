@@ -7,8 +7,8 @@
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Comfortaa:wght@300..700&display=swap">
-    <link rel="stylesheet" href="styles.css?v=21">
-    <script src="transactionview.js?v=6" defer></script>
+    <link rel="stylesheet" href="styles.css?v=22">
+    <script src="transactionview.js?v=7" defer></script>
 </head>
 <!-- data-history="student" is what tells transactionview.js which of the two history
      pages it is standing on: the student's own page, where the student is the one the
@@ -25,7 +25,12 @@
          transactionview.js reads the username the front door's student door stored in
          sessionStorage, writes it into the line under the heading, and asks for that
          student's transactions. A browser with no student behind it is told so on the
-         status line above the table, rather than shown a table with no rows in it. -->
+         status line above the table, rather than shown a table with no rows in it.
+
+         The table is the admin's page's table minus its last column: the query above is
+         the only difference the read has, and data-history="student" on the <body> is the
+         only difference the drawing has — the page where a row may be deleted or retyped
+         is transaction-view.html, so none of that is on offer here. -->
     <div class="page">
         <main class="card">
             <header class="bar">
