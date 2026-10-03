@@ -1,0 +1,55 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Bonura bank</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Comfortaa:wght@300..700&display=swap">
+    <link rel="stylesheet" href="styles.css?v=24">
+    <script src="payroll.js?v=1" defer></script>
+</head>
+<!-- data-payroll="salary" is how payroll.js knows which of the two money pages this is: everything the
+     two don't share — the route a tick is sent to, the noun and the verb its sentences are written
+     with — hangs off that one word. rent.html is the same page with data-payroll="rent". -->
+<body data-payroll="salary">
+    <div class="page">
+        <main class="card">
+            <header class="bar">
+                <h1 class="card__title">Bonura bank</h1>
+                <a class="tag" href="/home.html">&#8592; Home</a>
+            </header>
+
+            <p class="card__hint"><strong>Pay salaries.</strong> Every student of the signed-in admin is listed in the box below, in alphabetical order. Tick the students who are to be paid &mdash; a click on a row ticks it, and a click on the same row again unticks it &mdash; and press Pay salaries. The students ticked are put in front of you once more, with the job each of them holds and the salary that job pays, and on a Y every one of them is paid, one student at a time. Only a signed-in admin's students can be paid, so the page asks the backend for permission as it loads &mdash; the button stays grey until that is answered &mdash; and asks again before anything is sent. A student the backend wrote a row for is unticked as soon as that is known, so a second press cannot pay them a second time; a student it wrote no row for stays ticked and is named under the box, so the next press tries only them. Nothing is kept between visits: a tick is a payment, and a payment that outlived the page could be sent twice.</p>
+
+            <form id="payrollform" class="form">
+                <!-- The box, drawn the way these two pages are sketched: the title across the top, the
+                     students along it and the page's button at its foot. payroll.js fills the list from
+                     the accounts of the admin behind the session cookie (GET /current-admin names that
+                     admin, GET /getuser lists their students), one <li> per student, each row a button
+                     wearing role="checkbox" so the whole row is the click's target and the tick is the
+                     row's own aria-checked state. No row is ever restored from an earlier visit. While
+                     the backend is being read, and whenever the answer leaves nobody to pay, the one
+                     <li> in the list is the line that says so. -->
+                <section class="picker picker--payroll" aria-labelledby="payrolltitle">
+                    <p class="picker__title" id="payrolltitle">Select students to pay</p>
+
+                    <ul id="payrolllist" class="picker__list picker__list--flow"
+                        aria-label="Students of the signed-in admin"></ul>
+
+                    <div class="picker__actions">
+                        <button type="submit" class="btn btn--primary" id="payrollbutton"
+                                aria-disabled="true" tabindex="-1">
+                            Pay salaries
+                        </button>
+                    </div>
+                </section>
+            </form>
+
+            <div id="payrollresults" class="results" role="status" aria-live="polite"
+                 data-empty="Asking the backend whether this browser holds an admin session&hellip;"></div>
+        </main>
+    </div>
+</body>
+</html>

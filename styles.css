@@ -1002,6 +1002,36 @@ a.tag:hover {
 
 .picker__actions .btn { min-width: 12rem; }
 
+/* ----------------------------------- pay salaries / pay rent (salary.html, rent.html) ---- */
+/* The hub's two money doors stand the same box transaction1.html picks students in, drawn the way
+   those two pages are sketched: the box tall, so it fills the card rather than hugging its rows, one
+   row per student along it — the student's name, "[uncheck]" beside it and the box a click ticks —
+   and the page's button at the foot of the box, on the left where the sketch puts it rather than
+   centred the way transaction1.html's "continue" is. The students run along the box and wrap when
+   they run out of room, which is how the sketch lays them out; everything else about each row is the
+   row styles above, unchanged. Only these two pages carry .picker--payroll, so none of this is drawn
+   on the transaction page, whose box is untouched. */
+.picker--payroll {
+    grid-template-rows: auto 1fr auto;   /* title, box, button — the button at the foot */
+    min-height: clamp(15rem, 42vh, 24rem);
+}
+
+/* the students along the box, rather than one per line: the box is wide and the rows are short */
+.picker__list--flow {
+    display: flex;
+    flex-wrap: wrap;
+    align-content: flex-start;
+    gap: 0.15rem 1rem;
+}
+
+/* a flowed row is as wide as its student and "[uncheck]", not the whole box */
+.picker__list--flow .picker__option { width: auto; }
+
+.picker--payroll .picker__actions {
+    justify-content: flex-start;
+    margin-top: 0;
+}
+
 .form__actions {
     display: flex;
     flex-wrap: wrap;

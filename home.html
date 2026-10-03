@@ -7,14 +7,14 @@
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Comfortaa:wght@300..700&display=swap">
-    <link rel="stylesheet" href="styles.css?v=23">
+    <link rel="stylesheet" href="styles.css?v=24">
     <script src="app.js?v=21" defer></script>
 </head>
 <body>
     <!-- index.html is the front door: the sign-in card, and nothing else. This is the
          page behind it — one card filled with the bank's teal, the way the sketch
          draws it: the bank's name, the greeting that names the admin who is signed in,
-         the six doors in two columns, and Sign out on its own at the foot. Every
+         the eight doors in two columns, and Sign out on its own at the foot. Every
          finished flow in the app comes back here. -->
     <div class="page">
         <main class="hub">
@@ -30,15 +30,16 @@
                 <p class="hub__question">Would you like to:</p>
             </div>
 
-            <!-- The doors. Each of the six opens a page of its own, so each is a link: View
+            <!-- The doors. Each of the eight opens a page of its own, so each is a link: View
                  students opens students.html, where the students of this admin, the balance
                  on each account, the job each of them has been given and the salary that job
                  pays are listed as a table, and the history door beside it
                  opens transaction-view-middle.html, which asks for the student name, and
                  whose Next pops up a table of all that student's transactions
-                 (transaction-view.html). Six doors fill the grid two by two, three rows
-                 deep, and Rotate jobs takes the last of them: it belongs on this card, being
-                 the one page the old foot-of-card chips used to carry. -->
+                 (transaction-view.html). The doors fill the grid two by two, four rows deep, and
+                 Rotate jobs takes the sixth of them: it belongs on this card, being the one page the
+                 old foot-of-card chips used to carry. The last two are the money doors, Pay salaries
+                 and Pay rent, added beside it. -->
             <nav class="hub__actions" aria-label="What the bank can do">
                 <a class="btn btn--door" href="/transaction1.html">Add transaction</a>
                 <a class="btn btn--door" href="/addaccount.html">Add student</a>
@@ -57,6 +58,15 @@
                      when this browser holds no admin session. -->
                 <a class="btn btn--door" href="/transaction-view-middle.html">View student transaction history</a>
                 <a class="btn btn--door" href="/job_rotation.html">Rotate jobs</a>
+                <!-- The two money doors, at the foot of the grid: each opens a page of its own —
+                     salary.html and rent.html, one script behind both — where the students of the
+                     signed-in admin are listed in a box and the ticked ones are paid the salary of
+                     their job (POST /pay-salary) or charged the rent (POST /pay-rent), one student at
+                     a time. Like the history door beside them they are plain links, so app.js knows
+                     nothing about them: each page refuses on its own when this browser holds no admin
+                     session. -->
+                <a class="btn btn--door" href="/salary.html">Pay salaries</a>
+                <a class="btn btn--door" href="/rent.html">Pay rent</a>
             </nav>
 
             <!-- Everything the hub has to say: a greeting that could name nobody, a Sign out
