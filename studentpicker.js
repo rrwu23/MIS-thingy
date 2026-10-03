@@ -1,14 +1,18 @@
 // Typing dropdown for the student field on the pages that ask for a name by hand:
-// transaction1.html, which starts a transaction, transaction-view-middle.html, which
-// opens a history, and remove.html, which takes a student away. The two transaction
-// pages carry the same field, list and hint ids, so this one file has always served
-// both; remove.html names its own field for what it is there (removestudentname), so
-// the field is found by its data-student-picker attribute and the list and the hint are
-// read off the aria-controls and aria-describedby that field already carries. Whichever
-// page it is, this file only ever writes the chosen name into the field, and whatever
-// checks that field stays where it was: sessionstorage.js on the two transaction pages,
-// which reads the input when Next is clicked or the form is submitted, and app.js's
-// remove page on remove.html, which reads the same input when its form is submitted.
+// transaction-view-middle.html, which opens a history, and remove.html, which takes a
+// student away. It used to dress transaction1.html's field too, but that page asks with
+// the box of students sessionstorage.js draws instead — every student of the signed-in
+// admin listed, each one picked with a click — so the field, the list and the hint there
+// are gone and this file is loaded by the other two pages alone.
+// transaction-view-middle.html gives the field the id #student_username, the same id the
+// two pages used to share; remove.html names its own field for what it is there
+// (removestudentname), so the field is found by its data-student-picker attribute and the
+// list and the hint are read off the aria-controls and aria-describedby that field already
+// carries. Whichever page it is, this file only ever writes the chosen name into the
+// field, and whatever checks that field stays where it was: sessionstorage.js on the
+// history page, which reads the input when Next is clicked or the form is submitted, and
+// app.js's remove page on remove.html, which reads the same input when its form is
+// submitted.
 //
 // As the admin types into #student_username this file shows the accounts whose
 // name matches what has been typed so far, so a username never has to be
@@ -67,9 +71,9 @@ const PICKER_STUDENT_SUPERVISOR_KEYS = ['supervisor', 'owner', 'manager'];
 // its letter instead of being split around it.
 const STUDENT_WORD_PATTERN = /\p{L}[\p{L}\p{N}]*/gu;
 
-// The field this picker dresses. transaction1.html and transaction-view-middle.html call
-// it #student_username; remove.html has a field of its own name there, so it marks the
-// input with data-student-picker instead.
+// The field this picker dresses. transaction-view-middle.html calls it #student_username;
+// remove.html has a field of its own name there, so it marks the input with
+// data-student-picker instead.
 const studentInput =
     document.getElementById('student_username') ??
     document.querySelector('input[data-student-picker]');

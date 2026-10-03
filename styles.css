@@ -21,7 +21,7 @@
    fallback shown while the webfont swaps in.
    Loaded by every page in the project.
    Every page links this file as styles.css?v=N, and its own scripts the same way, each
-   asset carrying its own N — this one is at 22. Bump the N of whichever file has
+   asset carrying its own N — this one is at 23. Bump the N of whichever file has
    changed, the stylesheet for a new look or a script for new behaviour: the host sends
    assets with max-age=14400, so without a new URL a browser can go on painting a
    four-hour-old copy — of this file or of app.js — while the HTML around it is
@@ -815,12 +815,13 @@ a.tag:hover {
 }
 
 /* ------------------------------------------------- typing dropdown ---- */
-/* The username fields — transaction1.html and transaction-view-middle.html — and the
-   student name field on remove.html suggest account names while they are typed. The list
-   is a plain <ul> the script fills, laid over what is below it. studentpicker.js finds
-   each field by id (the two transaction pages) or by its data-student-picker attribute
-   (remove.html), and the list and hint off the aria-controls and aria-describedby the
-   field carries. */
+/* The username field on transaction-view-middle.html and the student name field on
+   remove.html suggest account names while they are typed. The list is a plain <ul> the
+   script fills, laid over what is below it. studentpicker.js finds each field by id
+   (transaction-view-middle.html) or by its data-student-picker attribute (remove.html),
+   and the list and hint off the aria-controls and aria-describedby the field carries.
+   transaction1.html's box of students, which asks the same question without a typed field,
+   is the .picker block below. */
 .combo { position: relative; }
 
 /* room on the right edge for the same hollow triangle as .panel select */
@@ -894,6 +895,112 @@ a.tag:hover {
    box, where --danger would only reach about 3.9:1 against the accent — this is the
    same red, deep enough to read up there */
 .combo__hint--error { color: var(--danger-ink); }
+
+/* ------------------------------------------------- student picker ---- */
+/* transaction1.html's box: the sketch draws it rounded, with the title across the top, one row
+   per student inside it — the student's name, the word "[choose]" and the empty box a click
+   ticks — and "continue" at the foot. The sketch fills the box pale blue, which is the sketch's
+   own colour and not one of this app's: the card the box stands on is the accent, so the box is
+   the pale surface every other control borrows (--surface), outlined in the accent ink the fields
+   and the tag wear, and the box the eye reads as the tick is drawn in that same ink. The rows are
+   drawn by sessionstorage.js; the tick and the picked row's tint are the row's own aria-checked
+   state, so no part of a pick is styled from the script. */
+.picker {
+    display: grid;
+    gap: 1rem;
+    padding: clamp(1rem, 3vw, 1.5rem);
+    background: var(--surface);
+    border: 1.5px solid var(--accent-ink);
+    border-radius: var(--radius);
+}
+
+/* the sketch's title, across the top of the box */
+.picker__title {
+    margin: 0;
+    text-align: center;
+    font-weight: 600;
+    color: var(--accent-ink);
+}
+
+.picker__list {
+    display: grid;
+    gap: 0.15rem;
+    margin: 0;
+    padding: 0;
+    list-style: none;
+}
+
+/* One row, and the whole of it is the button: the name, "[choose]" and the box are its three
+   spans, so the click, the hover tint and the focus ring are the row's rather than a small
+   target's inside it — clicking a name picks the student exactly as clicking the box does. */
+.picker__option {
+    display: flex;
+    align-items: center;
+    gap: 0.6rem;
+    width: 100%;
+    padding: 0.5rem 0.55rem;
+    font-family: inherit;
+    font-size: 1rem;
+    color: var(--accent-ink);
+    text-align: left;
+    background: none;
+    border: 1.5px solid transparent;
+    border-radius: var(--radius-sm);
+    cursor: pointer;
+}
+
+.picker__option:hover { background: rgba(33, 255, 218, 0.26); }
+
+/* keyboard focus has to be as plain to see as the tint a pointer gets */
+.picker__option:focus-visible {
+    outline: 2px solid var(--accent-ink);
+    outline-offset: 2px;
+}
+
+/* the name takes the room, so "[choose]" and the box stand at the end of the row whatever the
+   name is — the sketch's line, wrapping under itself when the row is narrow */
+.picker__name { flex: 1 1 auto; overflow-wrap: anywhere; }
+
+.picker__choose { flex: none; color: var(--accent-ink-soft); }
+
+/* the box at the end of the row: empty while the student is not picked, ticked while they are,
+   both read off the row's own aria-checked */
+.picker__box {
+    flex: none;
+    display: grid;
+    place-items: center;
+    width: 1.35rem;
+    height: 1.35rem;
+    background: var(--surface-3);
+    border: 1.5px solid var(--accent-ink);
+    border-radius: 5px;
+}
+
+.picker__option[aria-checked="true"] .picker__box {
+    color: var(--surface-3);
+    background: var(--accent-ink);
+}
+
+.picker__option[aria-checked="true"] .picker__box::before { content: "\2713"; }
+
+/* a picked row keeps the tint a hovered row has, so the tick is not the only thing saying it */
+.picker__option[aria-checked="true"] { background: rgba(33, 255, 218, 0.20); }
+
+/* the one line the box says while the backend is being read, or when there is no list to draw */
+.picker__note {
+    padding: 0.5rem 0.55rem;
+    font-size: 0.96rem;
+    color: var(--accent-ink-soft);
+}
+
+/* "continue" at the foot of the box, where the sketch centres it */
+.picker__actions {
+    display: flex;
+    justify-content: center;
+    margin-top: 0.4rem;
+}
+
+.picker__actions .btn { min-width: 12rem; }
 
 .form__actions {
     display: flex;

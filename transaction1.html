@@ -7,9 +7,8 @@
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Comfortaa:wght@300..700&display=swap">
-    <link rel="stylesheet" href="styles.css?v=22">
-    <script src="sessionstorage.js?v=3" defer></script>
-    <script src="studentpicker.js?v=5" defer></script>
+    <link rel="stylesheet" href="styles.css?v=23">
+    <script src="sessionstorage.js?v=4" defer></script>
 </head>
 <body>
     <div class="page">
@@ -19,34 +18,42 @@
                 <a class="tag" href="/home.html">&#8592; Home</a>
             </header>
 
-            <p class="card__hint"><strong>Transaction.</strong> Enter the student username to start a transaction for that account &mdash; start typing the first letters of the name and the matching accounts come up, so <em>rong</em> finds <em>Rongrong Wu</em>. Only a signed-in admin may open one, so the page asks the backend for permission as it loads, and asks it again about the student when you press Next.</p>
+            <p class="card__hint"><strong>Transaction.</strong> Pick the student the transaction is for from the box below &mdash; every student of the signed-in admin is listed there, and a click on a row picks that student while a second click on the same row unpicks them. The students picked together are remembered as sharing the one transaction the flow is about to enter: one key per picked student, every one of them carrying the same mark, with the whole pick kept in one key beside them. Only a signed-in admin may open a transaction, so the page asks the backend for permission as it loads, lists the students only once that permission is given, and asks it again about the picked students when you press continue.</p>
 
             <form id="transactionform" class="form">
-                <div class="field">
-                    <label for="student_username">Enter student username for transaction</label>
+                <!-- The sketch's box, drawn as it draws it: the title across the top, one row
+                     per student inside it — the student's name, the word "[choose]" and the box a
+                     click ticks — and "continue" at the foot. sessionstorage.js fills the list
+                     from the accounts of the admin behind the session cookie (GET /current-admin
+                     names that admin, GET /getuser lists their students), draws each row as a
+                     button wearing role="checkbox" so the whole row is the click's target and the
+                     tick is the row's own aria-checked state, and remembers the pick as it is
+                     made: one sessionStorage key per picked student, every one of them holding the
+                     same mark, because the students picked together share the one transaction the
+                     flow is about to enter. No row opens anything on its own: continue asks the
+                     backend about every picked student first, and only then is the pick the pages
+                     after this one read written — the first picked student under the same
+                     student_username key the typed page stores, exactly as that page stores it.
+                     The four type links behind continue, the type pages and the pages that open
+                     the transaction are untouched by any of this.
 
-                    <!-- Typing dropdown: studentpicker.js fills #studentlist with the
-                         accounts from GET /getuser and filters it down to the ones
-                         whose initials match what has been typed (rong finds
-                         Rongrong Wu). The input keeps its id and name so
-                         sessionstorage.js reads it exactly as before; autocomplete
-                         is off so the browser's own suggestions cannot cover the
-                         list. -->
-                    <div class="combo">
-                        <input type="text" id="student_username" name="student_username"
-                               autocomplete="off" required
-                               role="combobox" aria-expanded="false" aria-controls="studentlist"
-                               aria-autocomplete="list" aria-describedby="studenthint">
-                        <ul id="studentlist" class="combo__list" role="listbox"
-                            aria-label="Student accounts" hidden></ul>
+                     The list is a <ul> the script fills, one <li> per student; while the backend
+                     is being read, and when it answers with nothing or cannot be reached, the one
+                     <li> in it is the line that says so. -->
+                <section class="picker" aria-labelledby="pickertitle">
+                    <p class="picker__title" id="pickertitle">Select student for transaction</p>
+
+                    <ul id="studentpicklist" class="picker__list"
+                        aria-label="Students of the signed-in admin"></ul>
+
+                    <!-- continue, as the sketch writes it: the one button on the page, and the
+                         same link the typed page's Next is (the id transactionnext is what
+                         sessionstorage.js holds back until the backend has confirmed both the
+                         session and at least one picked student). -->
+                    <div class="picker__actions">
+                        <a class="btn btn--primary" id="transactionnext" href="/transaction-middle.html">continue</a>
                     </div>
-
-                    <p id="studenthint" class="combo__hint" role="status" aria-live="polite" hidden></p>
-                </div>
-
-                <div class="form__actions">
-                    <a class="btn btn--primary" id="transactionnext" href="/transaction-middle.html">Next</a>
-                </div>
+                </section>
             </form>
 
             <div id="transactionsession" class="results" role="status" aria-live="polite"
