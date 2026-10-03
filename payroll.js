@@ -609,7 +609,7 @@ function buildConfirmDialog() {
     const actions = document.createElement('div');
     actions.className = 'confirm__actions';
 
-    confirmYes = confirmButton(CONFIRM_YES, 'btn--danger', true);
+    confirmYes = confirmButton(CONFIRM_YES, 'btn--primary', true);
     confirmNo = confirmButton(CONFIRM_NO, 'btn--ghost', false);
     actions.append(confirmYes, confirmNo);
 
@@ -651,11 +651,15 @@ function askConfirmation(question, text, options = {}) {
     }
 
     // The dialog is built once and asked again on every press, so every word on the panel is written
-    // over the last question: the heading, the sentence, and the yes button's colour — red, because
-    // paying cannot be taken back.
+    // over the last question: the heading, the sentence, and the yes button's colour — the accent
+    // green .btn--primary, the ordinary button that takes you further in, which is the treatment the
+    // approving pages' Y wears too. The two money answers are not the remove page's: that question
+    // takes a student away for good and asks it in the red, while paying a salary and charging the
+    // rent are what these two pages are for, and the answer that does them looks like the answer
+    // that does anything else. N keeps the quiet outline beside it.
     confirmHeading.textContent = question;
     confirmText.textContent = text;
-    confirmYes.className = `btn ${options.danger ? 'btn--danger' : 'btn--primary'}`;
+    confirmYes.className = 'btn btn--primary';
 
     confirmBack = options.returnFocus ?? null;
     confirmDialog.hidden = false;
@@ -911,7 +915,6 @@ async function runPayment() {
         }
 
         const confirmed = await askConfirmation(payrollQuestion(), describePayment(picked), {
-            danger: true,
             returnFocus: payrollButton
         });
 
