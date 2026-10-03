@@ -47,7 +47,14 @@ const SIGNED_IN_STUDENT_KEY = 'student_login';
 // ended it on — and the last of them is the balance this page draws. Kept in sync by hand
 // with STUDENT_HISTORY_URL and HISTORY_URL in transactionview.js, which reads the same
 // route for the same student's history page.
-const HISTORY_URL = 'https://api.rongrongwu.com/transaction-student-history';
+// Every route below is asked of this site's own origin —
+// `${API_ORIGIN}/transaction-student-history`, and '/api' once the page is on the deployed
+// site — where the Cloudflare Pages Function functions/api/[[path]].js fetches the same
+// route from the API and hands the answer back, the session cookie included. apibase.js,
+// loaded before this file on every page, carries that origin and says why the API is no
+// longer asked by its own hostname (a SameSite=lax cookie cannot cross from bonurabank.ca to
+// rongrongwu.com). What follows API_ORIGIN is the API's own route, unchanged.
+const HISTORY_URL = `${API_ORIGIN}/transaction-student-history`;
 
 // The fields a transaction may carry its ending balance in, most likely first — the same
 // list transactionview.js fills the history page's last column from. The route is untyped,
@@ -58,7 +65,7 @@ const BALANCE_KEYS = ['ending_balance', 'balance_after', 'end_balance', 'balance
 // Ending the session: POST /logout, the route the admin's own hub posts as well. Kept in
 // sync by hand with LOGOUT_URL in app.js — one route, written out in the two files that
 // post it, the way the session keys are.
-const LOGOUT_URL = 'https://api.rongrongwu.com/logout';
+const LOGOUT_URL = `${API_ORIGIN}/logout`;
 
 // The front door, index.html — the sign-in card. That is where a browser that has just
 // given up its session belongs, since the card holds nothing but the signing in; kept in

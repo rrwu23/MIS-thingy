@@ -49,13 +49,20 @@ const VIEW_NEXT_URL = '/transaction-view.html';
 // ?name=a&supervisor=d answers []), so the two filters together are the direct
 // answer to "is this a student of mine?", and the admin's own list is only fetched
 // when they answered nothing, to still accept a username typed in the wrong case.
-const STUDENT_ACCOUNTS_URL = 'https://api.rongrongwu.com/getuser';
+// Every route below is asked of this site's own origin — `${API_ORIGIN}/getuser`, and
+// '/api' once the page is on the deployed site — where the Cloudflare Pages Function
+// functions/api/[[path]].js fetches the same route from the API and hands the answer back,
+// the session cookie included. apibase.js, loaded before this file on every page, carries
+// that origin and says why the API is no longer asked by its own hostname (a SameSite=lax
+// cookie cannot cross from bonurabank.ca to rongrongwu.com). What follows API_ORIGIN is the
+// API's own route, unchanged.
+const STUDENT_ACCOUNTS_URL = `${API_ORIGIN}/getuser`;
 
 // Who the student has to belong to: GET /current-admin answers the admin behind the
 // session cookie — the route the home page's "Get current admin" button asks, and the
 // picker on this page asks it too — and every account this flow confirms has to name
 // that admin as its supervisor.
-const CURRENT_ADMIN_URL = 'https://api.rongrongwu.com/current-admin';
+const CURRENT_ADMIN_URL = `${API_ORIGIN}/current-admin`;
 
 // Fields the GET /current-admin reply may carry the admin name in, most likely
 // first — the route is untyped, openapi.json only promises an object of strings.
@@ -78,7 +85,7 @@ const INVALID_STUDENT_MESSAGE = 'invalid user, make sure you typed it right/add 
 //                                      session was accepted and permission is
 //                                      granted. An empty body can never create
 //                                      a user, so the check changes nothing.
-const PERMISSION_URL = 'https://api.rongrongwu.com/adduser';
+const PERMISSION_URL = `${API_ORIGIN}/adduser`;
 
 // 422 is the "you are logged in" answer, not a failure — but Chrome still prints
 // it in red ("422 (Unprocessable Content)") because that is what the HTTP status

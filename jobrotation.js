@@ -56,18 +56,25 @@
 // than shared: studentpicker.js and sessionstorage.js do the same, and no page ever
 // loads two of them.
 
-const JOB_STUDENTS_URL = 'https://api.rongrongwu.com/getuser';
-const JOB_ADMIN_URL = 'https://api.rongrongwu.com/current-admin';
+// Every route below is asked of this site's own origin — `${API_ORIGIN}/getuser`, and '/api'
+// once the page is on the deployed site — where the Cloudflare Pages Function
+// functions/api/[[path]].js fetches the same route from the API and hands the answer back,
+// the session cookie included. apibase.js, loaded before this file on every page, carries
+// that origin and says why the API is no longer asked by its own hostname (a SameSite=lax
+// cookie cannot cross from bonurabank.ca to rongrongwu.com). What follows API_ORIGIN is the
+// API's own route, unchanged.
+const JOB_STUDENTS_URL = `${API_ORIGIN}/getuser`;
+const JOB_ADMIN_URL = `${API_ORIGIN}/current-admin`;
 
 // The app's admin-session probe, the route app.js (ADMIN_CHECK_URL) and sessionstorage.js
 // (PERMISSION_URL) ask as well — POST with an empty body, because an empty body is refused
 // before anything else is looked at, which is how the app hears whether the session cookie
 // is still good. Spelled and kept here rather than shared: no page ever loads two of these
 // scripts, so each one carries the routes it asks.
-const JOB_PERMISSION_URL = 'https://api.rongrongwu.com/adduser';
+const JOB_PERMISSION_URL = `${API_ORIGIN}/adduser`;
 
-const JOBS_URL = 'https://api.rongrongwu.com/get-jobs';
-const SET_JOBS_URL = 'https://api.rongrongwu.com/set-jobs';
+const JOBS_URL = `${API_ORIGIN}/get-jobs`;
+const SET_JOBS_URL = `${API_ORIGIN}/set-jobs`;
 
 // Fields the GET /current-admin reply may carry the admin name in, most likely first
 // — the route is untyped, openapi.json only promises an object of strings.

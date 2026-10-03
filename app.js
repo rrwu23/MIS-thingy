@@ -72,8 +72,12 @@ form?.addEventListener('submit', async function(event) {
   // Convert the FormData into a standard JavaScript object
 
   try {
-    // 4. Send the request to your server
-    const response = await fetch('https://api.rongrongwu.com/adduser', {
+    // 4. Send the request to your server — this site's own /api route, which the Cloudflare
+    // Pages Function functions/api/[[path]].js fetches from the API and hands straight back,
+    // the session cookie with it (apibase.js carries API_ORIGIN and says why the API is no
+    // longer asked by its own hostname; the note above GET_USERS_URL says the same for every
+    // other route in this file).
+    const response = await fetch(`${API_ORIGIN}/adduser`, {
       method: 'POST', // Use POST to send data
       credentials: "include", // Send the admin session cookie, else 401 "Not logged in"
       body: formData
@@ -122,7 +126,14 @@ form?.addEventListener('submit', async function(event) {
 // instead of being dropped by a list of names written out here by hand — the
 // password being the one deliberate exception, skipped by ACCOUNT_HIDDEN_FIELDS
 // below.
-const GET_USERS_URL = 'https://api.rongrongwu.com/getuser';
+// Every route below is asked of this site's own origin — `${API_ORIGIN}/getuser`, and '/api'
+// once the page is on the deployed site — where the Cloudflare Pages Function
+// functions/api/[[path]].js fetches the same route from the API and hands the answer back,
+// the session cookie included. apibase.js, loaded before this file on every page, carries
+// that origin and says why the API is no longer asked by its own hostname (a SameSite=lax
+// cookie cannot cross from bonurabank.ca to rongrongwu.com). What follows API_ORIGIN is the
+// API's own route, unchanged.
+const GET_USERS_URL = `${API_ORIGIN}/getuser`;
 
 // Fields the query never shows, lower-cased. GET /getuser does answer each account's
 // own password (checked live: {"name": "hi there", "password": "hi", …}), and the
@@ -275,7 +286,7 @@ function showAccountMessage(results, text, isError) {
 // an admin has signed in, because the session lives in the backend's cookie and not in
 // the page — which is why the request sends credentials: "include", and why a refused
 // signup is said out loud under the form instead of only being logged.
-const ADD_ADMIN_URL = 'https://api.rongrongwu.com/add-admin';
+const ADD_ADMIN_URL = `${API_ORIGIN}/add-admin`;
 
 const adminForm = document.getElementById('addadminform');
 
@@ -359,7 +370,7 @@ adminForm?.addEventListener('submit', async function (event) {
 // https://api.rongrongwu.com/openapi.json). /adduser and /add-admin answer
 // 401 {"detail": "Not logged in"} until this login has stored the session
 // cookie, which is why every API call sends credentials: "include".
-const LOGIN_URL = 'https://api.rongrongwu.com/login';
+const LOGIN_URL = `${API_ORIGIN}/login`;
 
 // Where a finished flow goes: the home page, home.html — the buttons, and behind them
 // the doors to every other page, the student balances table among them. It is *not*
@@ -508,7 +519,7 @@ signInForm?.addEventListener('submit', async function (event) {
 // form's submit, so Enter inside a box still means the admin login; the boxes are
 // therefore put past the browser's own check here, because a button does not ask the
 // browser to run it the way a submit does.
-const STUDENT_LOGIN_URL = 'https://api.rongrongwu.com/student-login';
+const STUDENT_LOGIN_URL = `${API_ORIGIN}/student-login`;
 
 // Where the student's own pages are, and whose they are. The username the student sign
 // in went through with is kept in sessionStorage under this key, and the student's hub
@@ -631,7 +642,7 @@ function homePageLink() {
 // 401 {"detail": "Not logged in"} without one — checked live with curl, exactly like
 // the other protected routes. So the requests send credentials: "include", the same
 // as the login and add-admin forms above.
-const CURRENT_ADMIN_URL = 'https://api.rongrongwu.com/current-admin';
+const CURRENT_ADMIN_URL = `${API_ORIGIN}/current-admin`;
 
 // The front door, index.html — the sign-in card. That is where the browser belongs
 // once the session has been given up, or once it turns out there is none; HOME_URL
@@ -798,8 +809,8 @@ function describeCurrentAdmin(payload) {
 //                                        which is the figure the job-salary column pairs
 //                                        a job with. Asked only when a job was read, so a
 //                                        table of students with no jobs costs no request
-const STUDENTS_URL = 'https://api.rongrongwu.com/getuser';
-const BALANCE_URL = 'https://api.rongrongwu.com/get-balance';
+const STUDENTS_URL = `${API_ORIGIN}/getuser`;
+const BALANCE_URL = `${API_ORIGIN}/get-balance`;
 
 // The `type` column value a job's salary is filed under, in the table's own spelling —
 // the same value the reason pages carry in data-reason-type, and the one the slug for the
@@ -1117,7 +1128,7 @@ function describeRemoval(student) {
 // the backend does not know is answered 200 as well, so a sentence may only say "removed"
 // once `deleted` is a number above zero. A body without `student` is refused with
 // 422 {"detail": [{"type": "missing", "loc": ["body", "student"], "msg": "Field required"}]}.
-const REMOVE_STUDENT_URL = 'https://api.rongrongwu.com/remove-student';
+const REMOVE_STUDENT_URL = `${API_ORIGIN}/remove-student`;
 
 // The body the route is written with: exactly the one field it asks for, the name as it was
 // typed (trimmed by the submit handler), and nothing else — the same "only what the route
@@ -1348,7 +1359,7 @@ removeForm?.addEventListener('submit', async function (event) {
 // Max-Age=0, so the session every other page leans on is gone by the time the answer
 // arrives — which is why the browser is handed back to the front door, where the
 // sign-in card is, once the sentence has been read.
-const LOGOUT_URL = 'https://api.rongrongwu.com/logout';
+const LOGOUT_URL = `${API_ORIGIN}/logout`;
 
 const signOutButton = document.getElementById('signout');
 
@@ -1630,7 +1641,7 @@ async function jobSalaries() {
 // else, so the request can only ever ask for the type column's own list, and the
 // built-in options a page ships with stay in place whenever the request fails or
 // comes back with nothing usable.
-const REASONS_URL = 'https://api.rongrongwu.com/reasons';
+const REASONS_URL = `${API_ORIGIN}/reasons`;
 
 // The slug the API names a `type` column value by: everything lower case, every run
 // of anything that is not a letter or a digit turned into one hyphen.
@@ -1677,7 +1688,7 @@ function reasonSlugFromType(type) {
 // Nothing of this browser's session is what authorizes the write: the same body answered
 // 200 with no cookie at all, so the five fields below are the whole of what this page has
 // to get right.
-const RECORD_URL = 'https://api.rongrongwu.com/transaction-record';
+const RECORD_URL = `${API_ORIGIN}/transaction-record`;
 
 // The clock, in the shape a row's `date` carries, so a row this app writes reads like a row
 // the backend writes: YYYY/MM/DD HH:mm, as in 2026/09/29 16:17 — the shape the history column
@@ -1811,7 +1822,7 @@ const DATE_PROMPT = 'The date box has to hold a day — pick one from its calend
 //                                      session cookie was accepted. An empty body
 //                                      can never create a user, so the check
 //                                      changes nothing.
-const ADMIN_CHECK_URL = 'https://api.rongrongwu.com/adduser';
+const ADMIN_CHECK_URL = `${API_ORIGIN}/adduser`;
 
 // The student this transaction is for, stored by transaction1.html. Kept in sync
 // with STUDENT_USERNAME_KEY in sessionstorage.js.

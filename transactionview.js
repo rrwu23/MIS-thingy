@@ -68,14 +68,21 @@
 // draws, and that id is the field a delete names the row by. A read that was refused says
 // what the backend answered rather than showing a table with no rows in it, which would
 // read as "this student never had a transaction".
-const ADMIN_HISTORY_URL = 'https://api.rongrongwu.com/gettransactions';
+// Every route below is asked of this site's own origin — `${API_ORIGIN}/gettransactions`,
+// and '/api' once the page is on the deployed site — where the Cloudflare Pages Function
+// functions/api/[[path]].js fetches the same route from the API and hands the answer back,
+// the session cookie included. apibase.js, loaded before this file on every page, carries
+// that origin and says why the API is no longer asked by its own hostname (a SameSite=lax
+// cookie cannot cross from bonurabank.ca to rongrongwu.com). What follows API_ORIGIN is the
+// API's own route, unchanged.
+const ADMIN_HISTORY_URL = `${API_ORIGIN}/gettransactions`;
 
 // The student's own way in: the transactions of the student this browser signed in as, in
 // the same ?student= query, answered by the same five-column table — the same format as
 // the admin's route, because it is the same question about the same records. The name is
 // not typed on that page and not confirmed by the page before it: it is the account the
 // student sign in on the front door went through with.
-const STUDENT_HISTORY_URL = 'https://api.rongrongwu.com/transaction-student-history';
+const STUDENT_HISTORY_URL = `${API_ORIGIN}/transaction-student-history`;
 
 // Which of the two pages this script is standing on, which the page says about itself:
 // transaction-view-student.html carries data-history="student" on its <body>, and the
@@ -629,13 +636,13 @@ function showHistoryMessage(results, text, isError) {
 // then have two rows to choose between. (A record whose id is not the integer the route
 // declares — a word, a missing field — is refused by the backend with 422, and that refusal is
 // said out loud rather than passed over.)
-const REMOVE_URL = 'https://api.rongrongwu.com/remove';
+const REMOVE_URL = `${API_ORIGIN}/remove`;
 
 // Where the new row of a change is written: the very route, with the very five fields, that
 // the four transaction-type pages record an approved transaction with — user, amount, type,
 // date, memo — so a row this page writes and a row those pages write come out alike, and the
 // two flows cannot drift into two shapes.
-const RECORD_URL = 'https://api.rongrongwu.com/transaction-record';
+const RECORD_URL = `${API_ORIGIN}/transaction-record`;
 
 // Where this browser is asked whether it still holds an admin session, which is asked
 // immediately before either of the two routes above is called: the app's own probe, POST
@@ -643,7 +650,7 @@ const RECORD_URL = 'https://api.rongrongwu.com/transaction-record';
 // (PERMISSION_URL) and jobrotation.js (JOB_PERMISSION_URL) ask the same question with. The
 // empty body is the point of it: whatever the backend does with the request, it cannot have
 // been asked to create an account, so the probe changes nothing.
-const ADMIN_CHECK_URL = 'https://api.rongrongwu.com/adduser';
+const ADMIN_CHECK_URL = `${API_ORIGIN}/adduser`;
 
 // The four columns a row is retyped in: the date, the amount, the type and the memo — the four
 // an admin fills in by hand on the approving pages, so the four this page hands back. The
