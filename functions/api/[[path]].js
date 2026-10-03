@@ -70,6 +70,16 @@ function cookiesIn(headers) {
     return typeof headers.getSetCookie === 'function' ? headers.getSetCookie() : [];
 }
 
+// How long the API is given to answer — the first byte of its answer, headers and all —
+// before the call is given up on. A hung backend is the one failure that would otherwise
+// hang the page with it, since the browser waits on this Function exactly as long as the
+// Function waits on the API; with the limit in place a stalled API becomes a 502 the
+// pages' status lines can read out, in the shape they already read "the api could not be
+// reached" from. 20 seconds is far past anything a healthy call to this API takes (the
+// slowest live read, the students table, answers in well under a second) and short enough
+// that an admin is not left watching a spinner.
+const API_TIMEOUT_MS = 20000;
+
 export async function onRequest(context) {
     const { request, params } = context;
 
@@ -102,20 +112,33 @@ export async function onRequest(context) {
         call.body = request.body;
     }
 
+    // The call is given a limit (API_TIMEOUT_MS): the timer is started before the fetch and
+    // stopped the moment the API's answer is in hand, so it covers a backend that never
+    // answers without ever cutting short a response that has already begun.
+    const controller = new AbortController();
+    const giveUp = setTimeout(() => controller.abort(), API_TIMEOUT_MS);
+
     let answer;
 
     try {
-        answer = await fetch(target, call);
+        answer = await fetch(target, { ...call, signal: controller.signal });
     } catch (error) {
-        // The API could not be reached at all — a DNS or TLS failure, a refused connection.
-        // That is the one failure this Function can add a sentence of its own to, and it is
-        // said in the shape the pages already read best: a JSON body with a `detail` string,
-        // which their error lines show as they show the API's own refusals.
-        return new Response(JSON.stringify({ detail: `the api at ${API_ORIGIN} could not be reached (${error.message})` }), {
-            status: 502,
+        // The API did not answer: a DNS or TLS failure, a refused connection, or the limit
+        // above running out (which is a 504 rather than a 502, the two ways a gateway can
+        // fail to get an answer). Either one is said in the shape the pages already read
+        // best — a JSON body with a `detail` string, which their error lines show exactly as
+        // they show the API's own refusals.
+        const detail = controller.signal.aborted
+            ? `the api at ${API_ORIGIN} did not answer within ${API_TIMEOUT_MS / 1000} seconds`
+            : `the api at ${API_ORIGIN} could not be reached (${error.message})`;
+
+        return new Response(JSON.stringify({ detail }), {
+            status: controller.signal.aborted ? 504 : 502,
             headers: { 'Content-Type': 'application/json' }
         });
     }
+
+    clearTimeout(giveUp);
 
     const answerHeaders = new Headers();
 
