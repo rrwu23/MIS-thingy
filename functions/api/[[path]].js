@@ -73,12 +73,16 @@ function cookiesIn(headers) {
 // How long the API is given to answer — the first byte of its answer, headers and all —
 // before the call is given up on. A hung backend is the one failure that would otherwise
 // hang the page with it, since the browser waits on this Function exactly as long as the
-// Function waits on the API; with the limit in place a stalled API becomes a 502 the
-// pages' status lines can read out, in the shape they already read "the api could not be
-// reached" from. 20 seconds is far past anything a healthy call to this API takes (the
-// slowest live read, the students table, answers in well under a second) and short enough
-// that an admin is not left watching a spinner.
-const API_TIMEOUT_MS = 20000;
+// Function waits on the API; with the limit in place a stalled API becomes an answer of its
+// own, in the shape the pages' status lines already read "the api could not be reached" from.
+// 15 seconds is far past anything a healthy call to this API takes (the slowest live read,
+// the students table, answers in well under a second), short enough that an admin is not
+// left watching a spinner, and — this is why it is 15 and not 20 — comfortably inside the
+// edge's own patience: a backend that stopped answering altogether was seen during an
+// outage on 2026-10-03 to be cut off by Cloudflare at around 20 seconds with a plain-text
+// "error code: 504" that no page can read anything out of. Ending the wait first is what
+// makes the sentence below the thing that gets shown.
+const API_TIMEOUT_MS = 15000;
 
 export async function onRequest(context) {
     const { request, params } = context;
