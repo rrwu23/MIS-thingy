@@ -34,9 +34,17 @@
 // answers the app's Y/N question before anything is sent. The fifth column is not among
 // them — the ending balance is the figure the backend worked out for the account, so it is
 // drawn as it was read and never retyped. A change is a delete and then a write, in that
-// order, because that is what the routes offer: POST /delete takes a row away by the id
-// the backend sent for it, and the new row goes to the very same POST /transaction-record
-// the four transaction-type pages write with.
+// order, because that is what the routes offer: POST /remove takes a row away by the id
+// the backend sent for it — {"id": 5}, the route's one field and its one required one — and
+// the new row goes to the very same POST /transaction-record the four transaction-type
+// pages write with.
+//
+// The id is the request's whole business and nothing on the page's face. It is read off the
+// record a read answered, kept on that record and in the list of records the table was drawn
+// from — never written into the markup: no cell, no heading, no title, no data- attribute, no
+// sentence — and handed to the delete as the body and to nothing else. So the admin never
+// sees it, never types it and never picks a row by it: the row a request is about is the row
+// whose own button was pressed, and the table names that row to them by its date.
 //
 // The student's own page carries none of this, and not by drawing alone: it has no sixth
 // column for a delete button to stand in, no row of it opens, and the script refuses both
@@ -83,7 +91,7 @@ const HISTORY_ROUTE = OWN_HISTORY ? '/transaction-student-history' : '/gettransa
 
 // Whether this page may change what it lists, which the admin's page and only the admin's
 // page may: a student does not take their own transactions away, and the two routes a change
-// is made with — POST /delete and POST /transaction-record — are the admin's. The page has
+// is made with — POST /remove and POST /transaction-record — are the admin's. The page has
 // to say so about itself, so this asks for the one word the admin's page carries rather than
 // for the student's page's word being absent: only transaction-view.html says
 // data-history="admin", and only it draws the sixth column, opens a row for retyping and
@@ -490,10 +498,16 @@ function rowDate(record) {
 
 // The field a row is identified to the backend by. GET /gettransactions answers each record
 // with the transaction's own id beside the five columns the table draws — {"date": …,
-// "amount": …, "id": 5, "balance": …} (checked live) — and POST /delete names the row it is
+// "amount": …, "id": 5, "balance": …} (checked live) — and POST /remove names the row it is
 // to take away with that id and nothing else. So this is the one value on a record that is
 // about that transaction and no other: a date is only unique to the minute and two rows can
 // share one, which is why the delete stopped being asked by date.
+//
+// The id is read for the request and for nothing else — it is not one of HISTORY_COLUMNS, so
+// no cell, no head row and no question about a row carries it, and the page's own words name
+// a row by its date instead (rowDate below). It never leaves this file either: the record it
+// came on is closed over by the row's own delete button, and the value is written into one
+// place only, the body of the request that takes the row away.
 //
 // Only unambiguous names for a transaction's own identifier are read, and nothing is ever
 // guessed at — the named field is the field, whatever it carries. Two names rather than one
@@ -591,17 +605,31 @@ function showHistoryMessage(results, text, isError) {
 }
 
 // ------------------------------------------------------- the two routes ----
-// Where a transaction is taken away: POST /delete, asked with the row's own id and nothing
-// else — {"id": 5} — which is the one field the route names.
+// Where a transaction is taken away: POST /remove, asked with the row's own id and nothing
+// else — {"id": 5} — which is the one field the route names, and a required one. It is listed
+// in https://api.rongrongwu.com/openapi.json (summary "Remove", operationId
+// remove_remove_post): the body is {"id": <integer>} and nothing besides, a body without an id
+// is refused with
+// 422 {"detail": [{"type": "missing", "loc": ["body", "id"], "msg": "Field required"}]}, and
+// the 200 answer is an object of flat values — {"message": "Transaction removed", "id": 5,
+// "deleted": 1} (checked live with curl).
+//
+// Two things about that answer are read here. The first is that a 200 is not a delete: an id
+// the backend does not know is answered 200 as well, with {"message": "transaction not found",
+// "id": 99999999, "deleted": 0} (checked live), so a sentence may only say a row is gone once
+// `deleted` is a number above zero — the same count-not-status reading the remove page makes
+// of POST /remove-student. The second is that the id the answer echoes back is read by this
+// page not at all: it is the backend telling itself which row it worked on, and the admin is
+// told about a row in the table's own words instead.
 //
 // The id goes exactly as the record carried it, never re-cut, re-typed or guessed at: a row
 // that is to be found again is found by the value the backend itself sent, and the id is the
 // one value on a record that is about that transaction and no other. A date would not do: it
 // is unique only to the minute, so two rows of one account can share one, and the route would
-// then have two rows to choose between. openapi.json does not list this route today and a
-// POST to it answers 404 {"detail": "Not Found"} (checked live), so a refused delete is
-// spelled out on the status line rather than passed over as if the row were gone.
-const DELETE_URL = 'https://api.rongrongwu.com/delete';
+// then have two rows to choose between. (A record whose id is not the integer the route
+// declares — a word, a missing field — is refused by the backend with 422, and that refusal is
+// said out loud rather than passed over.)
+const REMOVE_URL = 'https://api.rongrongwu.com/remove';
 
 // Where the new row of a change is written: the very route, with the very five fields, that
 // the four transaction-type pages record an approved transaction with — user, amount, type,
@@ -815,8 +843,22 @@ function reportChange(text, isError, read) {
     showHistoryMessage(historyStatus, `${text}${tail}`, isError || Boolean(read && historyStatusError));
 }
 
-// The delete button: the question first, then POST /delete with the row's own id, then the
-// read that shows the account without it.
+// What answering Y on the delete question is met with once a row has actually gone. The count
+// the backend answered with is read back, the way app.js reads POST /remove-student's: an
+// answer that took two rows while the sentence said one would be a half-honest sentence. The
+// row is named by its date, as the table reads it — never by its id.
+function deletedMessage(student, record, count) {
+    if (count === 1) {
+        return `Deleted — the row of ${rowDate(record)} for “${student}” is gone from the account.`;
+    }
+
+    return `Deleted — ${count} rows for “${student}” are gone from the account, the row of ${rowDate(record)} among them.`;
+}
+
+// The delete button: the question first, then POST /remove with the row's own id — which the
+// admin is never shown — and then the read that shows the account without it. An answer that
+// took nothing away is not a delete and is reported as the refusal it is, with the row left in
+// the table exactly as it was read.
 async function removeRow(record, button) {
     // A row open for retyping is the admin's typing, and the read a delete ends with would
     // throw it away: the delete of another row is not asked while one is open.
@@ -848,7 +890,7 @@ async function removeRow(record, button) {
     const read = await readHistory();
     changeRunning = false;
 
-    reportChange(`Deleted — the row of ${rowDate(record)} for “${student}” is gone from the account.`, false, read);
+    reportChange(deletedMessage(student, record, removed.count), false, read);
 }
 
 // The save button: reads the boxes, refuses a row that is not one, and puts the question in
@@ -990,8 +1032,19 @@ async function postJson(url, body) {
     }
 }
 
-// POST /delete, asked with the row's own id. Answers { ok, text }: the sentence the status
-// line has to carry when it was refused, and nothing when it was not.
+// How many transactions the answer says were taken away, or null when it does not say with a
+// number. Only this count may turn an answer into a delete: 200 on its own means no such thing
+// here, since an id the backend does not know is answered 200 too (see REMOVE_URL). The same
+// reader app.js makes of POST /remove-student's answer, under the same name.
+function removedCountIn(result) {
+    const deleted = result?.deleted;
+
+    return typeof deleted === 'number' ? deleted : null;
+}
+
+// POST /remove, asked with the row's own id. Answers { ok, count, text }: how many rows the
+// backend said it took away, and the sentence the status line has to carry when the request
+// was refused or took nothing away — and nothing when a row went.
 //
 // Three things stand between a row and this request, and the request is the last thing to
 // happen: the page has to be one that may change what it lists, the row has to carry an id
@@ -1000,6 +1053,10 @@ async function postJson(url, body) {
 // costs nothing — and the backend is asked about the session last, as late as it can be,
 // because a session that runs out between the check and the request is the very thing the
 // check is for.
+//
+// The id itself is never part of a sentence: not the value that travels, not the value the
+// answer echoes back. The admin is told which row a request was about the way the table names
+// it — by its date — and the count of rows that went is the only figure read out of the answer.
 async function deleteRecord(record) {
     const where = `the row of ${rowDate(record)}`;
     const id = rowId(record);
@@ -1015,7 +1072,7 @@ async function deleteRecord(record) {
     // carrying nothing but an absent field would be asking the backend to take away whatever
     // it liked, and this app has no undo. The refusal names the row in the table's own words.
     if (id === null) {
-        return { ok: false, text: `the backend sent no id for ${where}, so POST /delete had nothing to name it by and nothing was deleted. Press Refresh and try again.` };
+        return { ok: false, text: `the backend sent no id for ${where}, so POST /remove had nothing to name it by and nothing was deleted. Press Refresh and try again.` };
     }
 
     // Whose session this is, asked immediately before the row is taken away: the id and the
@@ -1027,16 +1084,36 @@ async function deleteRecord(record) {
         return { ok: false, text: `no admin session stands behind this browser, so ${where} is still there — ${session.text}` };
     }
 
-    const answer = await postJson(DELETE_URL, { id });
+    const answer = await postJson(REMOVE_URL, { id });
 
-    if (answer.ok) return { ok: true, text: '' };
-
-    if (answer.status === 404) {
-        return { ok: false, text: `the backend has no route for deleting a transaction yet — POST /delete answered 404, so ${where} is still there.` };
+    // The network itself being gone, which no status can say. Asked first because there is no
+    // answer at all to read a count out of.
+    if (answer.status === 0) {
+        return { ok: false, text: `POST /remove could not reach the API, so ${where} was not deleted.` };
     }
 
-    if (answer.status === 0) {
-        return { ok: false, text: `POST /delete could not reach the API, so ${where} was not deleted.` };
+    if (answer.ok) {
+        const count = removedCountIn(answer.result);
+
+        if (count === null) {
+            return { ok: false, text: `the backend answered ${answer.status} to the delete of ${where} without saying how many rows it took away, so there is nothing that says the row is gone. Press Refresh and read the account again.` };
+        }
+
+        // 200 with nothing taken away: the id the read gave this row is not one the backend
+        // knows — a row it has already taken away, a read that has gone stale. The row stands,
+        // and the read that follows is what tells the admin what the account holds now.
+        if (count < 1) {
+            return { ok: false, text: `the backend's answer took no transaction away — it knows no transaction by the id this row was read with, so ${where} is still there. Press Refresh and try again.` };
+        }
+
+        return { ok: true, count, text: '' };
+    }
+
+    // The route is listed in openapi.json, so a 404 here is a backend that has moved it rather
+    // than one that has never had it. Said plainly either way: a delete that was not answered
+    // must never read as a delete.
+    if (answer.status === 404) {
+        return { ok: false, text: `the backend has no route for deleting a transaction — POST /remove answered 404, so ${where} is still there.` };
     }
 
     return { ok: false, text: `the backend refused the delete of ${where} (${answer.status})${backendDetail(answer.result)}.` };
@@ -1077,7 +1154,7 @@ async function writeRecord(transaction, student) {
 }
 
 // The change itself: the old row is taken away first and the new row written after it, in that
-// order, because those are the two routes — /delete takes a row away by its id, and
+// order, because those are the two routes — /remove takes a row away by its id, and
 // /transaction-record writes one. A delete that was refused stops there: a refusal cannot be
 // written over, so nothing goes to the second route and the account keeps the row it had. A
 // write that was refused leaves the account a row short, and that is said outright — there is

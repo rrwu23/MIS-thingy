@@ -9,7 +9,7 @@
     <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Comfortaa:wght@300..700&display=swap">
     <link rel="stylesheet" href="styles.css?v=24">
     <script src="sessionstorage.js?v=4" defer></script>
-    <script src="transactionview.js?v=8" defer></script>
+    <script src="transactionview.js?v=9" defer></script>
 </head>
 <!-- data-history="admin" is the word the script reads off the page: it is what says this is
      the history page that may change what it lists — the sixth column with the delete
@@ -32,10 +32,13 @@
          This page is also the one of the two history pages that may change what it lists,
          and the word above is what says so: a sixth column, whose cells hold each row's
          delete button — and, while a row is open for retyping, the save and cancel pair
-         that takes its place. Both are the admin's: a change is a POST /delete of the old
+         that takes its place. Both are the admin's: a change is a POST /remove of the old
          row by the id the read gave it and then a POST /transaction-record of the row that
-         replaces it, and neither route is a student's to call. The word is asked for rather
-         than assumed — a page that does not carry it, the student's own above all, is a
+         replaces it, and neither route is a student's to call. That id is the request's and
+         nothing else's: the table draws the five columns the sketch draws and no id column,
+         and no cell, label or sentence on this page ever spells one out — the admin presses a
+         row's own delete, and the row is named back to them by its date. The word is asked for
+         rather than assumed — a page that does not carry it, the student's own above all, is a
          table and nothing more, and the script refuses both routes there even when
          something else on the page calls them. Neither request leaves here either until the
          backend has answered the empty-body POST /adduser probe that says whose session is
