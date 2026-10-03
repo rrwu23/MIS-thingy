@@ -9,7 +9,7 @@
     <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Comfortaa:wght@300..700&display=swap">
     <link rel="stylesheet" href="styles.css?v=24">
     <script src="apibase.js?v=1" defer></script>
-    <script src="sessionstorage.js?v=5" defer></script>
+    <script src="sessionstorage.js?v=6" defer></script>
 </head>
 <body>
     <div class="page">
@@ -19,7 +19,7 @@
                 <a class="tag" href="/home.html">&#8592; Home</a>
             </header>
 
-            <p class="card__hint"><strong>Transaction.</strong> Pick the student the transaction is for from the box below &mdash; every student of the signed-in admin is listed there, and a click on a row picks that student while a second click on the same row unpicks them. The students picked together are remembered as sharing the one transaction the flow is about to enter: one key per picked student, every one of them carrying the same mark, with the whole pick kept in one key beside them. Only a signed-in admin may open a transaction, so the page asks the backend for permission as it loads, lists the students only once that permission is given, and asks it again about the picked students when you press continue.</p>
+            <p class="card__hint"><strong>Transaction.</strong> Pick the student the transaction is for from the box below &mdash; every student of the signed-in admin is listed there, and a click on a row picks that student while a second click on the same row unpicks them. The students picked together are remembered as sharing the one transaction the flow is about to enter &mdash; one key per picked student, every one of them carrying the same mark, with the whole pick kept in one key beside them &mdash; and that one transaction is written for every one of them, one row each, when it is approved. Only a signed-in admin may open a transaction, so the page asks the backend for permission as it loads, lists the students only once that permission is given, and asks it again about the picked students when you press continue.</p>
 
             <form id="transactionform" class="form">
                 <!-- The sketch's box, drawn as it draws it: the title across the top, one row
@@ -31,7 +31,9 @@
                      tick is the row's own aria-checked state, and remembers the pick as it is
                      made: one sessionStorage key per picked student, every one of them holding the
                      same mark, because the students picked together share the one transaction the
-                     flow is about to enter. No row opens anything on its own: continue asks the
+                     flow is about to enter: the pages that approve it read the group key back and
+                     write that one transaction for every student of the pick, one row each. No row
+                     opens anything on its own: continue asks the
                      backend about every picked student first, and only then is the pick the pages
                      after this one read written — the first picked student under the same
                      student_username key the typed page stores, exactly as that page stores it.

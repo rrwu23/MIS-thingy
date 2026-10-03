@@ -16,8 +16,9 @@
 // to carry on when no student has been confirmed.
 // What the transaction page stores is one key per picked student (SELECTED_STUDENT_KEY_PREFIX
 // below), every one of them holding the same mark, because the students picked together share
-// the one transaction the flow is about to enter rather than one transaction each, plus the
-// whole pick in one key (SELECTED_STUDENTS_KEY) for the pages that read the group.
+// the one transaction the flow is about to enter - the approving pages read the group back out
+// of SELECTED_STUDENTS_KEY and write that one transaction for every student of it, one row each
+// - plus the whole pick in one key (SELECTED_STUDENTS_KEY) for the pages that read the group.
 // Loaded by the two pages that open the flow (transaction1.html and
 // transaction-view-middle.html) and by the two pages they open (transaction-middle.html
 // and transaction-view.html), which read the stored username back.
@@ -29,10 +30,11 @@ const STUDENT_USERNAME_KEY = 'student_username';
 // SELECTED_STUDENT_KEY_PREFIX + the account's own spelling of the name — written in a for loop
 // over the picked students. Every one of those per-student keys holds the same value,
 // SHARED_TRANSACTION_MARK: the students picked together share the one transaction the flow is
-// about to enter, so no student's key describes a transaction of its own. Only the first
-// picked student is also written under STUDENT_USERNAME_KEY, which is the key the pages after
-// this one read — they are left exactly as they were, so the transaction they open is the one
-// the first picked student's page carries, and the group's own keys say who else shares it.
+// about to enter, so the mark a key carries says which students are in on that one transaction
+// rather than what a row of their own holds. Only the first picked student is also written
+// under STUDENT_USERNAME_KEY, which is the key the pages after this one read on their own - the
+// transaction they open is typed once for the whole pick, and the group's own key says who else
+// it is written for.
 const SELECTED_STUDENTS_KEY = 'selected_students';
 const SELECTED_STUDENT_KEY_PREFIX = 'selected_student_';
 const SHARED_TRANSACTION_MARK = 'shared';
@@ -209,8 +211,9 @@ function storedStudentSelection() {
 // pick is written under SELECTED_STUDENTS_KEY in the order it was picked, and then, in a for loop
 // over the picked students, one key of its own per student (SELECTED_STUDENT_KEY_PREFIX + the
 // account's own spelling of the name). Every one of those keys holds the same value, so the pick
-// reads as what it is: these students share the one selected transaction rather than one
-// transaction each. Written only once the backend has confirmed every one of them, and always
+// reads as what it is: these students share the one selected transaction, which the pages that
+// enter it write for every one of them. Written only once the backend has confirmed every one of
+// them, and always
 // after the pick of an earlier round is dropped, so a student unpicked since cannot be left
 // standing in storage.
 function storeStudentSelection(names) {
@@ -229,7 +232,7 @@ function storeStudentSelection(names) {
 
     sessionStorage.setItem(SELECTED_STUDENTS_KEY, JSON.stringify(names));
     console.log(
-        `Stored ${names.length} picked student(s) in sessionStorage: ${names.join(', ')} — they share the one selected transaction.`
+        `Stored ${names.length} picked student(s) in sessionStorage: ${names.join(', ')} — they share the one selected transaction, which is written for each of them.`
     );
 }
 
@@ -366,7 +369,7 @@ function showPickMessage() {
 
     showSessionMessage(
         pickedStudents.length
-            ? `${picked} — the pick is kept key by key, one per student, and every one of those keys carries the same mark: the students picked together share the one transaction this flow is about to enter.`
+            ? `${picked} — the pick is kept key by key, one per student, and every one of those keys carries the same mark: the students picked together share the one transaction this flow is about to enter, and the page the transaction is approved on writes it for every one of them.`
             : 'Nothing is picked yet — click a student in the box above to pick them, and click them again to unpick.',
         false
     );
@@ -462,11 +465,19 @@ async function loadStudentPicker() {
 // transaction types out of reach while no student has been confirmed — a type
 // opened without one would start a transaction for nobody, which is exactly what
 // this page must not allow.
+//
+// The students the transaction is for are named here, and the whole pick with them: the
+// approving pages write the one transaction for every student the box ticked, so the line above
+// the four types says all of them rather than the first name alone. The pick is read from
+// storedStudentSelection(), because STUDENT_USERNAME_KEY only ever carries the first of them.
 if (transactionStudent) {
     const confirmedStudent = sessionStorage.getItem(STUDENT_USERNAME_KEY);
+    const pick = storedStudentSelection();
 
     if (confirmedStudent) {
-        transactionStudent.textContent = confirmedStudent;
+        transactionStudent.textContent = pick.length > 1
+            ? `${pick.slice(0, -1).join(', ')} and ${pick[pick.length - 1]} (all ${pick.length} of the pick)`
+            : confirmedStudent;
     } else {
         transactionStudent.textContent = 'no student confirmed by the backend — go back and enter a username that exists';
         lockTransactionTypes();
@@ -663,8 +674,8 @@ async function confirmStudent() {
 // picked, and the backend has to still list every picked student among that admin's accounts —
 // asked again here, so a student taken off the backend since the box was filled cannot travel on
 // as a transaction. Only then is the pick stored: the first picked student under the key the pages
-// after this one read, and the whole pick under the group's own keys, so the students it names
-// carry the one transaction between them.
+// after this one read, and the whole pick under the group's own keys, so the one transaction the
+// flow opens next is written for every student the pick names, one row each.
 async function confirmPickedStudents() {
     if (studentCheckRunning) return; // one check at a time, however fast the clicks
     if (!permissionGranted()) return;

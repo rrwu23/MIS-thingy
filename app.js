@@ -1663,9 +1663,13 @@ function reasonSlugFromType(type) {
 // fields a row of the table carries and nothing else - user, amount, type, date, memo.
 // Both approving pages build their transaction in those terms and transactionBody()
 // below cuts it down to them, so the reason pages and the Other page cannot drift apart.
+// The route writes one row per call, so a pick of several students is written by one call
+// per student: sendTransaction() below walks the picked students in a for loop, and every
+// call carries the same five fields with `user` naming the student that turn of the loop is
+// for.
 //
-//   user    the student the row belongs to: the username transaction1.html had the
-//           backend confirm, which is the name every other student route is asked with
+//   user    the student the row belongs to: one of the students transaction1.html had the
+//           backend confirm, whose names are what every other student route is asked with
 //   amount  the figure, signed by the type on the reason pages and by the box the
 //           admin typed in on the Other page, null for a reason carrying no figure
 //   type    what the row is filed under: the broad type the list of a reason page
@@ -1824,11 +1828,75 @@ const DATE_PROMPT = 'The date box has to hold a day — pick one from its calend
 //                                      changes nothing.
 const ADMIN_CHECK_URL = `${API_ORIGIN}/adduser`;
 
-// The student this transaction is for, stored by transaction1.html. Kept in sync
-// with STUDENT_USERNAME_KEY in sessionstorage.js.
+// The student this transaction is for, stored by transaction1.html: the first of the students
+// that page's box picked, so it is the one name these pages had before the box could pick
+// several. Kept in sync with STUDENT_USERNAME_KEY in sessionstorage.js.
 const STUDENT_KEY = 'student_username';
 
-// Where an approved-but-unsent transaction waits for the step that will POST it.
+// The whole pick the same box made - every picked student's name, in the order they were
+// picked, which is the order the box was clicked in - kept in sync with SELECTED_STUDENTS_KEY
+// in sessionstorage.js. The four pages that approve a transaction load app.js and not that
+// file, so the reader below is kept here by hand, the way the key itself is, and both read the
+// one key the box wrote.
+const SELECTED_STUDENTS_KEY = 'selected_students';
+
+// The students the stored pick names, in the order they were named; [] when nothing is stored,
+// or when what is stored cannot be read back as a list of names. The same reading of the same
+// key sessionstorage.js's storedStudentSelection() makes, so half a JSON object, or a key
+// somebody else wrote, can only ever come back as no pick at all rather than as a student to
+// write a row for.
+function storedStudentSelection() {
+    const stored = sessionStorage.getItem(SELECTED_STUDENTS_KEY);
+
+    if (!stored) {
+        return [];
+    }
+
+    try {
+        const names = JSON.parse(stored);
+
+        return Array.isArray(names)
+            ? names.filter((name) => typeof name === 'string' && name.trim() !== '')
+            : [];
+    } catch (error) {
+        console.error('Stored student selection could not be read:', error);
+        return [];
+    }
+}
+
+// The students an approved transaction names, which is who it is written for: every student of
+// the pick, in the order the box was clicked in, because the one transaction typed on these pages
+// is recorded for each of them rather than for the first of them alone. This is read once, as the
+// approving page builds the transaction - the very object the Y/N question is asked about - so
+// what is written is what the admin agreed to. A page whose storage holds no pick at all falls
+// to the one username STUDENT_KEY carries, which is all these pages had before the box could
+// pick several; when neither is there the list is empty, and the approval writes nothing rather
+// than a row for a student nobody named.
+function selectedStudents() {
+    const pick = storedStudentSelection();
+
+    if (pick.length) {
+        return pick;
+    }
+
+    const stored = sessionStorage.getItem(STUDENT_KEY);
+
+    return stored && stored.trim() !== '' ? [stored] : [];
+}
+
+// The names of a pick as a sentence names them: "A", "A and B", "A, B and C". Every line that
+// says who a transaction was written for goes through here, so the one-student case reads
+// exactly as it always has and a longer pick does not run its names together with commas alone.
+function nameList(names) {
+    if (names.length <= 1) {
+        return names[0] ?? '';
+    }
+
+    return `${names.slice(0, -1).join(', ')} and ${names[names.length - 1]}`;
+}
+
+// Where the approved-but-unsent rows wait for the step that will POST them: the list of row
+// bodies sendTransaction() is about to write, parked before the first of them leaves.
 const PENDING_KEY = 'pending_transaction';
 
 const reasonSelect = document.getElementById('reason');
@@ -2170,10 +2238,12 @@ function buildConfirmDialog() {
 }
 
 // What the dialog says: the same facts the status line names after a recording, so
-// the admin sees the student, the reason, the amount and - when it says more than the
-// reason already has - the memo the row will be written with.
+// the admin sees the students, the reason, the amount and - when it says more than the
+// reason already has - the memo the row will be written with. The students are all of them,
+// and the last sentence says how many accounts the Y answer really writes to, so a pick of
+// several is never confirmed as if it were one student.
 function describeTransaction(transaction) {
-    const forStudent = transaction.student ? ` for ${transaction.student}` : '';
+    const forStudent = transaction.students.length ? ` for ${nameList(transaction.students)}` : '';
     const amount = transaction.amount === null || transaction.amount === undefined
         ? 'no amount'
         : `amount ${transaction.amount}`;
@@ -2193,8 +2263,13 @@ function describeTransaction(transaction) {
     const memo = transaction.memo && transaction.memo !== transaction.label
         ? ` Memo: "${transaction.memo}".`
         : '';
+    // One row is written per student, so the question says so as soon as there is more than one
+    // name above: the admin is agreeing to every one of those accounts, not to the first.
+    const tail = transaction.students.length > 1
+        ? ` Y writes it to each of those ${transaction.students.length} accounts, N drops it.`
+        : ' Y writes it to the account, N drops it.';
 
-    return `${head}${forStudent}, ${amount}.${memo} Y writes it to the account, N drops it.`;
+    return `${head}${forStudent}, ${amount}.${memo}${tail}`;
 }
 
 // Puts the question on screen and answers true for the yes button, false for the other.
@@ -2469,7 +2544,7 @@ async function runApproval() {
     // line name the transaction with it, and the memo is written from it.
     const label = option ? option.textContent : reasonSelect.value;
     const transaction = {
-        student: sessionStorage.getItem(STUDENT_KEY) || '',
+        students: selectedStudents(),
         type: reasonType,
         amount: optionAmount(option),
         date: date,
@@ -2478,10 +2553,10 @@ async function runApproval() {
     };
 
     // The approved choice is parked next to the student username transaction1.html
-    // stored, and it is parked before anything is sent: the object kept in
-    // sessionStorage is the same one the request carries, so a send that fails loses
+    // stored, and it is parked before anything is sent: the bodies kept in
+    // sessionStorage are the ones the requests carry, so a send that fails loses
     // nothing.
-    const forStudent = transaction.student ? ` for ${transaction.student}` : '';
+    const forStudent = transaction.students.length ? ` for ${nameList(transaction.students)}` : '';
 
     // The Y/N question stands between the choice and the write: "confirm transaction,
     // Y/N". It is asked about the very object the request will carry, and nothing is
@@ -2521,16 +2596,19 @@ async function runApproval() {
     setApproveEnabled(true);
 }
 
-// The body the route is written with: exactly the five fields a row of the table carries
+// The body one row is written with: exactly the five fields a row of the table carries
 // - user, amount, type, date, memo - and nothing else. What the pages keep in their own
 // transaction object is more than this (the label the question reads, the reasons the
-// memo is built from), and none of that goes over the wire: `user` is the student the row
-// belongs to, `type` is what the row is filed under, and the reason it was written for is
-// in the memo - except on the Other page, which has no list to take a type from, where the
-// reason the admin typed is the type and the memo is whatever went in the memo box.
-function transactionBody(transaction) {
+// memo is built from), and none of that goes over the wire: `user` is the student that
+// turn of sendTransaction()'s loop is writing for, `type` is what the row is filed under,
+// and the reason it was written for is in the memo - except on the Other page, which has
+// no list to take a type from, where the reason the admin typed is the type and the memo
+// is whatever went in the memo box. The five fields are the same for every student of the
+// pick, which is why the loop below builds one body per student and changes nothing but
+// `user`.
+function transactionBody(transaction, student) {
     return {
-        user: transaction.student,
+        user: student,
         amount: transaction.amount,
         type: transaction.type,
         date: transaction.date,
@@ -2538,30 +2616,89 @@ function transactionBody(transaction) {
     };
 }
 
-// The write itself, shared by the reason pages and the Other page: the body above is
-// parked in sessionStorage next to the student username transaction1.html stored -
-// parked before anything is sent, so a send that fails loses nothing - and then POSTed,
-// as JSON, with the admin session cookie travelling with the request.
-// Answers { ok: true } once the backend has written it, and { ok: false, text } with
-// the sentence to show when it refused or the network was gone.
+// The write itself, shared by the reason pages and the Other page and made for the whole pick:
+// the students the box stored are read once, the body each of their rows is written with is
+// built once - the same five fields for every one of them, only `user` differing - and then, in
+// a for loop over those bodies, one row is POSTed per student, as JSON, with the admin session
+// cookie travelling with the request. One transaction typed once is therefore recorded for every
+// picked student, one row each, rather than for the first of them alone.
+//
+// The bodies are parked in sessionStorage as the list of them before the first request leaves,
+// so a send that fails loses nothing. The loop stops at the first row the backend refuses or
+// that never reaches it: the rest of the pick would be asked for with the same session and
+// answered the same way, and every one of them would sit out the network's own timeout again,
+// once per student, while the admin is the one who has to read what happened and decide about
+// the rest.
+//
+// Answers { ok: true, count } once the backend has written every row, and { ok: false, text }
+// with the sentence to show when it refused, when the network was gone, or when there is no
+// student to write for.
 async function sendTransaction(transaction) {
-    const body = transactionBody(transaction);
-
-    // The row is only written for an admin, and the backend is the only thing that can say who
-    // is one: the empty-body POST /adduser probe is asked here, at the last moment before the
-    // row leaves. The approving pages have already asked it once — before the Y/N question —
-    // but an answer given there is not an answer given here, and a session that ran out in
-    // between is precisely what this check is for. A refusal writes nothing, so nothing is
-    // parked either: this transaction was never on its way.
+    // The rows are only written for an admin, and the backend is the only thing that can say who
+    // is one: the empty-body POST /adduser probe is asked here, once for the whole approval
+    // rather than once per student, at the last moment before the rows leave. The approving
+    // pages have already asked it once — before the Y/N question — but an answer given there is
+    // not an answer given here, and a session that ran out in between is precisely what this
+    // check is for. A refusal writes nothing, so nothing is parked either: these rows were never
+    // on their way.
     const check = await checkAdminPermission();
 
     if (!check.granted) {
         return { ok: false, text: `Nothing was recorded — ${check.text}` };
     }
 
-    sessionStorage.setItem(PENDING_KEY, JSON.stringify(body));
-    console.log('Approved:', body);
+    // Who the rows are for is the pick the Y/N question was asked about - the students the
+    // approving page read out of sessionStorage as it built this transaction - so what is written
+    // is what the admin agreed to, name for name. A transaction naming nobody is refused rather
+    // than sent as a row for an empty username: the approving pages sit behind transaction1.html's
+    // confirmed pick, so this is a page whose storage was emptied while it was open, and the
+    // sentence says where to pick a student instead.
+    const students = transaction.students;
 
+    if (!students.length) {
+        return {
+            ok: false,
+            text: 'Nothing was recorded — this transaction names no student, so there is no account to write the rows to. Go back to the transaction page, pick the students it is for, and press continue.'
+        };
+    }
+
+    const bodies = students.map((student) => transactionBody(transaction, student));
+
+    sessionStorage.setItem(PENDING_KEY, JSON.stringify(bodies));
+    console.log('Approved:', bodies);
+
+    const written = [];
+    let refusal = null;
+
+    for (const body of bodies) {
+        const answer = await writeTransaction(body);
+
+        if (!answer.ok) {
+            refusal = { student: body.user, text: answer.text };
+            break;
+        }
+
+        written.push(body.user);
+    }
+
+    if (!refusal) {
+        return { ok: true, count: written.length };
+    }
+
+    // The students of the pick the loop never reached are named with the ones it did: a
+    // half-written approval is the one thing the admin must not have to work out for themselves.
+    return {
+        ok: false,
+        count: written.length,
+        text: stoppedMessage(transaction, written, refusal, students.slice(written.length + 1))
+    };
+}
+
+// The one write: the body above, as JSON, with the admin session cookie travelling with the
+// request. Answers { ok: true, result } once the backend has written the row, and
+// { ok: false, text } with the reason alone when it refused or the network was gone, because the
+// sentence the admin reads is the caller's, and that one has to name the student this row was for.
+async function writeTransaction(body) {
     try {
         const response = await fetch(RECORD_URL, {
             method: 'POST',
@@ -2582,28 +2719,50 @@ async function sendTransaction(transaction) {
         console.error('Transaction record error:', result);
         return {
             ok: false,
-            text: `Nothing was recorded — the backend refused the transaction (${response.status}): ${describeError(result)}`
+            text: `the backend refused the row (${response.status}): ${describeError(result)}`
         };
     } catch (error) {
         console.error('Network Error:', error);
-        return {
-            ok: false,
-            text: 'Network error — the transaction could not reach the API, so nothing was recorded.'
-        };
+        return { ok: false, text: 'the row never reached the API (network error)' };
     }
 }
 
-// The sentence both approving pages show once the backend has written it.
+// The sentence both approving pages show once the backend has written every row.
 function recordedMessage(transaction) {
-    const forStudent = transaction.student ? ` for ${transaction.student}` : '';
+    const students = transaction.students;
+    const forStudent = students.length ? ` for ${nameList(students)}` : '';
     // What the row was filed under is named - unless the type opens with the label that
     // was just quoted, which is the Other page's case alone: there the row's type is the
     // broad reason itself with its points, so naming it again says the same words twice.
     const under = String(transaction.type).startsWith(transaction.label ?? '')
         ? 'the backend wrote the transaction'
         : `the backend wrote the ${transaction.type} transaction`;
+    // One row was written per student, which the sentence says outright as soon as there was
+    // more than one: the admin should not have to count a list of names to know that the whole
+    // pick was written for.
+    const each = students.length > 1 ? ', one for each of them' : '';
 
-    return `Recorded "${transaction.label}"${forStudent} — ${under}. Taking you to the home page…`;
+    return `Recorded "${transaction.label}"${forStudent} — ${under}${each}. Taking you to the home page…`;
+}
+
+// What the admin reads when the loop stopped partway: which students the transaction was written
+// for, which student it stopped at, and which students of the pick never got their row. The last
+// sentence is only written when something has already been written, because pressing Next again
+// asks for the whole pick rather than for the rest of it, and the admin has to know that before
+// they do it.
+function stoppedMessage(transaction, written, refusal, unwritten) {
+    const rest = unwritten.length
+        ? ` Nothing was written for ${nameList(unwritten)}.`
+        : '';
+    const again = written.length
+        ? ` Pressing Next again writes the whole pick, ${nameList(written)} included.`
+        : '';
+
+    if (!written.length) {
+        return `Nothing was recorded — ${refusal.text}, and ${refusal.student} was the first of the pick.${rest}`;
+    }
+
+    return `Recorded the "${transaction.label}" transaction for ${nameList(written)}, and nothing for the rest of the pick — ${refusal.text}, at ${refusal.student}.${rest}${again}`;
 }
 
 // Choosing another reason is a different transaction, so it brings back the Next
@@ -2725,10 +2884,13 @@ async function openOtherPage() {
     setOtherEnabled(check.granted);
 
     // Who the transaction is for is the one thing neither box can say, so the line
-    // names the student transaction1.html confirmed along with the invitation.
-    const student = sessionStorage.getItem(STUDENT_KEY) || '';
+    // names the students transaction1.html confirmed along with the invitation - all of
+    // them, because the row is written for every student of the pick.
+    const students = selectedStudents();
+    const forStudents = students.length ? ` for ${nameList(students)}` : '';
+    const each = students.length > 1 ? ` — one row each` : '';
     const nextStep = check.granted
-        ? ` Type the amount, the broad reason and, if it is worth remembering, a memo for ${student}, then press Next.`
+        ? ` Type the amount, the broad reason and, if it is worth remembering, a memo${forStudents}${each}, then press Next.`
         : '';
 
     showOtherMessage(`${check.text}${nextStep}`, check.isError);
@@ -2800,7 +2962,7 @@ async function runOtherApproval() {
     // row two ways. label is only what the eye saw: the question and the status line name the
     // transaction with it, and it is not sent.
     const transaction = {
-        student: sessionStorage.getItem(STUDENT_KEY) || '',
+        students: selectedStudents(),
         type: amountLabel(reason, amount),
         amount: amount,
         date: date,
@@ -2813,7 +2975,7 @@ async function runOtherApproval() {
     });
 
     if (!confirmed) {
-        const forStudent = transaction.student ? ` for ${transaction.student}` : '';
+        const forStudent = transaction.students.length ? ` for ${nameList(transaction.students)}` : '';
         showOtherMessage(`Nothing was recorded — the "${transaction.label}" transaction${forStudent} was not confirmed with Y.`, true);
         return;
     }
