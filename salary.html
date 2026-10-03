@@ -9,7 +9,7 @@
     <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Comfortaa:wght@300..700&display=swap">
     <link rel="stylesheet" href="styles.css?v=24">
     <script src="apibase.js?v=1" defer></script>
-    <script src="payroll.js?v=3" defer></script>
+    <script src="payroll.js?v=4" defer></script>
 </head>
 <!-- data-payroll="salary" is how payroll.js knows which of the two money pages this is: everything the
      two don't share — the route a tick is sent to, the noun and the verb its sentences are written
@@ -22,7 +22,7 @@
                 <a class="tag" href="/home.html">&#8592; Home</a>
             </header>
 
-            <p class="card__hint"><strong>Pay salaries.</strong> Every student of the signed-in admin is listed in the box below, in alphabetical order. Tick the students who are to be paid &mdash; a click on a row ticks it, and a click on the same row again unticks it &mdash; and press Pay salaries. The students ticked are put in front of you once more, with the job each of them holds and the salary that job pays, and on a Y every one of them is paid, one student at a time. Only a signed-in admin's students can be paid, so the page asks the backend for permission as it loads &mdash; the button stays grey until that is answered &mdash; and asks again before anything is sent. A student the backend wrote a row for is unticked as soon as that is known, so a second press cannot pay them a second time; a student it wrote no row for stays ticked and is named under the box, so the next press tries only them. Nothing is kept between visits: a tick is a payment, and a payment that outlived the page could be sent twice.</p>
+            <p class="card__hint"><strong>Pay salaries.</strong> Every student of the signed-in admin is listed in the box below, in alphabetical order, and every one of them arrives ticked &mdash; the whole roll is the round this page is opened for. Untick the students who are not to be paid: a click on a row unticks it, and a click on the same row again ticks it back. Then press Pay salaries. The students ticked are put in front of you once more, with the job each of them holds and the salary that job pays, and on a Y every one of them is paid, one student at a time. Only a signed-in admin's students can be paid, so the page asks the backend for permission as it loads &mdash; the button stays grey until that is answered &mdash; and asks again before anything is sent. A student the backend wrote a row for is unticked as soon as that is known, so a second press cannot pay them a second time; a student it wrote no row for stays ticked and is named under the box, so the next press tries only them. Nothing is kept between visits: the ticked box is simply the state the page opens in, not a memory of an earlier one, and a tick is a payment, so a payment that outlived the page could be sent twice.</p>
 
             <form id="payrollform" class="form">
                 <!-- The box, drawn the way these two pages are sketched: the title across the top, the
