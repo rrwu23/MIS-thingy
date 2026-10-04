@@ -4,12 +4,15 @@ console.log("loaded")
 // 1. Select the form
 const form = document.getElementById('adduserform');
 
-// The safety check on the add account page: the student's account username has to
-// be typed a second time, and the account is only created when both fields agree,
-// so a slip of the finger cannot quietly make an account nobody can find. The
-// account is looked up by its name, exact apart from space, so surrounding space
-// and case are ignored here — the same way the transaction flow compares a typed
-// username with the listed ones (matchingStudentName in sessionstorage.js).
+// Input: first, second — the two usernames as typed on the add account page (addaccount.html),
+//   where the second box asks for the first one back.
+// Output: true when the two name the same account, false otherwise.
+// Action: trims the space around both and compares them lower-cased — an exact compare apart
+//   from space, which is how an account's name is looked up.
+// Role: the add account page's safety check, read by the form handler below: the account is
+//   only created when both fields agree, so a slip of the finger cannot quietly make an
+//   account nobody can find. The comparison is the same one the transaction flow makes between
+//   a typed username and the listed ones (matchingStudentName in sessionstorage.js).
 function sameUsername(first, second) {
     return first.trim().toLowerCase() === second.trim().toLowerCase();
 }
@@ -32,6 +35,14 @@ function sameUsername(first, second) {
 // the shape of a value and not a calendar.
 const ISO_DATE = /^\d{4}-(0[1-9]|1[0-2])-(0[1-9]|[12]\d|3[01])$/;
 
+// Input: value — the text a date field holds, as typed or as the browser's own date control
+//   answered it (addaccount.html's birthday box).
+// Output: true for a value in ISO_DATE's shape — YYYY-MM-DD, month 01-12, day 01-31 — and
+//   false for anything else, a date-shaped value with a month or a day out of range included.
+// Action: tests the value against the ISO_DATE pattern and does nothing else; the pattern is a
+//   bound on the shape of a value and not a calendar, so 2026-02-30 still reads as a date.
+// Role: the birthday check of the add account flow below, and the one reader of ISO_DATE, so
+//   the bounds that pattern carries are applied in a single place.
 function isISODate(value) {
     return ISO_DATE.test(value);
 }
@@ -41,6 +52,16 @@ function isISODate(value) {
 // still decides on submit, in case the page is driven by script instead of by a click.
 const birthdayField = form?.elements.namedItem('birthday');
 
+// Input: the submit event of the add account form (addaccount.html), fired by its button or by
+//   Enter in one of its boxes; the fields themselves are read off `form`.
+// Output: none — an alert and the console say what happened, and once the account exists the
+//   browser is sent to the home page (redirectHomeAfter).
+// Action: stops the browser's own submit, checks the retyped username (sameUsername) and the
+//   birthday (isISODate) before anything leaves, then POSTs name, birthday, initialbalance and
+//   password to /adduser with the admin session cookie.
+// Role: the add account flow — the one place a student's account is created in this project;
+//   every later page reads what it wrote (the students table behind "View students" among
+//   them), and its refusals are said the way this first form has always said them.
 // 2. Listen for the submit event
 form?.addEventListener('submit', async function(event) {
   // Prevent the default browser behavior (reloading the page)
@@ -151,6 +172,15 @@ const ACCOUNT_HIDDEN_FIELDS = ['password'];
 
 const getUsersForm = document.getElementById('getusersform');
 
+// Input: the submit event of the query accounts form (getusers.html), fired by its Search
+//   button; the two filter boxes (name, supervisor) are read off the form.
+// Output: none — one account card per matching account is drawn in the results block, or a
+//   single sentence saying what happened.
+// Action: stops the browser's submit, greys the button for the round trip, GETs
+//   /getuser?name=&supervisor= with the session cookie (a blank field travelling as "no
+//   filter"), and hands every account it was answered with to accountCard().
+// Role: the query accounts flow — the read half of the account pages, asking the same route the
+//   students table and the picker read, and printing every field of every row but the password.
 getUsersForm?.addEventListener('submit', async function (event) {
     event.preventDefault();
 
@@ -204,10 +234,16 @@ getUsersForm?.addEventListener('submit', async function (event) {
     }
 });
 
-// One account as a card: every field the account object carries except the hidden
-// ones, one line per field, the field's own name as the label and its value after it.
-// A field holding a nested object or a list is written out as JSON, so nothing the
-// backend sends is ever printed as "[object Object]".
+// Input: account — one row of a GET /getuser reply as the backend sent it: an object of
+//   account fields, or, where the route answered with something else, any value at all.
+// Output: a <p> element holding one "Field: value" line per field the account carries, in the
+//   backend's own order — or the bare value where the answer was not an object.
+// Action: walks the account's own keys, skips the ones hiddenAccountField() keeps off the page,
+//   and appends accountField() for each of the rest.
+// Role: how the query accounts page (getusers.html) draws each account its search was answered
+//   with, inside the results block that handler fills. No field is named here by hand, so a
+//   field the backend starts sending later is listed too — the password being the one
+//   deliberate exception (ACCOUNT_HIDDEN_FIELDS).
 function accountCard(account) {
     const card = document.createElement('p');
 
@@ -225,14 +261,23 @@ function accountCard(account) {
     return card;
 }
 
-// True for a field the query keeps off the page. The compare is done on the
-// lower-cased, space-trimmed name so "Password" or " password " cannot slip past the
-// one entry in ACCOUNT_HIDDEN_FIELDS.
+// Input: key — one field name of an account object, as the backend spelled it.
+// Output: true for a field the query keeps off the page, false for every other name.
+// Action: lower-cases and trims the name, then asks whether ACCOUNT_HIDDEN_FIELDS holds it, so
+//   "Password" or " password " cannot slip past the one entry.
+// Role: the one gate between a GET /getuser answer and the page — it is what keeps a student's
+//   real login secret out of a public reply (see ACCOUNT_HIDDEN_FIELDS above), and it is read
+//   by accountCard() alone.
 function hiddenAccountField(key) {
     return ACCOUNT_HIDDEN_FIELDS.includes(String(key).trim().toLowerCase());
 }
 
-// One "Field: value" line inside an account card.
+// Input: key and value — one field of an account object, as the backend sent them.
+// Output: a <span class="results__field"> holding the label, its colon and the value as text.
+// Action: builds the label with accountFieldLabel(), the value with accountFieldValue(), and
+//   puts them in one node — no innerHTML anywhere, because the words are the backend's.
+// Role: one line of the card accountCard() draws on the query accounts page, kept apart so the
+//   label and the value can each have a rule of their own in styles.css.
 function accountField(key, value) {
     const line = document.createElement('span');
     line.className = 'results__field';
@@ -246,19 +291,27 @@ function accountField(key, value) {
     return line;
 }
 
-// A field's name as a person reads it: underscores and hyphens opened out into
-// spaces and the first letter capitalised, so "initialbalance" reads as
-// "Initialbalance" and a later "opening_balance" as "Opening balance", without a
-// table of names to keep in step with the backend.
+// Input: key — a field name as the backend spelled it ("initialbalance", "opening_balance").
+// Output: the same name as a person reads it — "Initialbalance", "Opening balance" — or
+//   "Field" when nothing readable is left of it.
+// Action: turns every run of underscores and hyphens into a space, trims what is left, and
+//   capitalises its first letter.
+// Role: the label half of one account-card line on the query accounts page. It reads the
+//   backend's own spelling rather than a table of names kept here by hand, so a field the
+//   backend renames or adds still reads as words.
 function accountFieldLabel(key) {
     const words = String(key).replace(/[_-]+/g, ' ').trim();
 
     return words ? words.charAt(0).toUpperCase() + words.slice(1) : 'Field';
 }
 
-// A field's value as text. Text, numbers and booleans are written as themselves, a
-// missing value as nothing at all, and anything structured as JSON — the only honest
-// way to show it on one line.
+// Input: value — one field of an account object, whatever the backend put there.
+// Output: the value as text: text, numbers and booleans as themselves, '' for null and
+//   undefined, and JSON for anything structured.
+// Action: returns early for a missing value and JSON.stringify()s whatever is an object — the
+//   only honest way to show a nested object or a list on one line.
+// Role: the value half of one account-card line on the query accounts page, so nothing the
+//   backend sends there is ever printed as "[object Object]".
 function accountFieldValue(value) {
     if (value === null || value === undefined) {
         return '';
@@ -267,9 +320,14 @@ function accountFieldValue(value) {
     return typeof value === 'object' ? JSON.stringify(value) : String(value);
 }
 
-// Replace the previous results with a single message — the same one-paragraph shape
-// showLoginMessage, showHomeMessage and showReasonMessage write into their own blocks,
-// so an error is the red variant of the same card.
+// Input: results — the block to write into (each page's own, e.g. #results on getusers.html);
+//   text, the sentence to show; isError, whether it is a refusal rather than a result.
+// Output: none — the block is emptied and the one paragraph put in it.
+// Action: builds a paragraph, gives it the red .results__error class when isError, and swaps it
+//   in with replaceChildren(); a block that is not on the page is left alone.
+// Role: the status line of the account pages (add account, add admin, query accounts) — the same
+//   one-paragraph card showLoginMessage, showHomeMessage and showReasonMessage write into their
+//   own blocks, so an error is the red variant of the same card wherever it is shown.
 function showAccountMessage(results, text, isError) {
     if (!results) return;
 
@@ -296,6 +354,15 @@ const ADD_ADMIN_URL = `${API_ORIGIN}/add-admin`;
 
 const adminForm = document.getElementById('addadminform');
 
+// Input: the submit event of the add admin form (add_admin.html), fired by its button or by
+//   Enter in one of its boxes; admin_name, password and retype_password are read off the form.
+// Output: none — a sentence under the form (and an alert) says what came of it, and a created
+//   admin sends the browser on to the home page.
+// Action: stops the browser's submit, refuses the request itself when the two passwords differ,
+//   drops retype_password, greys the button, POSTs admin_name + password to /add-admin with the
+//   session cookie, and puts the button back on every path that created nothing.
+// Role: the admin signup behind the home page's "Add admin" door — the second half of the login
+//   story, whose answers the admin login above then uses.
 adminForm?.addEventListener('submit', async function (event) {
     event.preventDefault();
 
@@ -392,9 +459,19 @@ const HOME_URL = '/home.html';
 // forward rather than a wait.
 const REDIRECT_DELAY_MS = 900;
 
-// Sends the browser to the home page once the status line has had its moment, so
-// the sentence that says what just happened is not wiped out before it is read.
+// Input: delayMs — how long the sentence just written should stay up (the flows pass
+//   REDIRECT_DELAY_MS).
+// Output: none — the browser is sent to HOME_URL once the delay is up.
+// Action: sets a timer that assigns window.location.href = HOME_URL.
+// Role: the shared last step of every flow that finishes on the home page — add account, add
+//   admin, both sign-ins, a recorded transaction and a sign-out: the sentence that says what
+//   just happened is given its moment before the page it stands on is left behind.
 function redirectHomeAfter(delayMs) {
+    // Input: none — the timer fires delayMs after the sentence was written.
+    // Output: none — the browser is sent to HOME_URL.
+    // Action: assigns window.location.href = HOME_URL.
+    // Role: the delay redirectHomeAfter() exists for — the sentence that says what just happened
+    //   is read before the page it stands on is left behind.
     window.setTimeout(function () {
         window.location.href = HOME_URL;
     }, delayMs);
@@ -402,6 +479,14 @@ function redirectHomeAfter(delayMs) {
 
 const loginForm = document.getElementById('loginadminform');
 
+// Input: the submit event of the admin login form (login_admin.html), fired by its button or by
+//   Enter in one of its two boxes; admin_name and password are the form's whole body.
+// Output: none — the status line under the form says what the backend answered, and a session
+//   won sends the browser on to the home page.
+// Action: stops the browser's submit, POSTs the form as it stands to /login with the session
+//   cookie, and hands the reply to showLoginMessage() and describeError().
+// Role: the admin login behind login_admin.html — the same POST /login the landing card's admin
+//   door makes; it is this request that stores the session cookie every other page leans on.
 loginForm?.addEventListener('submit', async function (event) {
     event.preventDefault();
 
@@ -436,7 +521,14 @@ loginForm?.addEventListener('submit', async function (event) {
     }
 });
 
-// Replace the previous status line with a single message
+// Input: results — the block to write into (each sign-in page's own, e.g. #loginresults);
+//   text, the sentence to show; isError, whether it is a refusal rather than a result.
+// Output: none — the block is emptied and the one paragraph put in it.
+// Action: builds a paragraph, gives it the red .results__error class when isError, and swaps it
+//   in with replaceChildren(); a block that is not on the page is left alone.
+// Role: the status line of the three sign-ins in this file (the admin login, the landing card's
+//   admin door and its student door), the same one-paragraph shape the other show*Message
+//   writers use, so a refusal and a welcome look alike wherever they are said.
 function showLoginMessage(results, text, isError) {
     if (!results) return;
 
@@ -450,7 +542,16 @@ function showLoginMessage(results, text, isError) {
     results.replaceChildren(paragraph);
 }
 
-// FastAPI errors: {"detail": "..."} or {"detail": [{"msg": "...", ...}]}
+// Input: result — the parsed body of a failed API answer, as FastAPI writes it: {"detail":
+//   "..."} or {"detail": [{"msg": "...", ...}]} — or anything else at all, a refusal never being
+//   trusted to parse.
+// Output: the backend's own words for the refusal: its detail string, the msg of each entry of a
+//   detail list joined with "; ", or the fallback sentence when the body carries neither.
+// Action: reads result.detail, preferring the string form and falling back to the messages of a
+//   list.
+// Role: the one place an API refusal is turned into words — every status line and log line in
+//   this file reads it, so a 401, a 404 and a 422 are all reported in the backend's spelling
+//   rather than in a wording invented here.
 function describeError(result) {
     if (typeof result?.detail === 'string') {
         return result.detail;
@@ -477,6 +578,16 @@ function describeError(result) {
 // their own transaction history are.
 const signInForm = document.getElementById('signinform');
 
+// Input: the submit event of the landing card's sign-in form (index.html), fired by its button
+//   or by Enter in one of the two boxes; the boxes are read as the admin's name and password.
+// Output: none — the line under the card names the admin who was signed in and carries the way
+//   on to the home page; a refusal is said on the same line.
+// Action: stops the browser's submit, greys the button for the round trip, POSTs the form to
+//   /login with the session cookie, and puts the answer on the status line — homePageLink()
+//   appended to it when the sign-in went through.
+// Role: the admin door of the front door — the very same POST /login login_admin.html asks,
+//   entered on the card the admin is already looking at. Nothing is redirected, because the
+//   session lives in the backend's cookie and not in a page.
 signInForm?.addEventListener('submit', async function (event) {
     event.preventDefault();
 
@@ -545,6 +656,15 @@ const STUDENT_HOME_URL = '/student-home.html';
 // of an account object rather than of a login reply.
 const STUDENT_LOGIN_NAME_KEYS = ['student_name', 'name', 'student', 'username'];
 
+// Input: result — the parsed body of a POST /student-login answer, whatever shape it arrived
+//   in: an object of strings, a bare string, a list, or nothing at all.
+// Output: the student's name, trimmed, or null when the reply names nobody.
+// Action: asks STUDENT_LOGIN_NAME_KEYS in turn and answers with the first field that holds
+//   anything, written as a string.
+// Role: the read of the student's own login reply — what the student's hub and their history
+//   page are keyed by once the sign-in above stores it. It is the student's counterpart of the
+//   admin name reads (currentAdminNameIn, describeCurrentAdmin), and is kept apart from
+//   STUDENT_NAME_KEYS below, which reads an account object rather than a login reply.
 function studentName(result) {
     if (result === null || typeof result !== 'object') {
         return null;
@@ -563,6 +683,16 @@ function studentName(result) {
 
 const studentSignInButton = document.getElementById('studentsignin');
 
+// Input: the click on the landing card's student door (#studentsignin); the card's two boxes
+//   are read off signInForm and sent as the student's own username and password.
+// Output: none — the line under the card names the student who was signed in and carries the
+//   way on to that student's hub; a refusal is said on the same line.
+// Action: has the browser check the two boxes first (a plain button is not a submit), POSTs
+//   student_name + password to /student-login with the session cookie, keeps the name the
+//   backend answered with (or the one that was typed) in sessionStorage under
+//   SIGNED_IN_STUDENT_KEY, and appends studentHomePageLink() to the status line.
+// Role: the student door of the front door — the student's own login beside the admin's on the
+//   one card; what it stores is what the student's own pages then read.
 studentSignInButton?.addEventListener('click', async function () {
     // The card's own two boxes, named the way the student route names them: what the
     // admin login reads as admin_name is this student's own username.
@@ -621,8 +751,12 @@ studentSignInButton?.addEventListener('click', async function () {
     }
 });
 
-// The way on from the student door: the same link the admin's line carries, worded for
-// the page behind this one.
+// Input: none.
+// Output: an <a> to STUDENT_HOME_URL worded as the way on ("Continue to the student home page
+//   →").
+// Action: builds the link node; nothing is fetched and nothing is written.
+// Role: the way on from the student door of the landing card, appended to the status line by
+//   the student sign-in above — the student's mirror of homePageLink() below.
 function studentHomePageLink() {
     const link = document.createElement('a');
     link.href = STUDENT_HOME_URL;
@@ -630,9 +764,12 @@ function studentHomePageLink() {
     return link;
 }
 
-// The way on from the front door: the sign-in line under the card's buttons carries
-// this, because index.html itself is only the card — the buttons, and the doors behind
-// them, are on the home page.
+// Input: none.
+// Output: an <a> to HOME_URL worded as the way on ("Continue to the home page →").
+// Action: builds the link node; nothing is fetched and nothing is written.
+// Role: the way on from the front door — the sign-in lines under both of the card's doors append
+//   it, because index.html itself is only the card: the buttons, and the doors behind them, are
+//   on the home page.
 function homePageLink() {
     const link = document.createElement('a');
     link.href = HOME_URL;
@@ -671,6 +808,15 @@ const ADMIN_NAME_KEYS = ['admin_name', 'name', 'admin', 'username'];
 // admin saw.
 const homeAdminName = document.getElementById('homeadminname');
 
+// Input: none — it reads the page's own #homeadminname element and the session cookie.
+// Output: none — the greeting element is filled with the admin's name, or the status line under
+//   the doors says why it could not be.
+// Action: GETs /current-admin with the session cookie, writes into the greeting the name
+//   currentAdminNameIn() reads out of the reply, and otherwise reports the answer on the status
+//   line — a reply naming nobody, a refused session, or an unreachable API — appending
+//   signInPageLink() when the missing session is the trouble.
+// Role: the home page's own read, started by the boot at the foot of this section: it is what
+//   turns the greeting's dots into the name of the admin this browser is signed in as.
 async function refreshHomeGreeting() {
     if (!homeAdminName) return; // every other page loads app.js for its own form
 
@@ -717,8 +863,11 @@ if (homeAdminName) {
     refreshHomeGreeting();
 }
 
-// The way back to the front door, for the hub's status line — the mirror of
-// homePageLink() above, which carries the way on the other way.
+// Input: none.
+// Output: an <a> to SIGN_IN_URL worded as the way back ("Go to the sign-in card →").
+// Action: builds the link node; nothing is fetched and nothing is written.
+// Role: the way back to the front door for the hub's status line — the mirror of homePageLink()
+//   above, which carries the way the other way, and of studentHomePageLink() before it.
 function signInPageLink() {
     const link = document.createElement('a');
     link.href = SIGN_IN_URL;
@@ -726,9 +875,14 @@ function signInPageLink() {
     return link;
 }
 
-// Replace the previous status line under the doors with a single message — the same
-// one-paragraph shape showLoginMessage and showAccountMessage write into their own
-// blocks.
+// Input: results — the block to write into (the hub's #homestatus); text, the sentence to show;
+//   isError, whether it is a refusal rather than a result.
+// Output: none — the block is emptied and the one paragraph put in it.
+// Action: builds a paragraph, gives it the red .results__error class when isError, and swaps it
+//   in with replaceChildren(); a block that is not on the page is left alone.
+// Role: the status line under the home page's doors — the same one-paragraph shape
+//   showLoginMessage and showAccountMessage write into their own blocks — where a greeting that
+//   could name nobody and a Sign out that did not go through are both said.
 function showHomeMessage(results, text, isError) {
     if (!results) return;
 
@@ -742,8 +896,14 @@ function showHomeMessage(results, text, isError) {
     results.replaceChildren(paragraph);
 }
 
-// The 200 body is an object of strings whose fields openapi.json does not name,
-// so the answer is read defensively:
+// Input: payload — the parsed body of a GET /current-admin answer: an object of strings whose
+//   fields openapi.json does not name, or anything else the route answered with.
+// Output: one sentence for the status line, naming the admin whenever the reply carried a name
+//   — "Signed in as alice." — and saying "the reply names no admin" when it did not.
+// Action: reads the name through ADMIN_NAME_KEYS and, when the reply holds other fields beside
+//   it, names those too; a bare string is a name, a list is one sentence per entry, and {}
+//   / null / a number all say the session was accepted but nobody was named. The shapes the
+//   route has answered with so far:
 //   {"admin_name": "alice"}                     -> "Signed in as alice."
 //   {"name": "alice"} / {"admin": …} / {"username": …}  -> the same
 //   {"admin_name": "alice", "bank": "Bonura's"} -> the name, then the extra fields
@@ -751,6 +911,9 @@ function showHomeMessage(results, text, isError) {
 //   [{"admin_name": "alice"}]                   -> one sentence per entry
 //   {} / null / a bare number                   -> the session was accepted, but
 //                                                  the reply names nobody
+// Role: what the hub says when the session was accepted but no name could be written into the
+//   greeting itself (refreshHomeGreeting) — the sentence half of that read, where
+//   currentAdminNameIn() below is the name half.
 function describeCurrentAdmin(payload) {
     if (Array.isArray(payload)) {
         return payload.length
@@ -852,10 +1015,18 @@ const rosterRefreshButton = document.getElementById('rosterrefresh');
 // not pile a second read up behind the first.
 let rosterReadRunning = false;
 
-// Which admin is signed in, then that admin's students, then their balances — and the
-// rows. Anything that is not a table is spelled out on the status line above it, and
-// the rows of the read before are dropped rather than left standing as if they were
-// current.
+// Input: none — it reads the page's own table elements (rosterRows, rosterStatus, rosterStamp)
+//   and the session cookie.
+// Output: none — the table is drawn (or hidden), and the status line above it and the clock
+//   beside Refresh say what came back.
+// Action: GETs /current-admin for the signed-in admin, then that admin's students
+//   (adminStudents), then every student's balance (one request each, all at once) and the
+//   job-salaries list when a job still needs pricing; ranks the rows, draws them, and says in
+//   words how many there are, how many share a balance, and what could not be read. One read at
+//   a time: rosterReadRunning turns a second one away while the first is still on its way.
+// Role: the students page's own read (students.html, behind the hub's "View students" door) —
+//   the four live routes listed at the head of this section are all asked from here, and
+//   anything that is not a table is spelled out on the status line rather than thrown.
 async function refreshRoster() {
     if (!rosterRows) return; // every other page loads app.js for its own form
     if (rosterReadRunning) return;
@@ -982,25 +1153,32 @@ async function refreshRoster() {
     }
 }
 
-// The table's ranking: by the balance on the account, from the smallest to the largest —
-// a student who is overdrawn stands above a student who is level, who stands above the
-// biggest holder on the page. The comparison is the figure itself and not its text, so
-// -10 is ranked below 9 rather than after it, which is what comparing the two as strings
-// would say (the '-' sorts before the digits); that is the same reading a balance is
-// given in its own cell (drawRosterTable). The sort is stable, so the name order the rows
-// arrive in — adminStudents sorts by name — is what decides between two students holding
-// the same balance: the account ranks the row, and the name only ever breaks its rank.
-// The rows handed in are the ones a balance was read for, so no row is ever ranked on a
-// figure nobody read.
+// Input: rows — the table's rows as adminStudents() and the balance reads left them, each
+//   { name, job, salary, balance } with a real balance on it.
+// Output: the same array, ranked from the smallest balance to the largest.
+// Action: sorts by the balance as a figure, not as text, so -10 is ranked below 9 rather than
+//   after it, which is what comparing the two as strings would say (the '-' sorts before the
+//   digits) — the same reading the figure is given in its own cell (drawRosterTable).
+// Role: the ranking of the students table, the ladder from the student who owes the most down
+//   to nothing and up to the biggest holder on the page. The sort is stable and the rows arrive
+//   in name order (adminStudents sorts by name), so a name only ever breaks a balance two
+//   students share; the rows handed in are the ones a balance was read for, so nothing is ever
+//   ranked on a figure nobody read.
 function rankRosterRows(rows) {
     rows.sort((a, b) => a.balance - b.balance);
     return rows;
 }
 
-// Fills the table: one row per student — the name, the balance, the job that student has
-// been given and the salary that job pays, in the four columns the sketch draws. Every
-// cell is built as a node rather than with innerHTML, because the names come from the
-// backend.
+// Input: rows — the ranked rows of refreshRoster(), each { name, job, salary, balance }.
+// Output: none — #rosterrows is emptied and given one <tr> per row, the frame around them is
+//   shown, and the count is logged for the record.
+// Action: builds the four cells of every row as nodes — the balance in the red it wears when it
+//   is below zero, and a dash (ROSTER_EMPTY_CELL) for a job or a salary the backend had nothing
+//   for — then swaps them in with replaceChildren() and unhides the frame.
+// Role: how the students table draws what refreshRoster() read: one row per student in the four
+//   columns the sketch names — the name, the balance, the job and the salary that job pays.
+//   Every cell is built as a node rather than with innerHTML, because the words are the
+//   backend's.
 function drawRosterTable(rows) {
     const body = document.createDocumentFragment();
 
@@ -1045,8 +1223,12 @@ function drawRosterTable(rows) {
     console.log(`Listed ${rows.length} student(s), their balances, jobs and job salaries.`, rows);
 }
 
-// Drops the rows and hides the frame they stand in. A read that failed or came back empty
-// must not leave the table of the read before standing as if it were current.
+// Input: none.
+// Output: none — the table's rows are dropped and the frame they stand in is hidden.
+// Action: hides #rosterframe and empties #rosterrows; a page without them is left alone.
+// Role: what every failed or empty read of the students table does before it says so on the
+//   status line: a read that failed or came back empty must not leave the table of the read
+//   before standing as if it were current.
 function clearRosterTable() {
     if (rosterFrame) {
         rosterFrame.hidden = true;
@@ -1055,17 +1237,26 @@ function clearRosterTable() {
     rosterRows?.replaceChildren();
 }
 
-// The line beside the Refresh button, outside the live region, so a clock written there
-// every read is not read out to a screen reader.
+// Input: none.
+// Output: none — #rosterstamp is given the clock reading of the read that has just finished.
+// Action: writes "Last read at <local time>" into the element; a page without it is left alone.
+// Role: the small print beside the students table's Refresh button, saying how fresh the table
+//   is. It stands outside the live region, so a clock written there on every read is not read
+//   out to a screen reader.
 function stampRoster() {
     if (!rosterStamp) return;
 
     rosterStamp.textContent = `Last read at ${new Date().toLocaleTimeString()}.`;
 }
 
-// Replace the previous status line above the table with a single message — the same
-// one-paragraph shape showHomeMessage, showAccountMessage and showReasonMessage write
-// into their own blocks, so an error is the red variant of the same panel.
+// Input: results — the block to write into (the students page's #rosterstatus); text, the
+//   sentence to show; isError, whether it is a refusal rather than a result.
+// Output: none — the block is emptied and the one paragraph put in it.
+// Action: builds a paragraph, gives it the red .results__error class when isError, and swaps it
+//   in with replaceChildren(); a block that is not on the page is left alone.
+// Role: the line above the students table, where every count, every figure that could not be
+//   read and every refusal of that read is said — the same one-paragraph shape the other
+//   show*Message writers use, so an error is the red variant of the same panel.
 function showRosterMessage(results, text, isError) {
     if (!results) return;
 
@@ -1088,6 +1279,12 @@ if (rosterRows) {
 
     rosterRefreshButton?.addEventListener('click', refreshRoster);
 
+// Input: the visibilitychange event of the document — this tab coming back to the front.
+// Output: none.
+// Action: reads the students again whenever the tab stops being hidden.
+// Role: the third way the students table reads itself, beside the first read as the page opens
+//   and the Refresh button — a balance changed in another tab turns up here when this tab comes
+//   back to the front.
     document.addEventListener('visibilitychange', function () {
         if (!document.hidden) {
             refreshRoster();
@@ -1113,10 +1310,14 @@ const removeResults = document.getElementById('removeresults');
 // question is written in, so the two read as the same question about different things.
 const REMOVE_QUESTION = 'confirm remove student, yes/no';
 
-// What the question says under its heading: the student as typed, and what each answer does,
-// the way the transaction question says what Y and N do to the row it names. The name is the
-// whole of what a removal would be aimed at, so it is read back exactly as it was typed —
-// trimmed of the space around it and nothing else — for the admin to read once more.
+// Input: student — the name as typed in remove.html's box (already trimmed by the submit
+//   handler).
+// Output: the sentence the Y/N question shows under its heading, naming the student and what
+//   each answer does.
+// Action: builds that one sentence; nothing is read and nothing is sent.
+// Role: the body of the removal question — the shape the transaction question is written in,
+//   with a student in place of a row. The name is the whole of what a removal is aimed at, so
+//   it is read back exactly as it was typed, for the admin to read once more.
 function describeRemoval(student) {
     const head = `“${student}” will be gone forever after this, and it cannot be undone.`;
     return `${head} Yes removes the student, No leaves them alone.`;
@@ -1136,26 +1337,38 @@ function describeRemoval(student) {
 // 422 {"detail": [{"type": "missing", "loc": ["body", "student"], "msg": "Field required"}]}.
 const REMOVE_STUDENT_URL = `${API_ORIGIN}/remove-student`;
 
-// The body the route is written with: exactly the one field it asks for, the name as it was
-// typed (trimmed by the submit handler), and nothing else — the same "only what the route
-// declares" shape transactionBody() keeps to on the transaction pages.
+// Input: student — the name as typed in remove.html's box (already trimmed).
+// Output: the request body { student } — the one field POST /remove-student declares.
+// Action: wraps the name in an object and nothing more.
+// Role: the body half of a removal, kept apart so the shape the route is written with is stated
+//   in one place — the same "only what the route declares" rule transactionBody() keeps to on
+//   the transaction pages.
 function removalBody(student) {
     return { student };
 }
 
-// How many accounts the answer says were taken away, or null when it does not say with a
-// number. Only this count may turn an answer into a removal: 200 on its own means no such
-// thing here, since a name that is on no account is answered 200 too.
+// Input: result — the parsed body of a POST /remove-student answer, whatever it carried.
+// Output: the number of accounts the backend says it took away, or null when its answer does
+//   not say with a number.
+// Action: reads result.deleted and answers it only when it is a number.
+// Role: the one figure a removal is judged by (sendRemoval): 200 on its own means no such thing
+//   here, because a name that is on no account is answered 200 too, so no sentence may claim a
+//   removal on the strength of the status alone.
 function removedCountIn(result) {
     const deleted = result?.deleted;
 
     return typeof deleted === 'number' ? deleted : null;
 }
 
-// What answering Yes is met with once the backend has taken the student away. The count is
-// read back as well, because a name is not a key: an account that was made twice is taken
-// away twice by the one request, and a removal that said "one" while it took two would be a
-// half-honest sentence.
+// Input: student — the name that was sent; count — the number of accounts the backend answered
+//   that it took away (one or more).
+// Output: the sentence remove.html shows once the removal went through.
+// Action: picks between the one-account sentence and the many-accounts one, naming the count in
+//   the latter.
+// Role: what answering Yes is met with on the remove page. The count is read back as well as
+//   the name, because a name is not a key: an account that was made twice is taken away twice
+//   by the one request, and a removal that said "one" while it took two would be a half-honest
+//   sentence.
 function removedMessage(student, count) {
     if (count === 1) {
         return `Removed — “${student}” is gone. The account was deleted from the backend.`;
@@ -1164,19 +1377,27 @@ function removedMessage(student, count) {
     return `Removed — ${count} accounts named “${student}” were deleted from the backend.`;
 }
 
-// What answering Yes is met with when the backend answered 200 but took nothing away: no
-// account carries that name, so the removal was a no-op and every list is as it was. Said as
-// an error, because the admin asked for something that did not happen — but nothing is wrong
-// with the backend, so the name is left in the box to be looked at again, and the dropdown
-// under it is the way to a spelling the backend does know.
+// Input: student — the name that was sent and matched no account.
+// Output: the sentence remove.html shows for that answer.
+// Action: builds that one sentence; it asks the backend for nothing.
+// Role: the other half of the Yes answer — the backend said 200 but took nothing away, so the
+//   removal was a no-op and every list is as it was. It is shown as an error, the admin having
+//   asked for something that did not happen, but nothing is wrong with the backend: the name is
+//   left in the box to be looked at again, and the dropdown under it is the way to a spelling
+//   the backend does know.
 function removalNotFoundMessage(student) {
     return `Nothing was removed — the backend knows no student named “${student}”, so nothing was deleted. Check the spelling, or pick the account from the dropdown.`;
 }
 
-// The write itself, in the shape sendTransaction() and the sign-out use: the one name as
-// JSON, the session cookie travelling with it, and one answer either way — { ok: true, count }
-// once the backend has taken the account away, { ok: false, text } with the sentence to show
-// when it took nothing away, refused, or could not be reached.
+// Input: student — the name to take away, as typed and trimmed, confirmed with Yes.
+// Output: one answer either way: { ok: true, count } once the backend has taken the account
+//   away, { ok: false, text } with the sentence to show when it took nothing away, refused, or
+//   could not be reached.
+// Action: POSTs removalBody(student) as JSON to /remove-student with the admin session cookie,
+//   reads the body once (a refusal is never trusted to parse), and judges the answer by
+//   removedCountIn() rather than by the status.
+// Role: the write half of the remove flow — the same shape sendTransaction() and the sign-out
+//   use, and the only call to the one route that takes a student away.
 async function sendRemoval(student) {
     const body = removalBody(student);
     console.log('Removing:', body);
@@ -1229,8 +1450,13 @@ async function sendRemoval(student) {
     }
 }
 
-// Replace the previous status line with a single message — the same one-paragraph shape
-// showHomeMessage, showReasonMessage and showOtherMessage write into their own blocks.
+// Input: text — the sentence to show; isError, whether it is a refusal rather than a result.
+// Output: none — the block is emptied and the one paragraph put in it.
+// Action: builds a paragraph, gives it the red .results__error class when isError, and swaps it
+//   in with replaceChildren(); a page without the block is left alone.
+// Role: the status line of the remove page (remove.html), the one place a removal's outcome, a
+//   missing session and a missing name are all said — the same one-paragraph shape
+//   showHomeMessage, showReasonMessage and showOtherMessage write into their own blocks.
 function showRemoveMessage(text, isError) {
     if (!removeResults) return;
 
@@ -1244,8 +1470,12 @@ function showRemoveMessage(text, isError) {
     removeResults.replaceChildren(paragraph);
 }
 
-// Sets the remove button's greyed-out state, the same attribute styles.css styles for
-// .btn — the state the two Next buttons wear while the backend is being asked.
+// Input: enabled — true to make the remove button live, false to grey it out.
+// Output: none — the button's aria-disabled attribute is set or cleared.
+// Action: adds or removes that one attribute; a page without the button is left alone.
+// Role: the remove button's own switch, thrown by the page opener, the submit handler and the
+//   session re-check — the same attribute styles.css styles for .btn, the state the reasons'
+//   Next buttons and the Other page's wear while the backend is being asked.
 function setRemoveEnabled(enabled) {
     if (!removeButton) return;
 
@@ -1256,13 +1486,15 @@ function setRemoveEnabled(enabled) {
     }
 }
 
-// Opening remove.html: ask the backend whether this browser still holds an admin session,
-// with the one probe every other protected flow asks — POST /adduser with an empty body,
-// the request ADMIN_CHECK_URL below is read for, which answers 401 "Not logged in" with no
-// session. A removal is only ever aimed at the students of the admin that is signed in, so
-// nothing is removed, and the question is not even put up, while the session has not been
-// confirmed: the button is grey and unclickable until it has been, and the status line
-// under the form says what the backend answered.
+// Input: none — it reads remove.html's own form, name box and button, and the session cookie.
+// Output: none — the remove button is left live or grey, and the status line under the form
+//   says what the probe answered, with the invitation to type a name when it was accepted.
+// Action: greys the button, asks checkAdminPermission() — the empty-body POST /adduser probe
+//   ADMIN_CHECK_URL is read for — and un-greys it only on a granted session.
+// Role: the remove page's boot, which the last line of this file's shared startup calls (see
+//   the note at that call): a removal is only ever aimed at the students of the admin that is
+//   signed in, so nothing is removed, and the question is not even put up, while that session
+//   has not been confirmed.
 async function openRemovePage() {
     if (!removeForm) return; // every other page loads app.js for its own form only
 
@@ -1282,6 +1514,17 @@ async function openRemovePage() {
     showRemoveMessage(`${check.text}${nextStep}`, check.isError);
 }
 
+// Input: the submit event of the remove form (remove.html), fired by its button or by Enter in
+//   the name box; the name itself is read off #removestudentname.
+// Output: none — the sentence under the form says what came of it (nothing sent, nothing
+//   confirmed, nothing removed, or removed), and after a removal the box is emptied and
+//   refocused for the next student.
+// Action: stops the browser's submit, refuses an empty box by pointing it out, re-asks the
+//   backend for admin powers (a session can expire while the page stands), puts the Y/N
+//   question up (describeRemoval, answered with Yes/No), and only on Yes sends the name
+//   (sendRemoval); the picker's own account list is re-read when a student has gone.
+// Role: the remove flow — the one question in the app that cannot be undone, behind the hub's
+//   "Remove student" door, and the only caller of sendRemoval().
 removeForm?.addEventListener('submit', async function (event) {
     event.preventDefault();
 
@@ -1369,6 +1612,15 @@ const LOGOUT_URL = `${API_ORIGIN}/logout`;
 
 const signOutButton = document.getElementById('signout');
 
+// Input: the click on the hub's Sign out door; nothing else is read.
+// Output: none — the status line under the doors says what came of it, and a sign-out that went
+//   through hands the browser back to the sign-in card.
+// Action: greys the button for the round trip, POSTs /logout with the session cookie, and on a
+//   200 sends the browser to SIGN_IN_URL once the sentence has had its moment; a refusal or a
+//   dead network puts the button back and says so.
+// Role: the last door of the home page — the end of the session every other page leans on
+//   (POST /logout empties session_id with Max-Age=0), which is why the browser is handed back
+//   to the front door rather than left on a page that has just lost its session.
 signOutButton?.addEventListener('click', async function () {
     // One sign-out at a time: the button goes grey and unclickable for the round trip,
     // the same as the forms on the other pages do.
@@ -1390,6 +1642,11 @@ signOutButton?.addEventListener('click', async function () {
 
             // Deliberately not re-enabled on this path: the session is gone, so a second
             // press while the front door is on its way would only sign out nobody.
+            // Input: none — the timer fires REDIRECT_DELAY_MS after the sign-out was answered.
+            // Output: none — the browser is sent back to the sign-in card.
+            // Action: assigns window.location.href = SIGN_IN_URL.
+            // Role: the delay that lets the "Signed out…" sentence be read before the front door
+            //   replaces the page it stands on.
             window.setTimeout(function () {
                 window.location.href = SIGN_IN_URL;
             }, REDIRECT_DELAY_MS);
@@ -1406,9 +1663,14 @@ signOutButton?.addEventListener('click', async function () {
     }
 });
 
-// The admin name inside a GET /current-admin reply (an object of strings), or '' when
-// the reply names nobody. The students table needs the name itself, not the sentence
-// describeCurrentAdmin() builds for the status line above it.
+// Input: payload — the parsed body of a GET /current-admin answer: an object of strings, a
+//   bare string, or anything else.
+// Output: the admin's name as text, trimmed, or '' when the reply names nobody.
+// Action: answers a plain string as itself and otherwise asks ADMIN_NAME_KEYS in turn, taking
+//   the first field that is a non-empty string; anything else is ''.
+// Role: the name half of the current-admin read — the students table, the hub's greeting and
+//   the query page's supervisor prefill need the name itself, where describeCurrentAdmin() above
+//   builds the sentence the status lines show.
 function currentAdminNameIn(payload) {
     if (typeof payload === 'string') {
         return payload.trim();
@@ -1441,6 +1703,16 @@ function currentAdminNameIn(payload) {
 // simply no admin to fill in — so the field is left as the page left it.
 const getUsersSupervisorField = getUsersForm?.elements.namedItem('supervisor') ?? null;
 
+// Input: none — it reads the query page's own Supervisor field (getUsersSupervisorField) and
+//   the session cookie.
+// Output: none — the field is filled with the signed-in admin's own name, or left as it was.
+// Action: GETs /current-admin and, when the answer names an admin and the field is still empty,
+//   writes that name into it; a 401, a nameless reply and a dead network all leave the field
+//   alone, said only in the console.
+// Role: a convenience of the query accounts page — GET /getuser compares ?supervisor= exactly
+//   and case-sensitively, so the page opens on this admin's own accounts in the backend's own
+//   spelling. Nothing on the page waits for it: the search runs the same whether the field was
+//   filled in or left blank, and the whole table is still one Clear away.
 async function prefillSupervisorWithCurrentAdmin() {
     if (!getUsersSupervisorField) return; // every other page loads app.js for its own form
 
@@ -1484,19 +1756,20 @@ prefillSupervisorWithCurrentAdmin();
 
 
 
-// The accounts GET /getuser lists for `admin`, sorted by name and de-duplicated, each one
-// as { name, job, salary }: the name the row is drawn under, the job that student has been
-// given ('' when the account carries none, which is every account until a job is rotated
-// onto it), and the job's own figure when the account sent one (null otherwise, which is
-// the salaries list's to fill in). The ?supervisor= filter is exact — checked live:
-// ?supervisor=teacher answers that admin's own account while ?supervisor=lagoon answers []
-// — and each row's own supervisor field is read again here, so only this admin's students
-// can reach the table on students.html, the same rule the transaction flow follows.
-// The alphabetical order arranged here is the table's tie-break as well as this list's
-// own order: students.html ranks its rows by the balance it reads from /get-balance, and
-// a balance two students share is decided by the name order this sort puts them in
-// (rankRosterRows). The sort has to stay here for that to hold — rows are ranked after
-// the balances come back, so the name order is already in hand by then, not re-decided.
+// Input: admin — the supervisor name to list students for (the signed-in admin, as
+//   currentAdminNameIn() read it).
+// Output: an array of { name, job, salary }, sorted by name and de-duplicated by name.
+// Action: GETs /getuser?supervisor=<admin> with the session cookie and walks the reply
+//   (studentRows): each row keeps its own name, the job the account carries ('' when it carries
+//   none, which is every account until a job is rotated onto it) and the figure sent with the
+//   account (null otherwise, which is the salaries list's to fill in). Each row's own supervisor
+//   field is read again here, so only students of this admin are kept, and the first row of a
+//   name the backend lists twice is the one that stands.
+// Role: the read of the students page's list — the exact, case-sensitive ?supervisor= filter the
+//   transaction flow also uses (checked live: ?supervisor=teacher answers that admin's own
+//   account while ?supervisor=lagoon answers []). The name order arranged here is also the
+//   table's tie-break, so the sort has to stay here for it to hold: rankRosterRows() ranks by
+//   balance afterwards and its own sort is stable.
 async function adminStudents(admin) {
     const response = await fetch(`${STUDENTS_URL}?${new URLSearchParams({ supervisor: admin })}`, {
         method: 'GET',
@@ -1520,18 +1793,22 @@ async function adminStudents(admin) {
     return [...accounts.values()].sort((a, b) => a.name.localeCompare(b.name, undefined, { sensitivity: 'base' }));
 }
 
-// Every account a GET /getuser payload carries, as { name, supervisor, job, salary } with
-// the surrounding space trimmed off. The route is untyped, so the shapes accepted mirror
-// the readers in studentpicker.js and sessionstorage.js:
+// Input: payload — the parsed body of a GET /getuser answer, in any of the shapes that route
+//   has been answered with.
+// Output: an array of { name, supervisor, job, salary }, every string trimmed and the salary a
+//   number or null.
+// Action: has studentEntries() find the list, then reads each row through the STUDENT_*_KEYS
+//   field names, taking the job and its figure off the same row the name comes from.
+// Role: the shape-normalising read under the students table and the student picker. The route is
+//   untyped, so the shapes accepted mirror the readers in studentpicker.js and sessionstorage.js:
 //   [{"name": "X", "supervisor": "Y"}]                         -> used as is
 //   {"users": [...]} / {"accounts": [...]} / {"data": [...]}   -> the inner list
 //   {"name": "X", "supervisor": "Y"} / "X"                     -> wrapped in an array
 //   null / undefined / ""                                      -> []
-// The job travels on the student's own account — it is what POST /set-jobs writes there —
-// so it is read off the same row the name is: a job the account does not carry is '' rather
-// than a guess, and a figure sent with the account is taken as that job's salary. A bare
-// string names an account with no supervisor and no job, so it can belong to no admin and
-// is dropped by the supervisor check above.
+//   The job travels on the student's own account — it is what POST /set-jobs writes there — so a
+//   job the account does not carry is '' rather than a guess, and a figure sent with the account
+//   is taken as that job's salary. A bare string names an account with no supervisor and no job,
+//   so it can belong to no admin and is dropped by adminStudents()' supervisor check.
 function studentRows(payload) {
     return studentEntries(payload).map((entry) => {
         const sent = firstField(entry, STUDENT_JOB_SALARY_KEYS);
@@ -1546,6 +1823,14 @@ function studentRows(payload) {
     });
 }
 
+// Input: payload — a GET /getuser answer in any shape, or anything nested inside one.
+// Output: the array of account entries the answer holds, or [] when it holds none.
+// Action: answers an array as itself, wraps a bare value in an array, and otherwise walks the
+//   wrapper keys (users, accounts, data, items) — descending into an object wrapper, and
+//   answering the whole payload as a one-row list when none of the keys holds a list.
+// Role: the shape-finding half of studentRows(), and the reader studentpicker.js and
+//   sessionstorage.js mirror by hand: it is what makes an untyped route's answer drawable
+//   whichever of its shapes the backend chooses.
 function studentEntries(payload) {
     if (Array.isArray(payload)) {
         return payload;
@@ -1570,10 +1855,17 @@ function studentEntries(payload) {
     return [payload];
 }
 
-// The balance GET /get-balance reports for one student, as a number. The reply is
-// {"user": "Rongrong Wu", "balance": 235} — checked live — and untyped beyond that,
-// so a numeric string is accepted too. Anything else is thrown rather than written as a
-// zero, because a zero is a real balance and a misread one is not.
+// Input: name — one student's name, as GET /getuser listed it (a name no list carries is never
+//   asked about, since an unknown student answers 0 rather than 404).
+// Output: the balance as a number, or a thrown Error when the route answered with no usable
+//   balance at all.
+// Action: GETs /get-balance?student=<name> with the session cookie, reads `balance` (or
+//   `amount`) off the reply and accepts a numeric string as well as a number; anything else is
+//   thrown.
+// Role: one cell of the students table and the figure its rows are ranked by. It is thrown on
+//   rather than written as a zero, because a zero is a real balance and a misread one is not —
+//   a row whose balance could not be read is dropped by refreshRoster() instead of being drawn
+//   as 0.
 async function studentBalance(name) {
     const response = await fetch(`${BALANCE_URL}?${new URLSearchParams({ student: name })}`, {
         method: 'GET',
@@ -1595,18 +1887,16 @@ async function studentBalance(name) {
     return balance;
 }
 
-// The job -> salary list GET /reasons/job-salaries answers — checked live:
-//   {"Attendance Monitor": 65, "Board Manager": 50, "Calendar Helper": 45, …}
-// the same /reasons/{slug} route and shape the reason pages read: a plain map of the
-// reason column to its amount. The slug is built out of the "JOB SALARIES" type value by
-// reasonSlugFromType() rather than spelled by hand, the way the reason pages build theirs,
-// so the request can only ever ask for the type column's own list and no hand-written slug
-// can drift away from it.
-//
-// Answers a plain object of job -> figure, which is what the job-salary column prices the
-// jobs /getuser listed with. A route that cannot be read, or one whose answer carries
-// nothing with both a name and a figure, throws: the caller says so on the status line and
-// leaves that column as a dash, rather than pricing a job out of nothing.
+// Input: none — the list it asks for is fixed: the "JOB SALARIES" type value, its slug built by
+//   reasonSlugFromType() rather than spelled by hand.
+// Output: a plain object of job -> figure, as { "Attendance Monitor": 65, … }, or a thrown Error
+//   when the route could not be read or carried nothing with both a name and a figure.
+// Action: GETs /reasons/{slug} with the session cookie — the same route and shape the reason
+//   pages read, so the column is priced from the table's own list — and keeps the entries
+//   reasonEntry() can price.
+// Role: the salaries the students table's job-salary column is priced from, asked only when a
+//   job was read that the account carried no figure for. A failure is thrown rather than guessed
+//   at, so refreshRoster() can leave that column a dash instead of pricing a job out of nothing.
 async function jobSalaries() {
     const slug = reasonSlugFromType(JOB_SALARIES_TYPE);
     const response = await fetch(`${REASONS_URL}/${slug}`, {
@@ -1654,14 +1944,20 @@ async function jobSalaries() {
 // "expense" and "fine" can be the words on the rows without being routes on the API.
 const REASONS_URL = `${API_ORIGIN}/reasons`;
 
-// The slug the API names a `type` column value by: everything lower case, every run
-// of anything that is not a letter or a digit turned into one hyphen.
+// Input: type — a `type` column value exactly as the table spells it ("JOB SALARIES", "BONUS
+//   BUCKS"), taken from a page's data-reason-type or from JOB_SALARIES_TYPE.
+// Output: the slug the API names that value by:
 //   "JOB SALARIES"                -> "job-salaries"
 //   "BONUS BUCKS"                 -> "bonus-bucks"
 //   "BONURA BANK FINES"           -> "bonura-bank-fines"
 //   "WAYS TO SPEND BONURA BUCKS"  -> "ways-to-spend-bonura-bucks"
-// All four are routes openapi.json lists, and the raw type value is not one of them:
-// /reasons/JOB%20SALARIES answers 404 {"detail": "Unknown reason type: JOB SALARIES"}.
+// Action: trims it, lower-cases it, turns every run of anything that is not a letter or a digit
+//   into one hyphen and cuts the hyphens off the ends.
+// Role: the one place a route slug is built in this file — /reasons/{slug} on the reason pages
+//   and the job-salaries list on the students page, both out of the type column's own value, so
+//   no hand-written slug can drift from the table. All four routes are openapi.json's, and the
+//   raw type value is not one of them: /reasons/JOB%20SALARIES answers 404 {"detail": "Unknown
+//   reason type: JOB SALARIES"}.
 function reasonSlugFromType(type) {
     return String(type)
         .trim()
@@ -1706,25 +2002,20 @@ function reasonSlugFromType(type) {
 // to get right.
 const RECORD_URL = `${API_ORIGIN}/transaction-record`;
 
-// The clock, in the shape a row's `date` carries, so a row this app writes reads like a row
-// the backend writes: YYYY/MM/DD HH:mm, as in 2026/09/29 16:17 — the shape the history column
-// names, read the way a pattern is written, where MM is the month and mm the minute and the
-// space holds the date and the time apart. It is the clock the four transaction-type pages'
-// date boxes start at — spelled the way the browser's own control reads a value (boxStamp) —
-// and the clock a box nobody has picked a day in is set to once more when the transaction is
-// built, so the reason pages and the Other page cannot drift into two shapes or two moments.
-//
-// The route takes `date` as a plain string and keeps no stamp of its own, so the shape
-// is this app's to choose, and choosing the history column's own shape keeps the row the
-// app wrote and the rows the backend wrote reading alike — transactionview.js re-cuts
-// both into that one shape, and reads back a stamp written this way unchanged.
-//
-// The parts are read off the local clock by hand rather than through toISOString(), which
-// works in UTC and would date an evening transaction tomorrow on this side of the world.
-// As a box's default this is the moment the page was opened, and because the box is filled
-// once more when the transaction is built (transactionDate), a row left to that default is
-// still stamped with the moment the admin approved it — the moment the Y/N question named —
-// even if the answer is given a minute later.
+// Input: none — it reads the browser's own local clock.
+// Output: the clock in the shape a row's `date` carries, YYYY/MM/DD HH:mm, as in
+//   2026/09/29 16:17 — the shape the history column names, where MM is the month and mm the
+//   minute and the space holds the date and the time apart.
+// Action: reads the year, month, day, hour and minute off a Date by hand, each padded to two
+//   digits with its leading zero — deliberately not through toISOString(), which works in UTC
+//   and would date an evening transaction tomorrow on this side of the world.
+// Role: the one clock of the four transaction-type pages: the default their date boxes are
+//   filled with (boxStamp), the reading a box nobody has picked a day in is set to once more as
+//   the transaction is built (transactionDate), and the stamp written by a page that carries no
+//   box at all. The route keeps no stamp of its own, so the shape is this app's to choose, and
+//   choosing the history column's own shape keeps the rows this app writes and the rows the
+//   backend wrote reading alike (transactionview.js re-cuts both into that one shape, and reads
+//   back a stamp written this way unchanged).
 function transactionStamp() {
     const now = new Date();
     const month = String(now.getMonth() + 1).padStart(2, '0');
@@ -1753,10 +2044,14 @@ function transactionStamp() {
 // stamp a box is allowed to leave off (readStamp).
 const dateField = document.getElementById('transactiondate');
 
-// One clock reading in the shape that control reads and writes, which is not the shape the row
-// carries: the day in three parts split by hyphens in place of the slashes, a T in place of the
-// space, then the clock in two. Both shapes come off the one reading, so a box's default and the
-// row it is written into can never name two different minutes.
+// Input: none — it reads the clock through transactionStamp().
+// Output: the same reading in the shape a datetime-local box reads and writes:
+//   2026/09/29 16:17 -> 2026-09-29T16:17.
+// Action: splits the stamp into its day and its time, swaps the day's slashes for hyphens and
+//   puts a T in place of the space.
+// Role: the date box's default on the four transaction-type pages (filled by the `if (dateField)`
+//   boot below). Both shapes come off the one reading, so a box's default and the row it is
+//   written into can never name two different minutes.
 function boxStamp() {
     const [day, time] = transactionStamp().split(' ');
 
@@ -1774,6 +2069,12 @@ if (dateField) {
 // and is never written over.
 let dateChosen = false;
 
+// Input: the input event of the date box — a day picked from its calendar, or typed into its
+//   parts.
+// Output: none.
+// Action: sets dateChosen to true.
+// Role: the flag transactionDate() reads: from here on the box is the admin's own, and the clock
+//   is never written over it again; until it is set, the box means "now".
 dateField?.addEventListener('input', function () {
     dateChosen = true;
 });
@@ -1785,16 +2086,19 @@ dateField?.addEventListener('input', function () {
 // the shape a row is written in carries none either.
 const BOX_STAMP = /^(\d{4})-(\d{2})-(\d{2})(?:T(\d{2}):(\d{2}))?$/;
 
-// What the box holds, in the shape the row is written with, or null when it holds no whole day.
-// A day with no clock reading beside it is filed at 00:00: the time of day is the part a box is
-// allowed to leave off, and midnight is the reading this app gives a row that names a day and no
-// time - so a box holding 2026-03-04 and a box holding 2026-03-04T00:00 write the same row. The
-// shape is the whole test, the way it is for the birthday box, and for the same reason: the
-// browser answers with a day it could name and a clock reading it could make sense of, and leaves
-// the box empty when it could not - February the 30th is not a day any calendar offers, so the
-// control keeps no such value - which means a box that answers at all answers with a real day,
-// and with a real time whenever it carries one. What is left to refuse is a box holding no whole
-// day at all: cleared, or a day cut off half way.
+// Input: value — what a datetime-local box holds.
+// Output: the day in the shape a row is written with, YYYY/MM/DD HH:mm, or null when the box
+//   holds no whole day at all.
+// Action: matches it against BOX_STAMP and re-cuts the parts; a day with no clock reading beside
+//   it is filed at 00:00, so a box holding 2026-03-04 and one holding 2026-03-04T00:00 write the
+//   same row.
+// Role: the reader transactionDate() puts between the box and the row, so the four transaction
+//   pages cannot date a row four ways. The shape is the whole test, the way it is for the
+//   birthday box, and for the same reason: the browser answers with a day it could name and a
+//   clock reading it could make sense of, and leaves the box empty when it could not — February
+//   the 30th is not a day any calendar offers, so the control keeps no such value — which means
+//   what is left to refuse is a box holding no whole day at all: cleared, or a day cut off half
+//   way.
 function readStamp(value) {
     const parts = BOX_STAMP.exec(String(value).trim());
 
@@ -1805,11 +2109,17 @@ function readStamp(value) {
     return `${parts[1]}/${parts[2]}/${parts[3]} ${parts[4] || '00'}:${parts[5] || '00'}`;
 }
 
-// The date the row is written with, or null when the box holds no whole day - each page says so on
-// its own status line, the way the Other page does with the amount. A day with no time on it is
-// not a refusal: readStamp files it at 00:00. A page carrying no such box at all (none of the four
-// that approve a transaction is without one) writes the row with the clock, so a page added
-// without a box records the minute it happened instead of refusing.
+// Input: none — it reads the page's own date box (dateField) and the dateChosen flag.
+// Output: the day the row is to be written with, in the shape a row carries, or null when the
+//   box holds no whole day.
+// Action: on a page with no box it answers transactionStamp(); on a page whose box nobody has
+//   touched it fills the box from the clock once more (boxStamp) and then reads it back
+//   (readStamp).
+// Role: the one date read the four approving pages share, called as each of them builds its
+//   transaction, so the reason pages and the Other page cannot drift into two shapes or two
+//   moments — a page left open for an hour still writes the minute it happened. A day with no
+//   time on it is not a refusal (readStamp files it at 00:00, and DATE_PROMPT says so); a box
+//   holding no whole day at all is, and each page says so on its own status line.
 function transactionDate() {
     if (!dateField) {
         return transactionStamp();
@@ -1852,11 +2162,15 @@ const STUDENT_KEY = 'student_username';
 // one key the box wrote.
 const SELECTED_STUDENTS_KEY = 'selected_students';
 
-// The students the stored pick names, in the order they were named; [] when nothing is stored,
-// or when what is stored cannot be read back as a list of names. The same reading of the same
-// key sessionstorage.js's storedStudentSelection() makes, so half a JSON object, or a key
-// somebody else wrote, can only ever come back as no pick at all rather than as a student to
-// write a row for.
+// Input: none — it reads SELECTED_STUDENTS_KEY out of sessionStorage.
+// Output: the stored names as an array of strings, in the order they were picked; [] when
+//   nothing is stored or when what is stored cannot be read back as a list of names.
+// Action: parses the stored JSON and keeps the entries that are non-empty strings.
+// Role: the reader of the pick transaction1.html's box stores — the same reading
+//   sessionstorage.js's storedStudentSelection() makes, so half a JSON object, or a key somebody
+//   else wrote, can only ever come back as no pick at all rather than as a student to write a
+//   row for. It is kept here by hand because the four approving pages load this file and not
+//   that one.
 function storedStudentSelection() {
     const stored = sessionStorage.getItem(SELECTED_STUDENTS_KEY);
 
@@ -1876,14 +2190,18 @@ function storedStudentSelection() {
     }
 }
 
-// The students an approved transaction names, which is who it is written for: every student of
-// the pick, in the order the box was clicked in, because the one transaction typed on these pages
-// is recorded for each of them rather than for the first of them alone. This is read once, as the
-// approving page builds the transaction - the very object the Y/N question is asked about - so
-// what is written is what the admin agreed to. A page whose storage holds no pick at all falls
-// to the one username STUDENT_KEY carries, which is all these pages had before the box could
-// pick several; when neither is there the list is empty, and the approval writes nothing rather
-// than a row for a student nobody named.
+// Input: none — it reads the stored pick (storedStudentSelection) and, as a fallback, the one
+//   name STUDENT_KEY carries.
+// Output: the students the transaction is for, as an array of names in pick order; [] when
+//   neither key holds one.
+// Action: answers the pick when there is one, and otherwise the one stored username when it
+//   holds something.
+// Role: who an approved transaction is written for — every student of the pick, in the order the
+//   box was clicked in, because the one transaction typed on these pages is recorded for each of
+//   them rather than for the first of them alone. It is read once, as the approving page builds
+//   the transaction — the very object the Y/N question is asked about — so what is written is
+//   what the admin agreed to; with neither key holding a name the list is empty, and the
+//   approval writes nothing rather than a row for a student nobody named.
 function selectedStudents() {
     const pick = storedStudentSelection();
 
@@ -1896,9 +2214,13 @@ function selectedStudents() {
     return stored && stored.trim() !== '' ? [stored] : [];
 }
 
-// The names of a pick as a sentence names them: "A", "A and B", "A, B and C". Every line that
-// says who a transaction was written for goes through here, so the one-student case reads
-// exactly as it always has and a longer pick does not run its names together with commas alone.
+// Input: names — one or more student names, in the order the box was clicked in.
+// Output: them as a sentence names them: "A", "A and B", "A, B and C" — '' for an empty list.
+// Action: answers a single name as itself and otherwise joins all but the last with commas and
+//   the last with " and ".
+// Role: the one place a list of names becomes words, so every line that says who a transaction
+//   was written for — the Y/N question, the recorded sentence, a write that stopped partway —
+//   reads the same, and the one-student case reads exactly as it always has.
 function nameList(names) {
     if (names.length <= 1) {
         return names[0] ?? '';
@@ -1935,8 +2257,16 @@ const reasonRowType = reasonSelect?.dataset.transactionType?.trim() || reasonTyp
 const REASON_NAME_KEYS = ['name', 'title', 'label', 'id'];
 const REASON_POINTS_KEYS = ['points', 'amount', 'value', 'score'];
 
-// First field that actually carries something, or null when none of them does.
-// Empty strings count as missing, so they never turn into blank options.
+// Input: source — an object the backend sent (or nothing at all); keys — the field names to try,
+//   most likely first.
+// Output: the value of the first of those keys that actually carries something, or null when
+//   none of them does.
+// Action: reads source[key] in turn and answers the first value that is not undefined, null or
+//   '' — an empty string counting as missing, so it never turns into a blank option or a blank
+//   cell.
+// Role: the one place an untyped route's field names are tried in this file: every reader of an
+//   answer (studentRows, reasonEntry, submissionFields, describeCurrentAdmin) asks through it,
+//   which is what lets the backend rename or add a field without the page drawing a dash for it.
 function firstField(source, keys) {
     for (const key of keys) {
         const value = source?.[key];
@@ -1949,8 +2279,15 @@ function firstField(source, keys) {
     return null;
 }
 
-// The points a reason is worth as a number, or null when it has no usable one.
-// Negatives survive: the fine list comes back as -10, -15, and so on.
+// Input: entry — one reason as the backend sent it: an object carrying its own fields, or a bare
+//   value.
+// Output: the points it is worth as a number — negatives surviving, the fine list coming back as
+//   -10, -15, and so on — or null when it carries no usable figure.
+// Action: takes the first of REASON_POINTS_KEYS that holds something and numbers it, accepting a
+//   numeric string; anything that is not a finite number is null.
+// Role: the figure half of reasonEntry(), and through it what the dropdown option is labelled
+//   with (amountLabel) and what the row's amount is signed from (signedAmount) — a reason with
+//   no figure being carried as null rather than as a 0 nothing was read for.
 function reasonPoints(entry) {
     const field = firstField(entry, REASON_POINTS_KEYS);
 
@@ -1963,7 +2300,15 @@ function reasonPoints(entry) {
     return Number.isFinite(points) ? points : null;
 }
 
-// Accepts every shape the API has answered with so far:
+// Input: payload — the parsed body of a /reasons/{slug} answer, in any of the shapes those
+//   routes have been answered with.
+// Output: the reason entries as an array — objects, or bare strings where the list was one.
+// Action: answers an array as itself, walks the wrapper keys (bonuses, bonus, data, items) and,
+//   failing those, reads a single reason object as a one-row list and a reason -> amount map as
+//   one entry per key.
+// Role: the shape-finding reader of the reason lists, shared by the reason pages' dropdowns
+//   (loadReasons) and by the job salaries behind the students table (jobSalaries). The shapes
+//   accepted so far:
 //   ["X"] / [{"name": "X", "points": 10}]                    -> used as is
 //   {"bonuses": []} / {"bonus": []} / {"data": []} / {"items": []}
 //                                                            -> the inner list
@@ -2002,13 +2347,6 @@ function reasonList(payload) {
     return Object.keys(payload).map((name) => ({ name, points: payload[name] }));
 }
 
-// One element of the list -> the { label, value } pair an <option> needs:
-//   "Teacher Assistant"                          -> both the same
-//   {name: "Teacher Assistant", points: 65}       -> the label adds the amount
-// The value is always the reason itself - the reason column value the backend sent -
-// never a separate id, so the choice the page carries on with is exactly the text
-// the column holds. Answers null when the entry carries nothing worth showing, so
-// fillReasonOptions can skip it instead of printing "undefined" into the dropdown.
 // Transaction types that take money out of an account. The reason lists carry the
 // spending figures as what a student pays (2 up to 200) and the fines as negatives
 // already (-5, -10, -15), but a transaction of either kind moves the balance the
@@ -2020,12 +2358,19 @@ function reasonList(payload) {
 // here, so a plainer word on the row cannot turn a charge into a payment.
 const DEBIT_TYPES = ['WAYS TO SPEND BONURA BUCKS', 'BONURA BANK FINES'];
 
-// One element of the list -> { label, value, points }, where label is the reason
-// column's own text and points is the figure the backend sent with it (null when it
-// sent none, which is what the page's built-in fallback list does):
-//   "Teacher Assistant"                       -> label and value "Teacher Assistant",
-//   {name: "Teacher Assistant", points: 65}     points 65
-// The figure is signed later, by type, in fillReasonOptions().
+// Input: entry — one element of a reason list as reasonList() found it: an object with its own
+//   fields, a bare string, or nothing at all.
+// Output: { label, value, points } for an <option> — the reason column's own text as both label
+//   and value, and the figure the backend sent with it (null when it sent none, which is what a
+//   page's built-in fallback list looks like) — or null when the entry carries nothing worth
+//   showing.
+// Action: reads the name through REASON_NAME_KEYS and the figure through reasonPoints(); an
+//   entry that is neither an object nor a usable string answers null.
+// Role: one row of a reason dropdown, and of the job-salaries list behind the students table.
+//   The value is always the reason itself — the reason column value the backend sent, never a
+//   separate id — so the choice a page carries on with is exactly the text the column holds, and
+//   null is what lets fillReasonOptions skip an entry instead of printing "undefined" into the
+//   dropdown. The figure is signed later, by type, in fillReasonOptions().
 function reasonEntry(entry) {
     if (entry === null || typeof entry !== 'object') {
         if (entry === undefined || entry === null || entry === '') {
@@ -2044,10 +2389,16 @@ function reasonEntry(entry) {
     return { label: String(name), value: String(name), points: reasonPoints(entry) };
 }
 
-// The amount to record for a reason, signed by its type: negative for the types that
-// spend money, positive for the ones that add it. null when the reason carries no
-// figure at all — nothing is invented for it, and null is what the route's schema
-// allows.
+// Input: points — the figure a reason carries (a number, or null); type — the page's own
+//   data-reason-type value, which is what the sign is decided from.
+// Output: the amount to record, as a number — negative for the types that spend money, positive
+//   for the ones that add it — or null when the reason carries no figure at all.
+// Action: refuses anything that is not a finite number and otherwise takes the absolute figure
+//   with a minus for a DEBIT_TYPES type.
+// Role: the sign half of a reason page's row: it is what makes spending and fines take points
+//   off an account while salaries and bonuses add them, so the figure the dropdown promised
+//   (amountLabel) and the figure recorded cannot differ. Nothing is invented for a reason with
+//   no figure — null is what the route's schema allows.
 function signedAmount(points, type) {
     if (typeof points !== 'number' || !Number.isFinite(points)) {
         return null;
@@ -2056,9 +2407,16 @@ function signedAmount(points, type) {
     return DEBIT_TYPES.includes(type) ? -Math.abs(points) : Math.abs(points);
 }
 
-// "Teacher Assistant (65 pts)" / "Pen pass (-5 pts)": the reason and the amount that
-// will be recorded for it, spelled with the sign it will be recorded with, so the
-// dropdown cannot promise one thing while the transaction carries another.
+// Input: reason — the reason column's own text; amount — the signed figure that will be
+//   recorded for it, or null when the reason carries none.
+// Output: the text a dropdown option — or the Other page's row type — is labelled with:
+//   "Teacher Assistant (65 pts)", "Pen pass (-5 pts)", or the bare reason when there is no
+//   figure.
+// Action: appends the amount and its unit in brackets, "pt" for exactly one point and "pts"
+//   otherwise (Math.abs, so a single point does not read "(-1 pts)").
+// Role: the label of every option a reason page builds, and the row type of the Other page: the
+//   amount is spelled with the sign it will be recorded with, so the dropdown cannot promise one
+//   thing while the transaction carries another.
 function amountLabel(reason, amount) {
     if (amount === null) {
         return reason;
@@ -2068,9 +2426,14 @@ function amountLabel(reason, amount) {
     return `${reason} (${amount} ${Math.abs(amount) === 1 ? 'pt' : 'pts'})`;
 }
 
-// The amount an <option> carries, as a number, or null when it carries none — which is
-// what the built-in list a page ships with looks like, its reasons having no figures to
-// go with them.
+// Input: option — the <option> the admin picked, or undefined when the dropdown holds nothing.
+// Output: the amount it carries as a number, or null when it carries none.
+// Action: reads data-amount off the option (where makeOption put it) and numbers it, accepting a
+//   numeric string; an absent or unusable value is null.
+// Role: what an approved reason page records as its row's amount — the figure the option's own
+//   label shows, read back off the element rather than worked out again, so approving a reason
+//   ships exactly the figure the admin saw. A page's built-in list carries no data-amount, which
+//   is why null — a reason with no figure — is the answer there.
 function optionAmount(option) {
     const value = option?.dataset?.amount;
 
@@ -2083,8 +2446,15 @@ function optionAmount(option) {
     return Number.isFinite(amount) ? amount : null;
 }
 
-// One <option>. The amount, when the reason came with one, is kept on the option so
-// that approving it ships exactly the figure the label shows.
+// Input: value — the option's value (the reason itself); label — the text the eye reads;
+//   selected — whether it is the entry the dropdown starts on; amount — the signed figure that
+//   goes with it, or null/undefined for a reason that carries none.
+// Output: the <option> element.
+// Action: builds the node, writes the value and the label as text, keeps the amount on
+//   data-amount when there is one, and marks it selected when asked.
+// Role: one row of a reason dropdown on the reason pages, and of the job-salaries list behind
+//   the students table. Keeping the amount on the option is what lets approving it ship exactly
+//   the figure its label shows (optionAmount).
 function makeOption(value, label, selected, amount) {
     const option = document.createElement('option');
     option.value = value;
@@ -2101,10 +2471,15 @@ function makeOption(value, label, selected, amount) {
     return option;
 }
 
-// Replaces the built-in options with the backend ones, keeping the placeholder
-// "choose one" entry at the top. Entries without a name are skipped, and when
-// nothing usable comes back the built-in list is left exactly as it is.
-// Accepts a raw payload too, and reports how many reasons it filled in.
+// Input: reasons — a list of reason entries, or a raw payload for reasonList() to read.
+// Output: the number of reasons it filled in — 0 when nothing usable came back and the page's
+//   built-in list was left exactly as it is.
+// Action: keeps the placeholder "choose one" entry at the top, signs each reason's figure by the
+//   page's own type (signedAmount), labels it with that figure (amountLabel), and swaps the whole
+//   list in; entries reasonEntry() answers null for are skipped.
+// Role: the one writer of a reason dropdown — how a reason page shows what /reasons/{slug}
+//   answered, and the count loadReasons() reads to decide whether the backend's list or the
+//   page's built-in one stands.
 function fillReasonOptions(reasons) {
     if (!reasonSelect) return 0;
 
@@ -2132,8 +2507,11 @@ function fillReasonOptions(reasons) {
     return options.length - 1;
 }
 
-// Sets the dropdown's greyed-out state, the attribute styles.css styles for
-// .panel select.
+// Input: enabled — true to make the dropdown live, false to grey it out.
+// Output: none — the select's aria-disabled attribute is set or cleared.
+// Action: adds or removes that one attribute; a page without the dropdown is left alone.
+// Role: the reason pages' dropdown switch — grey while the list is being read and while the
+//   session is still unconfirmed, using the attribute styles.css styles for .panel select.
 function setReasonEnabled(enabled) {
     if (!reasonSelect) return;
 
@@ -2144,8 +2522,12 @@ function setReasonEnabled(enabled) {
     }
 }
 
-// Sets the Next button's greyed-out state, the same attribute styles.css styles
-// for .btn (transaction1.html's Next link uses it too).
+// Input: enabled — true to make the reason pages' Next button live, false to grey it out.
+// Output: none — the button's aria-disabled attribute is set or cleared.
+// Action: adds or removes that one attribute; a page without the button is left alone.
+// Role: the switch of the reason pages' Next — the same attribute styles.css styles for .btn,
+//   which transaction1.html's Next link wears too — and the state a recorded or refused
+//   transaction leaves behind until the dropdown or the date box is touched again.
 function setApproveEnabled(enabled) {
     if (!reasonNext) return;
 
@@ -2156,6 +2538,13 @@ function setApproveEnabled(enabled) {
     }
 }
 
+// Input: text — the sentence to show; isError, whether it is a refusal rather than a result.
+// Output: none — the block is emptied and the one paragraph put in it.
+// Action: builds a paragraph, gives it the red .results__error class when isError, and swaps it
+//   in with replaceChildren(); a page without the block is left alone.
+// Role: the one status line of the reason pages, where the session check and the dropdown read
+//   share a sentence (openReasonPage) and every refusal of a transaction is said — the same
+//   one-paragraph shape the other show*Message writers use.
 function showReasonMessage(text, isError) {
     if (!reasonResults) return;
 
@@ -2194,13 +2583,24 @@ let confirmNo = null;       // the no button beside it
 let confirmBack = null;     // where the keyboard goes once the question is answered
 let confirmPending = null;  // { promise, resolve } of the question on screen
 
-// One of the two answers. Both are ordinary .btn buttons, so they look and behave
-// like every other button on the page.
+// Input: label — the text on the button ("Y"/"N" or "Yes"/"No"); variant — the .btn class it
+//   wears (btn--primary for the yes answer, btn--danger where the yes answer destroys something);
+//   answer — the boolean answerConfirmation() is given when it is pressed.
+// Output: the <button> element.
+// Action: builds a type="button" node with the app's own .btn classes and a click listener that
+//   answers the question.
+// Role: one of the two answers of the Y/N question, built when the overlay is first needed
+//   (buildConfirmDialog) and then re-worded and re-coloured for whatever question is asked.
 function confirmButton(label, variant, answer) {
     const button = document.createElement('button');
     button.type = 'button';
     button.className = `btn ${variant}`;
     button.textContent = label;
+    // Input: the click on one of the two answers.
+    // Output: none — the question is answered with the boolean this button was built for.
+    // Action: hands that boolean to answerConfirmation().
+    // Role: what makes one of the two answers work — both buttons are wired the same way, and the
+    //   answer each carries is the one it was built with (true for yes, false for the other).
     button.addEventListener('click', function () {
         answerConfirmation(answer);
     });
@@ -2208,6 +2608,18 @@ function confirmButton(label, variant, answer) {
     return button;
 }
 
+// Input: none.
+// Output: none — the overlay is built and appended to the body, and the module-level
+//   confirmDialog, confirmHeading, confirmText, confirmYes and confirmNo are filled in.
+// Action: builds the .confirm panel — the h2 question, the sentence under it and the two answer
+//   buttons — gives it role="dialog" and aria-modal, wires the keyboard (the first letter of each
+//   label, and Escape as the quieter answer) and stores the pieces every later question writes
+//   over.
+// Role: the app's own question box, built on first use and hidden again until it is needed — the
+//   one place a transaction approval and a student removal are asked about. window.confirm()
+//   would answer OK/Cancel, which is not what this flow asks for, so the question is a dialog of
+//   its own, and the listener lives on the document because the buttons are the only things
+//   inside the overlay and the keyboard may be anywhere.
 function buildConfirmDialog() {
     const dialog = document.createElement('div');
     dialog.className = 'confirm';
@@ -2239,12 +2651,15 @@ function buildConfirmDialog() {
     dialog.append(panel);
     document.body.append(dialog);
 
-    // The two answers work as keys too — the question says so — and Escape is the same
-    // answer as the quieter one, so the question can always be dismissed without a mouse.
-    // Each key is read off the label that is on the panel at the time, so a question
-    // answered with "Yes"/"No" is answered by y and n exactly as the approving pages'
-    // "Y"/"N" is. The listener lives on the document because the buttons are the only
-    // things inside the overlay and the keyboard may be anywhere.
+    // Input: the keydown event — any key pressed while the page has focus.
+    // Output: none — the question is answered when the key is one of the two answers.
+    // Action: ignores every key while the overlay is hidden; otherwise the first letter of the
+    //   yes label answers yes, and the first letter of the no label or Escape answers no. Each
+    //   key is read off the label on the panel at the time, so a question answered with
+    //   "Yes"/"No" is answered by y and n exactly as the approving pages' "Y"/"N" is.
+    // Role: the keyboard half of the question — the two answers work as keys too, the question
+    //   says so, and Escape is the same answer as the quieter one, so the question can always be
+    //   dismissed without a mouse.
     document.addEventListener('keydown', function (event) {
         if (dialog.hidden) return;
 
@@ -2262,11 +2677,17 @@ function buildConfirmDialog() {
     confirmText = text;
 }
 
-// What the dialog says: the same facts the status line names after a recording, so
-// the admin sees the students, the reason, the amount and - when it says more than the
-// reason already has - the memo the row will be written with. The students are all of them,
-// and the last sentence says how many accounts the Y answer really writes to, so a pick of
-// several is never confirmed as if it were one student.
+// Input: transaction — the object an approving page built and is about to send (students, type,
+//   amount, date, memo, label).
+// Output: the sentence the Y/N question shows under its heading.
+// Action: names the type — and the label in quotes, unless the type already opens with that
+//   label, which is the Other page's case alone — every student the transaction is for, the
+//   amount, the memo when it says more than the label already does, and, with more than one
+//   name, the tail that says how many accounts Y really writes to.
+// Role: the body of the transaction question: the same facts the status line names after a
+//   recording, so what the admin agrees to and what is reported afterwards cannot describe two
+//   different things. It is handed the very object the request will carry, and it never reads
+//   `date`, which the question does not name.
 function describeTransaction(transaction) {
     const forStudent = transaction.students.length ? ` for ${nameList(transaction.students)}` : '';
     const amount = transaction.amount === null || transaction.amount === undefined
@@ -2298,14 +2719,18 @@ function describeTransaction(transaction) {
     return `${head}${forStudent}, ${amount}.${memo}${tail}`;
 }
 
-// Puts the question on screen and answers true for the yes button, false for the other.
-// The heading, the sentence under it, the two labels, the treatment Yes gets and the button
-// the keyboard returns to are the caller's, because the two questions this app asks are not
-// the same question: the approving pages put a transaction in front of the admin and answer
-// it with Y and N, while remove.html puts a student there and answers it with Yes and No.
-// The labels default to the approving pages' pair, which is what they ask with. A question
-// already up is the question that has to be answered, so a second call shares it instead of
-// stacking another one on top.
+// Input: question — the heading; text — the sentence under it; options — what the caller varies:
+//   the two labels, whether the yes answer is drawn in the red a refusal gets, and the button the
+//   keyboard goes back to.
+// Output: a promise that settles true for the yes answer and false for the no one.
+// Action: builds the overlay on first use, writes the question, the sentence, both labels and the
+//   yes button's colour over whatever was there, shows it with the focus on the yes answer, and
+//   parks the promise the answer will resolve.
+// Role: the one question box of the app, asked wherever something cannot be undone: the approving
+//   pages put a transaction in front of the admin and answer it with Y and N, while remove.html
+//   puts a student there and answers it with Yes and No. The caller owns every word and the
+//   treatment, and a question already up is the question that has to be answered, so a second
+//   call shares it instead of stacking another one on top.
 function askConfirmation(question, text, options = {}) {
     if (confirmPending) {
         return confirmPending.promise;
@@ -2329,6 +2754,11 @@ function askConfirmation(question, text, options = {}) {
     confirmYes.focus();
 
     const pending = { promise: null, resolve: null };
+    // Input: resolve — the promise's own resolver, handed over by the Promise constructor.
+    // Output: none — the resolver is kept on the pending object.
+    // Action: parks resolve where answerConfirmation() can reach it.
+    // Role: how a question answered by a click (or a key) becomes a promise the asking flow can
+    //   await, with the resolution held until the overlay is answered.
     pending.promise = new Promise(function (resolve) {
         pending.resolve = resolve;
     });
@@ -2337,9 +2767,13 @@ function askConfirmation(question, text, options = {}) {
     return pending.promise;
 }
 
-// Answers the question and takes it off the screen. The first answer is the answer:
-// once it is gone there is nothing left to resolve, so a second click or key cannot
-// change what was decided.
+// Input: answer — true for the yes answer, false for the no one.
+// Output: none — the waiting promise is resolved with that answer.
+// Action: takes the pending question (returning when there is none), hides the overlay, puts the
+//   keyboard back on the button the question was asked from, and resolves the promise.
+// Role: what both answers come through — the buttons (confirmButton) and the keys
+//   (buildConfirmDialog) alike — and the first answer is the answer: once the question is gone
+//   there is nothing left to resolve, so a second click or key cannot change what was decided.
 function answerConfirmation(answer) {
     const pending = confirmPending;
 
@@ -2358,10 +2792,15 @@ function answerConfirmation(answer) {
     pending.resolve(answer);
 }
 
-// Fetches /reasons/{slug} for this page, swaps the built-in options for the
-// backend ones, and hands back the sentence the page should show plus how many
-// reasons ended up in the dropdown. It does not write that message itself: the
-// page opener and the Next button share the one status line.
+// Input: none — the page's own dropdown decides the list asked for (reasonType/reasonSlug).
+// Output: { count, text, isError } — how many reasons ended up in the dropdown and the sentence
+//   the page should show about it. It does not write that message itself.
+// Action: greys the dropdown for the round trip, GETs /reasons/{slug} with the session cookie,
+//   hands the answer to reasonList() and fillReasonOptions(), and turns a 404, an unusable list
+//   or a dead network into the sentence that says the built-in options stand.
+// Role: the read half of a reason page, called by the page's own boot (openReasonPage). The page
+//   opener and the Next button share the one status line, which is why the message is handed
+//   back rather than written here.
 async function loadReasons() {
     if (!reasonSelect) return { count: 0, text: '', isError: false }; // pages without the dropdown
 
@@ -2422,8 +2861,16 @@ async function loadReasons() {
 // 'unknown' while the backend is being asked, then 'granted' or 'denied'.
 let permissionState = 'unknown';
 
-// Asks the backend whether this browser still holds an admin session. Answers
-// with the verdict and with the sentence the page should show for it.
+// Input: none — it sends the browser's own session cookie.
+// Output: { granted, text, isError } — the verdict and the sentence the page should show for it.
+// Action: POSTs an empty body to ADMIN_CHECK_URL and reads the status: 2xx or 422 means only the
+//   empty body was refused, so the session cookie was accepted; 401 means no session; anything
+//   else is said in words. The verdict is also kept in permissionState.
+// Role: the one admin gate of the protected flows — the reason pages, the Other page and the
+//   remove page ask it as they open and again at the last moment before a write, because a
+//   session can expire while a page stands. It is the same empty-body POST /adduser trick
+//   sessionstorage.js uses, kept for the one request it costs: the route answers "Not logged in"
+//   before it ever looks at the body, and an empty body can never create a user.
 async function checkAdminPermission() {
     try {
         const response = await fetch(ADMIN_CHECK_URL, {
@@ -2467,10 +2914,16 @@ async function checkAdminPermission() {
     }
 }
 
-// Opening a reason page: ask for admin powers first, then fill the dropdown.
-// The one status line is shared, so both facts are put on it: whether the backend
-// accepted the session and what the dropdown ended up with. The line is styled as
-// an error if either half went wrong.
+// Input: none — it reads the page's own dropdown and the stored student pick.
+// Output: none — the dropdown is filled (or the page's built-in list left as it is), the Next
+//   button is left live or grey, and the one status line says what happened.
+// Action: refuses to go on with no student confirmed on transaction1.html and with no type value
+//   on the <select>; otherwise asks the backend for admin powers (checkAdminPermission), then
+//   reads the reason list (loadReasons) and puts both halves of the answer on the one status
+//   line, styled as an error if either half went wrong.
+// Role: the boot of the three reason pages (transaction_bonus, transaction_fines,
+//   transaction_spending) — what stops a type being opened straight from the URL with nobody
+//   behind it.
 async function openReasonPage() {
     if (!reasonSelect) return; // every other page loads app.js for its own form only
 
@@ -2510,6 +2963,13 @@ async function openReasonPage() {
 // only put the same question up again, and one click is one answer.
 let approvalRunning = false;
 
+// Input: none — it reads the page's dropdown, the date box and sessionStorage.
+// Output: none — the approval is run, and everything it has to say is written on the status line.
+// Action: refuses a page without the dropdown, refuses a second approval while one is running
+//   (approvalRunning), and otherwise runs runApproval(); the flag is cleared however that ended.
+// Role: the reason pages' Next button (wired to it below), the outer half of an approval — one
+//   approval at a time, because a second click while the Y/N question is up would only put the
+//   same question up again.
 async function approveReason() {
     if (!reasonSelect) return;
     if (approvalRunning) return;
@@ -2523,8 +2983,15 @@ async function approveReason() {
     }
 }
 
-// The approval itself, split out so the one-at-a-time flag above covers every way
-// out of it — recorded, refused, unanswered or off the network.
+// Input: none — it reads the dropdown, its selected option, the date box and sessionStorage.
+// Output: none — the row is written, or the status line (and Next's state) says why it was not.
+// Action: refuses an empty dropdown and a date box holding no whole day; re-asks the backend for
+//   admin powers; builds the row (students, type, amount, date, memo, label) with the amount read
+//   off the selected option (optionAmount) and the date through transactionDate(); asks the Y/N
+//   question about that very object; and on Y sends it (sendTransaction), greying Next once it is
+//   recorded and handing the browser back to the home page.
+// Role: the approval itself, behind approveReason() — split out so the one-at-a-time flag covers
+//   every way out of it: recorded, refused, unanswered or off the network.
 async function runApproval() {
     if (!reasonSelect.value) {
         showReasonMessage('Choose a reason before approving.', true);
@@ -2625,16 +3092,18 @@ async function runApproval() {
     setApproveEnabled(true);
 }
 
-// The body one row is written with: exactly the five fields a row of the table carries
-// - user, amount, type, date, memo - and nothing else. What the pages keep in their own
-// transaction object is more than this (the label the question reads, the reasons the
-// memo is built from), and none of that goes over the wire: `user` is the student that
-// turn of sendTransaction()'s loop is writing for, `type` is what the row is filed under,
-// and the reason it was written for is in the memo - except on the Other page, which has
-// no list to take a type from, where the reason the admin typed is the type and the memo
-// is whatever went in the memo box. The five fields are the same for every student of the
-// pick, which is why the loop below builds one body per student and changes nothing but
-// `user`.
+// Input: transaction — the object an approving page built; student — the one student this body
+//   is for.
+// Output: { user, amount, type, date, memo } — the five fields a row of the table carries, and
+//   nothing else.
+// Action: copies those five fields out of the transaction object, `user` being the student handed
+//   in.
+// Role: the one body shape both approving pages send (sendTransaction), so the reason pages and
+//   the Other page cannot drift apart. What the pages keep beside it — the label the question
+//   reads, the reason the memo is built from — none of that goes over the wire; the two pages
+//   differ only in what they put in `type` and `memo`, the Other page having no list to take a
+//   type from. The five fields are the same for every student of a pick, which is why
+//   sendTransaction()'s loop builds one body per student and changes nothing but `user`.
 function transactionBody(transaction, student) {
     return {
         user: student,
@@ -2645,23 +3114,23 @@ function transactionBody(transaction, student) {
     };
 }
 
-// The write itself, shared by the reason pages and the Other page and made for the whole pick:
-// the students the box stored are read once, the body each of their rows is written with is
-// built once - the same five fields for every one of them, only `user` differing - and then, in
-// a for loop over those bodies, one row is POSTed per student, as JSON, with the admin session
-// cookie travelling with the request. One transaction typed once is therefore recorded for every
-// picked student, one row each, rather than for the first of them alone.
-//
-// The bodies are parked in sessionStorage as the list of them before the first request leaves,
-// so a send that fails loses nothing. The loop stops at the first row the backend refuses or
-// that never reaches it: the rest of the pick would be asked for with the same session and
-// answered the same way, and every one of them would sit out the network's own timeout again,
-// once per student, while the admin is the one who has to read what happened and decide about
-// the rest.
-//
-// Answers { ok: true, count } once the backend has written every row, and { ok: false, text }
-// with the sentence to show when it refused, when the network was gone, or when there is no
-// student to write for.
+// Input: transaction — the approved transaction as the page built it (students, type, amount,
+//   date, memo, label).
+// Output: { ok: true, count } once the backend has written every row, or { ok: false, text }
+//   with the sentence to show when it refused, when the network was gone, or when there is no
+//   student to write for.
+// Action: re-asks the backend for admin powers at the last moment before the rows leave (a
+//   refusal writes nothing, so nothing is parked either); refuses a transaction naming nobody;
+//   builds one body per student (transactionBody, only `user` differing); parks them all in
+//   sessionStorage before the first request leaves, so a send that fails loses nothing; then
+//   POSTs one row per student in a for loop (writeTransaction), stopping at the first refusal.
+// Role: the one write of both approving pages, made for the whole pick: one transaction typed
+//   once is recorded for every picked student, one row each, rather than for the first of them
+//   alone. The loop stops at the first row the backend refuses or that never reaches it — the
+//   rest of the pick would be asked for with the same session and answered the same way, and
+//   every one of them would sit out the network's own timeout again, once per student, while the
+//   admin is the one who has to read what happened and decide about the rest. What it answers
+//   names the students it did write for (stoppedMessage).
 async function sendTransaction(transaction) {
     // The rows are only written for an admin, and the backend is the only thing that can say who
     // is one: the empty-body POST /adduser probe is asked here, once for the whole approval
@@ -2723,10 +3192,15 @@ async function sendTransaction(transaction) {
     };
 }
 
-// The one write: the body above, as JSON, with the admin session cookie travelling with the
-// request. Answers { ok: true, result } once the backend has written the row, and
-// { ok: false, text } with the reason alone when it refused or the network was gone, because the
-// sentence the admin reads is the caller's, and that one has to name the student this row was for.
+// Input: body — one row's five fields, as transactionBody() built them.
+// Output: { ok: true, result } once the backend has written the row, or { ok: false, text } with
+//   the reason alone when it refused or the network was gone.
+// Action: POSTs the body as JSON to RECORD_URL with the admin session cookie and reads the answer
+//   once (a refusal is never trusted to parse).
+// Role: the one request of a transaction approval, called once per student by
+//   sendTransaction()'s loop — and the same call the approvals page's Approve makes for a
+//   submission. The sentence the admin reads is the caller's, which is why only the reason is
+//   handed back: the caller is the one that has to name the student this row was for.
 async function writeTransaction(body) {
     try {
         const response = await fetch(RECORD_URL, {
@@ -2756,7 +3230,14 @@ async function writeTransaction(body) {
     }
 }
 
-// The sentence both approving pages show once the backend has written every row.
+// Input: transaction — the approved transaction that was written.
+// Output: the sentence the page shows once every row is written, ending with the way on to the
+//   home page.
+// Action: names the label, every student it was written for, what the row was filed under —
+//   dropping the type when it already opens with the label, which is the Other page's case alone
+//   — and, for a pick of several, that one row was written per student.
+// Role: the success sentence of both approving pages, shared so the reason pages and the Other
+//   page word a recording alike, and built from the same object the question named.
 function recordedMessage(transaction) {
     const students = transaction.students;
     const forStudent = students.length ? ` for ${nameList(students)}` : '';
@@ -2774,11 +3255,17 @@ function recordedMessage(transaction) {
     return `Recorded "${transaction.label}"${forStudent} — ${under}${each}. Taking you to the home page…`;
 }
 
-// What the admin reads when the loop stopped partway: which students the transaction was written
-// for, which student it stopped at, and which students of the pick never got their row. The last
-// sentence is only written when something has already been written, because pressing Next again
-// asks for the whole pick rather than for the rest of it, and the admin has to know that before
-// they do it.
+// Input: transaction — the approved transaction; written — the students whose rows the backend
+//   took; refusal — { student, text } for the student the loop stopped at; unwritten — the
+//   students of the pick the loop never reached.
+// Output: the sentence the page shows for a write that stopped partway.
+// Action: names the students the rows were written for and the student it stopped at, and appends
+//   the two further sentences when they apply.
+// Role: what the admin reads when a half-written approval is left standing — which students the
+//   transaction was written for, where it stopped, and which students of the pick never got their
+//   row. The last sentence is written only when something has already been written, because
+//   pressing Next again asks for the whole pick rather than for the rest of it, and the admin has
+//   to know that before they do it.
 function stoppedMessage(transaction, written, refusal, unwritten) {
     const rest = unwritten.length
         ? ` Nothing was written for ${nameList(unwritten)}.`
@@ -2794,29 +3281,43 @@ function stoppedMessage(transaction, written, refusal, unwritten) {
     return `Recorded the "${transaction.label}" transaction for ${nameList(written)}, and nothing for the rest of the pick — ${refusal.text}, at ${refusal.student}.${rest}${again}`;
 }
 
-// Choosing another reason is a different transaction, so it brings back the Next
-// button that a recorded or refused one left grey.
+// Input: the change event of the reason dropdown — another reason chosen.
+// Output: none.
+// Action: brings the Next button back when the dropdown holds a reason.
+// Role: the dropdown's own undo of the grey a recorded or refused transaction left on Next:
+//   choosing another reason is a different transaction, so the same click can be made again.
 reasonSelect?.addEventListener('change', function () {
     if (reasonSelect.value) {
         setApproveEnabled(true);
     }
 });
 
-// So is another day: the box is part of the row that gets written, so setting it — picking a
-// day in its calendar, or typing one in — brings Next back the way choosing another reason
-// does, but with a reason in the dropdown, since the box on its own has nothing to file. (The
-// Other page needs no line here: its date box is inside its form, whose own input listener
-// already covers every box in it.)
+// Input: the input event of the date box — a day picked from its calendar, or typed into its
+//   parts.
+// Output: none.
+// Action: brings the Next button back when the dropdown holds a reason.
+// Role: another day is another transaction, so setting the box has to undo the grey a recorded or
+//   refused one left on Next, the way choosing another reason does — but only with a reason in
+//   the dropdown, the box on its own having nothing to file. (The Other page needs no line of its
+//   own here: its date box is inside its form, whose own input listener covers every box in it.)
 dateField?.addEventListener('input', function () {
     if (reasonSelect?.value) {
         setApproveEnabled(true);
     }
 });
 
+// Input: the click on the reason pages' Next button.
+// Output: none.
+// Action: hands the click to approveReason() and nothing else.
+// Role: the wiring of the reason pages' Next — the button the Y/N question is asked from and the
+//   one its answer returns the keyboard to.
 reasonNext?.addEventListener('click', approveReason);
 
-// The page starts itself: ask the backend for admin powers, fill the dropdown,
-// then say on the one status line what happened.
+// Input: none — the boot runs as this file is read on a reason page.
+// Output: none — openReasonPage() does everything, on the page's own status line.
+// Action: calls openReasonPage() once, as the page loads.
+// Role: the boot of the three reason pages; every other page loads this file for its own form,
+//   and the call returns at once there, there being no dropdown to fill.
 openReasonPage();
 
 // Other transaction page -------------------------------------------------------
@@ -2855,8 +3356,14 @@ const otherResults = document.getElementById('otherresults');
 // or not the button looks live.
 let otherEnabled = false;
 
-// Sets the Other page's Next button greyed-out or live - the same attribute styles.css
-// styles for .btn on the reason pages - and remembers the answer for that check.
+// Input: enabled — true to make the Other page's Next button live, false to grey it out.
+// Output: none — the button's aria-disabled attribute is set or cleared, and otherEnabled is set
+//   to match.
+// Action: records the answer in otherEnabled, then adds or removes the attribute.
+// Role: the switch of the Other page's Next — the same attribute styles.css styles for .btn on
+//   the reason pages. The attribute is what the eye and the mouse see; otherEnabled is the flag
+//   the handler is checked against, because Enter inside a box submits the form whether or not
+//   the button looks live.
 function setOtherEnabled(enabled) {
     otherEnabled = Boolean(enabled);
 
@@ -2869,6 +3376,13 @@ function setOtherEnabled(enabled) {
     }
 }
 
+// Input: text — the sentence to show; isError, whether it is a refusal rather than a result.
+// Output: none — the block is emptied and the one paragraph put in it.
+// Action: builds a paragraph, gives it the red .results__error class when isError, and swaps it
+//   in with replaceChildren(); a page without the block is left alone.
+// Role: the one status line of the Other page, where the boot, the reason and amount refusals,
+//   the date refusal and every answer to a write are said — the same one-paragraph shape the
+//   other show*Message writers use.
 function showOtherMessage(text, isError) {
     if (!otherResults) return;
 
@@ -2882,19 +3396,28 @@ function showOtherMessage(text, isError) {
     otherResults.replaceChildren(paragraph);
 }
 
-// The row's memo as it should be sent: the text of the memo box, which the page, the
-// column and the route all call memo - the whole of the row's memo, since the broad
-// reason it belongs to is the row's type instead. Null when it was left empty: the route
-// takes a null memo, and an empty box is not a note.
+// Input: none — it reads the Other page's memo box (#othermemo).
+// Output: the text of the box, trimmed, or null when it was left empty.
+// Action: reads and trims the box's value, answering null for ''.
+// Role: the memo field of the Other page's row — the whole of the row's memo, since the broad
+//   reason it belongs to is the row's type instead. Null is sent rather than an empty string: the
+//   route takes a null memo, and an empty box is not a note.
 function otherMemoValue() {
     const memo = otherMemo?.value?.trim() ?? '';
 
     return memo === '' ? null : memo;
 }
 
-// Opening the Other page: the same two checks the reason pages make as they load - a
-// student has to have been confirmed on transaction1.html, and the backend has to still
-// recognise this browser as an admin.
+// Input: none — it reads the page's own boxes and button, sessionStorage and the session cookie.
+// Output: none — the Next button is left live or grey, and the one status line says what the
+//   checks answered, naming the students the transaction would be for.
+// Action: refuses to go on with no student confirmed on transaction1.html; otherwise asks the
+//   backend for admin powers (checkAdminPermission) and, once they were granted, invites the
+//   admin to type the amount, the broad reason and a memo — naming every student of the pick,
+//   because the row is written for each of them.
+// Role: the boot of transaction-other.html, the type with no list behind it — the same two checks
+//   the reason pages make as they load, and what stops this type being opened straight from the
+//   URL with nobody behind it.
 async function openOtherPage() {
     if (!otherAmount) return; // every other page loads app.js for its own form only
 
@@ -2926,9 +3449,14 @@ async function openOtherPage() {
     showOtherMessage(`${check.text}${nextStep}`, check.isError);
 }
 
-// Next: approving the Other transaction. The same shape as the reason pages' approval -
-// the backend is asked for admin powers once more, the Y/N question stands between the
-// choice and the write, and one approval runs at a time.
+// Input: none — it reads the page's own amount and reason boxes, and sessionStorage.
+// Output: none — the approval is run, and everything it has to say is written on the status line.
+// Action: refuses a page without the amount box, refuses a click the button's own state says is
+//   not live (otherEnabled) and a second approval while one is running (approvalRunning), and
+//   otherwise runs runOtherApproval(); the flag is cleared however that ended.
+// Role: the Other page's Next — the outer half of that approval, one at a time like the reason
+//   pages' and the same shape as theirs: the backend is asked for admin powers once more, and the
+//   Y/N question stands between the choice and the write.
 async function approveOther() {
     if (!otherAmount || !otherEnabled || approvalRunning) return;
 
@@ -2941,8 +3469,17 @@ async function approveOther() {
     }
 }
 
-// The approval itself, split out so the one-at-a-time flag above covers every way out
-// of it - recorded, refused, unanswered or off the network.
+// Input: none — it reads the Other page's reason, amount, memo and date boxes, and
+//   sessionStorage.
+// Output: none — the row is written, or the status line (and Next's state) says why it was not.
+// Action: refuses an empty reason and an amount that is not a whole number of points; refuses a
+//   date box holding no whole day; re-asks the backend for admin powers; builds the row — type
+//   the broad reason with its figure (amountLabel), the admin's own sign on the amount, the memo
+//   box or null — asks the Y/N question about that object, and on Y sends it (sendTransaction),
+//   greying Next once it is recorded and handing the browser back to the home page.
+// Role: the approval itself, behind approveOther() — split out so the one-at-a-time flag covers
+//   every way out of it: recorded, refused, unanswered or off the network. This is the one type
+//   with no list behind it: the amount, the reason and the memo are all typed.
 async function runOtherApproval() {
     const reason = otherReason?.value?.trim() ?? '';
     const amountText = otherAmount?.value?.trim() ?? '';
@@ -3028,32 +3565,46 @@ async function runOtherApproval() {
     setOtherEnabled(true);
 }
 
-// Editing the boxes is a different transaction, so it brings back the Next button that
-// a recorded or refused one left grey - the same rule as choosing another reason. Both
-// boxes have to hold something for that, because neither half alone can be written.
+// Input: the input event of any box inside the Other page's form — the amount, the reason or the
+//   memo.
+// Output: none.
+// Action: brings the Next button back when both the amount box and the reason box hold something.
+// Role: the Other page's own undo of the grey a recorded or refused transaction left on Next:
+//   editing the boxes is a different transaction, so the same click can be made again — and both
+//   boxes have to hold something for that, because neither half alone can be written.
 otherForm?.addEventListener('input', function () {
     if (otherAmount?.value.trim() && otherReason?.value.trim()) {
         setOtherEnabled(true);
     }
 });
 
-// Next is a submit button so that Enter inside a box works too, and a form that asks to
-// be submitted is answered here: nothing may leave this page as a query string.
+// Input: the submit event of the Other page's form — its Next button, or Enter inside one of its
+//   boxes.
+// Output: none.
+// Action: stops the browser's own submit and hands the work to approveOther().
+// Role: Next is a submit button so that Enter inside a box works too, and a form that asks to be
+//   submitted is answered here: nothing may leave this page as a query string.
 otherForm?.addEventListener('submit', function (event) {
     event.preventDefault();
     approveOther();
 });
 
-// The page starts itself: ask the backend for admin powers, then say on the status line
-// what it answered.
+// Input: none — the boot runs as this file is read on the Other page.
+// Output: none — openOtherPage() does everything, on the page's own status line.
+// Action: calls openOtherPage() once, as the page loads.
+// Role: the boot of transaction-other.html; every other page loads this file for its own form,
+//   and the call returns at once there, there being no amount box to fill.
 openOtherPage();
 
-// remove.html starts itself the same way, and its one line is down here rather than at the
-// foot of its own section above because the check it starts with is the one shared
-// checkAdminPermission and the ADMIN_CHECK_URL it reads is declared this far down: a const
-// cannot be read before the line that declares it, and the whole file is read before
-// anything is asked. The boot calls above find none of their own elements on remove.html
-// and start nothing, so this last line is the only one with work to do there.
+// Input: none — the boot runs as this file is read on the remove page.
+// Output: none — openRemovePage() does everything, on the page's own status line.
+// Action: calls openRemovePage() once, as the page loads.
+// Role: the boot of remove.html — its one line down here rather than at the foot of its own
+//   section above because the check it starts with is the shared checkAdminPermission, and the
+//   ADMIN_CHECK_URL that reads is declared this far down: a const cannot be read before the line
+//   that declares it, and the whole file is read before anything is asked. The boot calls above
+//   find none of their own elements on remove.html and start nothing, so this last line is the
+//   only one with work to do there.
 openRemovePage();
 
 // ----------------------------------------- approve transactions page --------
@@ -3140,15 +3691,20 @@ const SUBMITTED_LINE = [
 // day left behind in a row would be worse than one drawn in a shape nobody planned.
 const SUBMITTED_STAMP = /^(\d{4})[-/](\d{2})[-/](\d{2})(?:[T/ ](\d{2})[:/](\d{2})(?::\d{2}(?:\.\d+)?)?(?:Z|[+-]\d{2}:?\d{2})?)?$/;
 
-// Every transaction in a GET /getsubmittransaction reply, read the way studentEntries and the
-// history page's reader read an untyped list:
+// Input: payload — the parsed body of a GET /getsubmittransaction answer, in any shape that route
+//   may answer with.
+// Output: the transaction records as an array, each of them an object.
+// Action: filters an array, walks the wrapper keys (transactions, submissions, records, data,
+//   items) and otherwise answers the whole payload as a one-row list.
+// Role: the shape-finding reader of the approvals page, reading an untyped list the way
+//   studentEntries and the history page's reader do:
 //   [{...}, …]                                                    -> used as is
 //   {"transactions": […]}, {"submissions": […]}, {"records": […]},
 //   {"data": […]}, {"items": […]}                                 -> the inner list
 //   {…}                                                           -> wrapped in an array
 //   null / undefined / ""                                         -> []
-// Only objects count as rows: a transaction is a set of fields, so a bare string cannot be
-// one, and anything else is dropped rather than drawn as a row of dashes.
+//   Only objects count as rows: a transaction is a set of fields, so a bare string cannot be one,
+//   and anything else is dropped rather than drawn as a row of dashes.
 function submissionRecords(payload) {
     if (Array.isArray(payload)) {
         return payload.filter(isSubmissionRecord);
@@ -3173,17 +3729,26 @@ function submissionRecords(payload) {
     return [payload];
 }
 
+// Input: entry — one element of a GET /getsubmittransaction answer.
+// Output: true when it could be a transaction record, false for everything else.
+// Action: asks whether it is a non-null object, and nothing more.
+// Role: the one test behind submissionRecords() — a transaction is a set of fields, so a bare
+//   string or a null is dropped rather than drawn as a row of dashes, while no field name is
+//   required here, which names the route uses being submissionFields()' business.
 function isSubmissionRecord(entry) {
     return entry !== null && typeof entry === 'object';
 }
 
-// A stamp in the shape the history page's Date column names — YYYY/MM/DD HH:mm, as in
-// 2026/09/29 16:17 — or null when the value is no whole day. A row's day is re-cut into that
-// one shape for three reasons: it is the shape every other date in this app is shown in, it is
-// what the row is written with when the submission is approved, and its fixed width and
-// leading zeros are what make two stamps comparable as text (see rankSubmissionRows). A day
-// with no clock reading on it keeps the two parts it has — the time of day is the backend's to
-// send, and a time nobody recorded is not invented.
+// Input: value — a submitted row's day, in whatever shape the backend sent it.
+// Output: the day in the shape the history page's Date column names — YYYY/MM/DD HH:mm, as in
+//   2026/09/29 16:17 — or null when the value is no whole day.
+// Action: matches the value against SUBMITTED_STAMP and re-cuts the parts it found.
+// Role: the day of one submitted row, re-cut for three reasons: it is the shape every other date
+//   in this app is shown in, it is the shape the row is written with when the submission is
+//   approved (submissionTransaction), and its fixed width and leading zeros are what make two
+//   stamps comparable as text (rankSubmissionRows). A day with no clock reading on it keeps the
+//   two parts it has — the time of day is the backend's to send, and a time nobody recorded is
+//   not invented.
 function submissionStamp(value) {
     const parts = SUBMITTED_STAMP.exec(String(value).trim());
 
@@ -3194,12 +3759,17 @@ function submissionStamp(value) {
     return `${parts[1]}/${parts[2]}/${parts[3]} ${parts[4] || '00'}:${parts[5] || '00'}`;
 }
 
-// One row's own fields, read off the record once — the six values the row draws, the re-cut
-// stamp behind the date, and the id a decline names the row by. Everything the page says about
-// a submission is said from this object: the row is drawn from it, the question asked before a
-// write names it, the body the row is written with is built from it, and the sentence the
-// status line shows afterwards names it again. Reading the record once is what keeps those
-// four from disagreeing about what the submission said.
+// Input: record — one transaction of a GET /getsubmittransaction reply, as the backend sent it.
+// Output: { student, date, stamp, type, amount, memo, balance, id } — the six values the row draws
+//   (the day as it came, and the stamp it could be re-cut into, which is null when it could not),
+//   plus the id a decline names the row by; every one of them null where the backend sent nothing.
+// Action: asks firstField() for each field group in turn (SUBMITTED_*_KEYS), writes the values it
+//   found as strings except the two figures, which are kept as they came, and re-cuts the day
+//   with submissionStamp().
+// Role: the one read of a submitted record — the row is drawn from this object, the question asked
+//   before a write names it, the body the row is written with is built from it, and the sentence
+//   the status line shows afterwards names it again. Reading the record once is what keeps those
+//   four from disagreeing about what the submission said.
 function submissionFields(record) {
     const student = firstField(record, SUBMITTED_STUDENT_KEYS);
     const date = firstField(record, SUBMITTED_DATE_KEYS);
@@ -3223,9 +3793,15 @@ function submissionFields(record) {
     };
 }
 
-// What one value of a row is drawn as: the re-cut day for the date column — falling back to
-// the value as it came when no whole day could be read out of it, and to a dash when the
-// backend sent nothing at all, the way the history table draws its own cells.
+// Input: fields — one submission as submissionFields() read it; column — one entry of
+//   SUBMITTED_LINE, naming the field and the word a screen reader is given for it.
+// Output: that value as the text the row draws: the re-cut day for the date column, the value as
+//   it came for any other, and a dash (ROSTER_EMPTY_CELL) when the backend sent nothing at all.
+// Action: reads the named field and, for the date column, prefers the re-cut stamp over the value
+//   as it came.
+// Role: the value half of one cell of the approvals page, drawing a missing value the way the
+//   history table draws its own cells — a dash rather than a blank or an "undefined" the admin has
+//   to read past.
 function submissionText(fields, column) {
     const value = fields[column.field];
 
@@ -3236,13 +3812,16 @@ function submissionText(fields, column) {
     return column.field === 'date' ? (fields.stamp ?? String(value)) : String(value);
 }
 
-// The list is sorted by date, the oldest submission first: a queue is answered in the order it
-// formed, so the request that has been waiting longest is the one at the top. Two rows are
-// compared by the re-cut stamp above, whose fixed width and leading zeros make a later day and
-// a later clock reading sort after an earlier one as plain text. A row the backend sent no
-// readable day for has nothing to be placed by, so it stands after every row that has one
-// rather than at the head of a list it does not belong at the head of. The sort is stable, so
-// the order the backend answered in decides between two rows of the same minute.
+// Input: rows — the submissions as submissionFields() left them, each with its stamp or null.
+// Output: the same array, the oldest submission first.
+// Action: sorts on the re-cut stamp as plain text, and answers 1 for a row with no stamp, so it
+//   stands after every row that has one.
+// Role: the order of the approvals list — a queue is answered in the order it formed, so the
+//   request that has been waiting longest is the one at the top. The stamp's fixed width and
+//   leading zeros make a later day and a later clock reading sort after an earlier one as text; a
+//   row the backend sent no readable day for has nothing to be placed by and does not belong at
+//   the head of the list; and the sort is stable, so the order the backend answered in decides
+//   between two rows of the same minute.
 function rankSubmissionRows(rows) {
     rows.sort((a, b) => {
         if (a.stamp === null) return b.stamp === null ? 0 : 1;
@@ -3276,9 +3855,13 @@ let approvalButtons = [];
 let submissionsReadRunning = false;
 let submissionActionRunning = false;
 
-// Replace the previous status line with a single message — the same one-paragraph shape every
-// other page's showMessage writes into its own block, so an error here is the red variant of
-// the same panel.
+// Input: text — the sentence to show; isError, whether it is a refusal rather than a result.
+// Output: none — the block is emptied and the one paragraph put in it.
+// Action: builds a paragraph, gives it the red .results__error class when isError, and swaps it
+//   in with replaceChildren(); a page without the block is left alone.
+// Role: the status line of the approvals page — where the list's own read (readSubmissions) and
+//   every answer to an Approve or a Decline are said, in the same one-paragraph shape every other
+//   page's show*Message writes into its own block.
 function showApprovalsMessage(text, isError) {
     if (!approvalsStatus) return;
 
@@ -3292,9 +3875,14 @@ function showApprovalsMessage(text, isError) {
     approvalsStatus.replaceChildren(paragraph);
 }
 
-// Greys every Approve and Decline of the list, or brings them back. The greyed attribute is
-// what the eye and the mouse see and what stops the click; the flags above are what the
-// handlers are checked against, because a button is reachable by Tab whatever it looks like.
+// Input: enabled — true to make every Approve and Decline live, false to grey them out.
+// Output: none — each of the list's buttons has its aria-disabled attribute set or cleared.
+// Action: walks approvalButtons and adds or removes that one attribute.
+// Role: the whole approvals list's switch, greyed while a read or an action is on its way — the
+//   attribute styles.css greys .btn with, the same state the students page's Refresh wears. The
+//   attribute is what the eye and the mouse see and what stops the click; the running flags
+//   (submissionsReadRunning, submissionActionRunning) are what the handlers are checked against,
+//   because a button is reachable by Tab whatever it looks like.
 function setApprovalsEnabled(enabled) {
     for (const button of approvalButtons) {
         if (enabled) {
@@ -3305,9 +3893,14 @@ function setApprovalsEnabled(enabled) {
     }
 }
 
-// One of the two buttons a row ends with. Both are ordinary .btn buttons, so they look and
-// behave like every other button in the app: Approve is the filled ink one that takes the row
-// further in, Decline the red the app draws a refusal in.
+// Input: label — the text on the button ("Approve" or "Decline"); variant — the .btn class it
+//   wears (btn--primary for Approve, btn--danger for Decline).
+// Output: the <button> element.
+// Action: builds a type="button" node with the app's own .btn classes and the label as its text;
+//   the row wires its own click listener to it afterwards.
+// Role: one of the two answers a submitted row ends with on the approvals page. Both are ordinary
+//   .btn buttons, so they look and behave like every other button in the app: Approve is the
+//   filled ink one that takes the row further in, Decline the red the app draws a refusal in.
 function approvalButton(label, variant) {
     const button = document.createElement('button');
     button.type = 'button';
@@ -3317,10 +3910,17 @@ function approvalButton(label, variant) {
     return button;
 }
 
-// One row: the six values of the sketch's line, each with the word a screen reader is given
-// for it, and the pair of buttons that answer it at the end of the row. The fields object is
-// closed over by the row's own two buttons, so an Approve is about the very submission the row
-// was drawn from and not about the values as they happen to read.
+// Input: fields — one submission as submissionFields() read it: the six values, the re-cut stamp
+//   and the id.
+// Output: the <li> the approvals list is made of — one row of values with the pair of buttons that
+//   answer it at the end.
+// Action: builds one <span> per SUBMITTED_LINE column, each carrying its own sr-only word (the six
+//   words are never drawn — the bar between two values is the whole of what the eye gets), marks a
+//   figure below zero in the red as well as with its own sign, and wires Approve and Decline to
+//   approveSubmission() and declineSubmission().
+// Role: one row of the approvals page, drawn from the record's own fields object, which its two
+//   buttons close over — so an Approve is about the very submission the row was drawn from and not
+//   about the values as they happen to read.
 function submissionLine(fields) {
     const item = document.createElement('li');
     item.className = 'approvals__item';
@@ -3360,11 +3960,22 @@ function submissionLine(fields) {
     actions.className = 'approvals__actions';
 
     const approve = approvalButton('Approve', 'btn--primary');
+    // Input: the click on this row's Approve button.
+    // Output: none.
+    // Action: hands the row's own fields, the row and the button to approveSubmission().
+    // Role: what makes this row's Approve about the very submission the row was drawn from, rather
+    //   than about the values as they happen to read.
     approve.addEventListener('click', function () {
         approveSubmission(fields, item, approve);
     });
 
     const decline = approvalButton('Decline', 'btn--danger');
+
+    // Input: the click on this row's Decline button.
+    // Output: none.
+    // Action: hands the row's own fields, the row and the button to declineSubmission().
+    // Role: the same for the row's Decline — the fields are the row's own, so a decline names the
+    //   very submission the row was drawn from.
     decline.addEventListener('click', function () {
         declineSubmission(fields, item, decline);
     });
@@ -3375,8 +3986,15 @@ function submissionLine(fields) {
     return item;
 }
 
-// Fills the list: one row per submission, oldest first. Every value is built as a node rather
-// than with innerHTML, because the words come from the backend.
+// Input: rows — the submissions as rankSubmissionRows() ordered them.
+// Output: none — #approvalslist is emptied and given one row per submission and shown, and the
+//   buttons of every row are collected in approvalButtons; the count is logged.
+// Action: builds every row with submissionLine(), gathers each row's two buttons, and swaps the
+//   lot in with replaceChildren().
+// Role: how the approvals page draws what it read — one row per submission, oldest first. Every
+//   value is built as a node rather than with innerHTML, because the words come from the backend,
+//   and the buttons are collected so that a read or an action can grey the whole list at once
+//   (setApprovalsEnabled).
 function drawSubmissions(rows) {
     const body = document.createDocumentFragment();
     const buttons = [];
@@ -3394,8 +4012,12 @@ function drawSubmissions(rows) {
     console.log(`Listed ${rows.length} transaction(s) waiting to be approved.`, rows);
 }
 
-// Drops the rows and hides the list they stand in. A read that failed or came back empty must
-// not leave the rows of the read before standing as if they were current.
+// Input: none.
+// Output: none — the list's rows are dropped, the list is hidden and approvalButtons is emptied.
+// Action: empties #approvalslist, hides it, and forgets the buttons it held.
+// Role: what every failed or empty read of the approvals page does before it says so on the
+//   status line: a read that failed or came back empty must not leave the rows of the read before
+//   standing as if they were current.
 function clearSubmissions() {
     approvalsList?.replaceChildren();
     approvalButtons = [];
@@ -3405,23 +4027,32 @@ function clearSubmissions() {
     }
 }
 
-// The line beside the Refresh button, outside the live region, so a clock written there every
-// read is not read out to a screen reader.
+// Input: none.
+// Output: none — #approvalsstamp is given the clock reading of the read that has just finished.
+// Action: writes "Last read at <local time>" into the element; a page without it is left alone.
+// Role: the small print beside the approvals page's Refresh button, saying how fresh the list is.
+//   It stands outside the live region, so a clock written there on every read is not read out to
+//   a screen reader.
 function stampSubmissions() {
     if (!approvalsStamp) return;
 
     approvalsStamp.textContent = `Last read at ${new Date().toLocaleTimeString()}.`;
 }
 
-// Which transactions are waiting to be approved — then the rows, oldest first. Anything that
-// is not a list is spelled out on the status line above it, and the rows of the read before
-// are dropped rather than left standing as if they were current.
-//
-// The read is asked of the backend as it stands: GET /getsubmittransaction is a route the API
-// does not answer yet, and its 404 is said in the API's own words — with what the page asked
-// for — rather than dressed up as something the page did wrong. Everything else about the read
-// is the students page's read, one route shorter: one read at a time, a line while it is on
-// its way, and a sentence that says what came back.
+// Input: none — it reads the page's own list elements and the session cookie.
+// Output: none — the rows are drawn, or the list is emptied and the status line says what came
+//   back.
+// Action: GETs /getsubmittransaction with the session cookie; on a failure it drops the rows and
+//   says what the backend answered, naming the route when the answer is the API's 404 and saying
+//   where to log in on a 401; on an empty list it says there is nothing waiting; otherwise it
+//   reads every record once (submissionFields), orders them oldest first (rankSubmissionRows) and
+//   draws them (drawSubmissions).
+// Role: the approvals page's own read, started as the page opens, by Refresh, and when the tab
+//   comes back to the front. It is the students page's read one route shorter — one read at a
+//   time, a line while it is on its way, and a sentence that says what came back — and it asks
+//   the backend as it stands: GET /getsubmittransaction is a route the API does not answer yet,
+//   and its 404 is said in the API's own words, with what the page asked for, rather than dressed
+//   up as something the page did wrong.
 async function readSubmissions() {
     if (!approvalsList) return; // every other page loads app.js for its own form
     if (submissionsReadRunning) return;
@@ -3500,18 +4131,19 @@ async function readSubmissions() {
 // in — one heading, one sentence, answered with Y and N.
 const DECLINE_QUESTION = 'confirm decline transaction, Y/N';
 
-// The transaction a submission asks for, in the shape the reason pages build theirs in: the same
-// five fields, with the account it is for as the whole of `students`, the type it is filed under
-// as it was submitted, the amount as it was submitted — the sign is the submission's own, the
-// way the admin's own sign is the Other page's — and the memo as it was submitted. `label` is
-// null on purpose: there is no list here to name a reason from, so nothing is quoted that the
-// submission did not say.
-//
-// The day is the one value re-cut rather than passed on: when the submission's day could be read
-// as a day, it is filed in the shape every row this app writes is filed in, YYYY/MM/DD HH:mm;
-// when it could not be read, the value as it came is sent, that shape being the backend's own;
-// and when the submission names no day at all the field is null, which the route takes and
-// stamps itself.
+// Input: fields — one submission as submissionFields() read it.
+// Output: the transaction object in the shape the reason pages build theirs in — students (the one
+//   account this submission names, or []), type, amount, date, memo and a label that is null on
+//   purpose.
+// Action: wraps the student in a one-name list, passes the type, the amount and the memo on as
+//   they were submitted, and files the day as the re-cut stamp when there is one, the value as it
+//   came when there is not, and null when the submission names no day at all — which the route
+//   takes and stamps itself.
+// Role: the bridge between a submission and the transaction this app writes: the same five fields
+//   the reason pages build (transactionBody), so approving files the submission's own figure under
+//   its own type and dated its own day. The sign on the amount is the submission's own, the way
+//   the admin's own sign is the Other page's, and the label is null because there is no list here
+//   to name a reason from — nothing is quoted that the submission did not say.
 function submissionTransaction(fields) {
     return {
         students: fields.student === null ? [] : [fields.student],
@@ -3523,10 +4155,14 @@ function submissionTransaction(fields) {
     };
 }
 
-// One submission in a sentence: the type it is filed under, the figure it asks for, the account
-// it is for and the day it names — the same values the row draws, said in words, so a row in
-// front of the admin and a sentence about that row cannot describe two different things. A value
-// the backend did not send is left out of the sentence rather than spelled there as a dash.
+// Input: fields — one submission as submissionFields() read it.
+// Output: the submission in a sentence: the type it is filed under, the figure it asks for, the
+//   account it is for and the day it names (as the re-cut stamp where there is one).
+// Action: builds those four pieces, dropping each one the backend sent nothing for, and joins what
+//   is left.
+// Role: the one way a submission becomes words — a row in front of the admin and a sentence about
+//   that row cannot describe two different things, both coming from the same fields object. A
+//   value the backend did not send is left out of the sentence rather than spelled there as a dash.
 function submissionWords(fields) {
     const head = fields.type === null ? 'The submission' : `The “${fields.type}” submission`;
     const amount = fields.amount === null
@@ -3539,21 +4175,30 @@ function submissionWords(fields) {
     return `${head}${amount}${student}${day}`;
 }
 
-// What the decline question says under its heading: the submission the row draws, and what each
-// answer does to it — the shape remove.html's question is written in, with a decline in place of
-// a removal.
+// Input: fields — one submission as submissionFields() read it.
+// Output: the sentence the decline question shows under its heading.
+// Action: builds it from submissionWords() and appends what each answer does to the submission.
+// Role: the body of the Decline question — the shape remove.html's question is written in, with a
+//   decline in place of a removal: the submission the row draws, said in words, and the sentence
+//   that says this app has no undo.
 function describeDecline(fields) {
     return `${submissionWords(fields)}, will be taken off the approvals list, and this app has no undo.`
         + ' Y declines it and it is off the list for good, N leaves it waiting.';
 }
 
-// What approving writes: the row the submission asked for, through POST /transaction-record —
-// the add-transaction route the reason pages write through, one row for the one account this
-// submission names.
-//
-// The backend is asked whether this browser still holds an admin session first, at the last
-// moment before the row leaves, exactly as sendTransaction() asks it: the page was read with a
-// session that may have run out since, and a refusal writes nothing.
+// Input: fields — one submission as submissionFields() read it; line — the row drawn from it.
+// Output: none — the row is written and the status line says what came of it.
+// Action: refuses a submission naming nobody, there being no account to put the row on and the
+//   backend's own `user` being a required field; re-asks the backend for admin powers at the last
+//   moment before the row leaves; sends it through writeTransaction(transactionBody(...)), the one
+//   body POST /transaction-record is written with; and takes the row off the page once it is
+//   written.
+// Role: what the Approve button does — the write half of the approvals page. The row the
+//   submission asked for goes into the transaction table through the add-transaction route the
+//   reason pages write through, one row for the one account this submission names. The row leaves
+//   the page the moment the backend has written it, a row left standing being a row that can be
+//   approved twice and this app having no undo; the submission on the backend's own list is the
+//   backend's to take away, and the sentence does not claim it has.
 async function writeApprovedSubmission(fields, line) {
     const transaction = submissionTransaction(fields);
     const words = submissionWords(fields);
@@ -3594,14 +4239,15 @@ async function writeApprovedSubmission(fields, line) {
     );
 }
 
-// What declining does: POST /removesubmittransaction, the route that takes one submission off
-// the list, named by the id the read gave the row — the same one-field body POST /remove takes a
-// transaction away with ({"id": 5}). Like the write above, the admin session is confirmed at the
-// last moment, so a decline is never asked for with a session that has run out.
-//
-// A row the backend sent no id for cannot be declined: the route names the row it is to take
-// away, and with no id there is nothing it could be asked. The button is still there, so every
-// row ends the same way, and pressing it says the one thing that is missing.
+// Input: fields — one submission as submissionFields() read it; line — the row drawn from it.
+// Output: none — the submission is taken off the list and the status line says what came of it.
+// Action: refuses a row the backend sent no id for, the route naming the row it is to take away
+//   and there being nothing to ask without one; re-asks the backend for admin powers at the last
+//   moment; POSTs { id } as JSON to SUBMITTED_DECLINE_URL with the session cookie; and takes the
+//   row off the page once the backend has answered 200.
+// Role: what the Decline button does — the other half of the approvals page, and the same one-field
+//   body POST /remove takes a transaction away with. The button stands on every row, so every row
+//   ends the same way, saying the one thing that is missing when there is no id to name.
 async function removeSubmission(fields, line) {
     const words = submissionWords(fields);
 
@@ -3651,14 +4297,17 @@ async function removeSubmission(fields, line) {
     }
 }
 
-// Approving a row writes a transaction, and this app has no undo, so every approve is asked
-// about first: "confirm transaction, Y/N", with the row the request will carry — the same
-// transaction object the question and the write are built from, so what the question names is
-// what the backend is sent. Nothing leaves the page while the question is up.
-//
-// One action at a time: a second button pressed while the question is on screen would only put
-// the same question up again, and one click is one answer. The whole list is greyed for as long
-// as the answer takes, so the row being worked on is plain to see.
+// Input: fields — one submission as submissionFields() read it; line — the row drawn from it;
+//   button — the Approve button the question was asked from, so the keyboard can go back to it.
+// Output: none — the row is written and the status line says what came of it; a question answered
+//   with N writes nothing.
+// Action: refuses a second action while one is running and a read in flight; greys the whole list;
+//   puts the Y/N question up about submissionTransaction(fields) — the very object the write will
+//   carry — and on Y runs writeApprovedSubmission(); the list is brought back however it ended.
+// Role: the Approve button of the approvals page. Approving writes a transaction and this app has
+//   no undo, so every approve is asked about first, and one action runs at a time: a second button
+//   pressed while the question is up would only put the same question up again, one click being
+//   one answer.
 async function approveSubmission(fields, line, button) {
     if (submissionActionRunning) return;
     if (submissionsReadRunning) return; // a read in flight is about to draw this list again
@@ -3685,9 +4334,17 @@ async function approveSubmission(fields, line, button) {
     }
 }
 
-// Declining is asked about the same way, with a heading of its own and Y drawn in the red the
-// app draws a refusal in: the answer that takes the submission off the list is the one that
-// cannot be undone.
+// Input: fields — one submission as submissionFields() read it; line — the row drawn from it;
+//   button — the Decline button the question was asked from, so the keyboard can go back to it.
+// Output: none — the submission is taken off the list, or the status line says it was not
+//   confirmed.
+// Action: refuses a second action while one is running and a read in flight; greys the whole list;
+//   puts the question up (DECLINE_QUESTION, describeDecline, Y drawn as the red the app refuses
+//   with) and on Y runs removeSubmission(); the list is brought back however it ended.
+// Role: the Decline button of the approvals page, asked about the same way an approve is, with a
+//   heading of its own: the answer that takes the submission off the list is the one that cannot be
+//   undone, which is why Y wears the refusal's colour here and not the ink. The whole list is
+//   greyed for as long as the answer takes, so the row being worked on is plain to see.
 async function declineSubmission(fields, line, button) {
     if (submissionActionRunning) return;
     if (submissionsReadRunning) return; // a read in flight is about to draw this list again
@@ -3713,15 +4370,25 @@ async function declineSubmission(fields, line, button) {
     }
 }
 
-// The page starts itself the way the students page's table does: the first read happens as
-// approve_transactions.html opens, Refresh reads again on demand, and a submission made in
-// another tab turns up here when this tab comes back to the front. Every other page loads app.js
-// for its own form, has no list to fill, and starts nothing.
+// Input: none — the boot runs as this file is read on the approvals page.
+// Output: none — the list is read at once, and reads itself again on Refresh and when the tab
+//   comes back to the front.
+// Action: starts readSubmissions(), binds the Refresh button to it, and binds the document's
+//   visibilitychange to it.
+// Role: the approvals page's boot, the way the students page's table starts itself. The `if` is
+//   what keeps every other page — which loads this file for its own form, has no list to fill —
+//   from starting anything.
 if (approvalsList) {
     readSubmissions();
 
     approvalsRefreshButton?.addEventListener('click', readSubmissions);
 
+    // Input: the visibilitychange event of the document — this tab coming back to the front.
+    // Output: none.
+    // Action: reads the list again whenever the tab stops being hidden.
+    // Role: the third way the approvals page reads itself, beside the first read as the page opens
+    //   and the Refresh button — a submission answered in another tab is off this list when this
+    //   tab comes back to the front.
     document.addEventListener('visibilitychange', function () {
         if (!document.hidden) {
             readSubmissions();
