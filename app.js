@@ -24,7 +24,13 @@ function sameUsername(first, second) {
 // day arrives is stored exactly as typed. The field is a date of record, not a rule about who
 // may hold an account, so nothing caps it at today: it carries no max attribute for the
 // browser to grey the coming days out with, and no check here compares it with today.
-const ISO_DATE = /^\d{4}-\d{2}-\d{2}$/;
+//
+// The month is 01 through 12 and the day 01 through 31, each of them two digits with its
+// leading zero, so a value that is only date-shaped — month 00 or 13, day 00 or 32 — is
+// refused instead of stored. What the two ranges cannot catch is a day the month does not
+// have: 2026-02-30 or 2026-04-31 still read as a date here, the pattern being a bound on
+// the shape of a value and not a calendar.
+const ISO_DATE = /^\d{4}-(0[1-9]|1[0-2])-(0[1-9]|[12]\d|3[01])$/;
 
 function isISODate(value) {
     return ISO_DATE.test(value);
