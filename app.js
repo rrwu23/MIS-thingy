@@ -3458,7 +3458,7 @@ async function readSubmissions() {
             showApprovalsMessage(
                 `The backend could not list the transactions waiting to be approved (${response.status}): ${describeError(result)}`
                 + (response.status === 404
-                    ? ' The page asks GET /getsubmittransaction for them, which is the route the API has not been given yet — there is nothing to approve until it answers.'
+                    ? ' — the page asks GET /getsubmittransaction for them, which is the route the API has not been given yet, so there is nothing to approve until it answers.'
                     : ''),
                 true
             );
