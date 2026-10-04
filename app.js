@@ -1644,8 +1644,8 @@ async function jobSalaries() {
 // A page whose rows are to be filed under a plainer word than that list says so with
 // data-transaction-type beside it, and the two are read apart: the list a page asks
 // for and the sign a figure is recorded with come from data-reason-type alone, while
-// the row's own `type` column is what data-transaction-type holds - so "Bonura bonus"
-// and "expense" can be the words on the rows without being routes on the API.
+// the row's own `type` column is what data-transaction-type holds - so "Bonura bonus",
+// "expense" and "fine" can be the words on the rows without being routes on the API.
 const REASONS_URL = `${API_ORIGIN}/reasons`;
 
 // The slug the API names a `type` column value by: everything lower case, every run
@@ -1678,11 +1678,11 @@ function reasonSlugFromType(type) {
 //   amount  the figure, signed by the type on the reason pages and by the box the
 //           admin typed in on the Other page, null for a reason carrying no figure
 //   type    what the row is filed under: on a reason page the word that page files
-//           its rows under - data-transaction-type where it carries one ("Bonura
-//           bonus", "expense"), the table's type value otherwise ("BONUS BUCKS",
-//           "BONURA BANK FINES") - and on the Other page, which has no list to take
-//           one from, the broad reason the admin typed with the figure that goes
-//           with it ("Lost library book (-25 pts)")
+//           its rows under - data-transaction-type, which all three reason cards
+//           carry ("Bonura bonus", "expense", "fine"), falling back to the table's
+//           type value where a card carries none ("BONUS BUCKS") - and on the Other
+//           page, which has no list to take one from, the broad reason the admin
+//           typed with the figure that goes with it ("Lost library book (-25 pts)")
 //   date    the day and the time the date box holds, in the shape the history column
 //           heads: YYYY/MM/DD HH:mm
 //   memo    the row's own memo as the two pages fill it: a reason page's detailed
@@ -1917,9 +1917,9 @@ const reasonSlug = reasonSlugFromType(reasonType);
 
 // What the row this page writes is filed under, which is not always what its list is
 // named: data-transaction-type on the <select>, when the page carries one, is the word
-// the row's own type column reads ("Bonura bonus", "expense"), and a page without it
-// files its rows under the table's type value, exactly as every reason page did before
-// the two cards that wanted a plainer word grew one. Read once, like the two above, and
+// the row's own type column reads ("Bonura bonus", "expense", "fine"), and a page
+// without it files its rows under the table's type value, exactly as every reason page
+// did before the three cards wanted a plainer word. Read once, like the two above, and
 // read apart from them: neither the /reasons list this page asks for nor the sign its
 // figures are recorded with is taken from here.
 const reasonRowType = reasonSelect?.dataset.transactionType?.trim() || reasonType;
@@ -2009,9 +2009,9 @@ function reasonList(payload) {
 // other way, so its amount is recorded negative either way. Salaries and bonuses add
 // to the balance and keep their sign.
 // These are the type values the reason lists are named by - data-reason-type, which is
-// what fills the dropdown and what the sign is decided from - not the word a row of the
-// spending card is filed under (data-transaction-type, "expense"): the row's own type is
-// never read here, so a plainer word on the row cannot turn a charge into a payment.
+// what fills the dropdown and what the sign is decided from - not the words the rows are
+// filed under (data-transaction-type: "expense", "fine"): a row's own type is never read
+// here, so a plainer word on the row cannot turn a charge into a payment.
 const DEBIT_TYPES = ['WAYS TO SPEND BONURA BUCKS', 'BONURA BANK FINES'];
 
 // One element of the list -> { label, value, points }, where label is the reason
@@ -2270,7 +2270,7 @@ function describeTransaction(transaction) {
     // already opens with that label, which is the Other page's case alone: its type is the
     // broad reason itself with the figure after it ("Lost library book (-25 pts)"), where a
     // reason page's type is the word its page files its rows under ("Bonura bonus",
-    // "BONURA BANK FINES") and names nothing about the reason. There the question would be
+    // "expense", "fine") and names nothing about the reason. There the question would be
     // saying the label twice.
     const head = transaction.label && !String(transaction.type).startsWith(transaction.label)
         ? `${transaction.type} — "${transaction.label}"`
@@ -2551,9 +2551,10 @@ async function runApproval() {
 
     // The row the route is written with. type is what this page files its rows under:
     // data-transaction-type where the card carries one (the bonus card's "Bonura bonus",
-    // the expense card's "expense"), and the page's data-reason-type otherwise - the type
-    // column value as the table spells it, "BONURA BANK FINES" - never the URL slug the
-    // reason list was fetched by ("bonus-bucks"), which names the list and nothing else.
+    // the expense card's "expense", the fine card's "fine"), and the page's
+    // data-reason-type otherwise - the type column value as the table spells it, "BONUS
+    // BUCKS" - never the URL slug the reason list was fetched by ("bonus-bucks"), which
+    // names the list and nothing else.
     // memo is the table's memo column: the reason and the figure that goes with it,
     // spelled the way the dropdown spelled them ("Exceptional effort (10 pts)"), so the
     // row says what the reason was worth without the reader doing the sum.
