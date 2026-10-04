@@ -53,11 +53,10 @@
 // When every ticked student went through, the page hands the admin back to the home page, the way
 // every other finished flow in the app does.
 //
-// The salary page's box arrives with every student of the admin already ticked, because paying the
-// whole roll is the round this page is opened for and the one student who is not to be paid is
-// unticked by the same click that would have ticked them; the rent page's box still arrives empty.
-// Which of the two a page starts as is PAYROLL_STARTS_TICKED, and it is a starting state, not
-// something remembered — nothing is restored from an earlier visit on either page (see below).
+// The box arrives with every student of the admin already ticked, on both pages: the round either
+// page is opened for is the whole roll, and the few who are not to be paid or charged are unticked by
+// the same click that would have ticked them. It is a starting state, not something remembered —
+// nothing is restored from an earlier visit on either page (see below).
 //
 // Nothing is kept in sessionStorage: the transaction flow stores its pick because the pages after it
 // continue where that pick left off, and this page continues nowhere — a tick is a paying or a
@@ -122,12 +121,6 @@ const PAYROLL_CHECKED_WORD = '[check]';
 // verb the page's sentences are written with.
 const PAYROLL_IS_RENT = document.body?.dataset.payroll === 'rent';
 const PAYROLL_URL = PAYROLL_IS_RENT ? PAY_RENT_URL : PAY_SALARY_URL;
-
-// Whether the box arrives with every student in it ticked. The salary page's does: the round it is
-// opened for is the whole roll, so the admin unticks the few who are not to be paid instead of
-// ticking everyone else. The rent page's box arrives empty, that page not having been asked for. It
-// is only the state the box is drawn in — nothing is kept between visits (see the note at the top).
-const PAYROLL_STARTS_TICKED = !PAYROLL_IS_RENT;
 
 // What one student is charged for the rent, from the live POST /pay-rent answer above: the route
 // charges -200 and files the row with the memo "pay for desk and chair". Named in the question
@@ -416,7 +409,8 @@ function studentWords(name) {
 // the two boxes read and look alike. The word is this page's own pair (the sketch's "[uncheck]" and
 // "[check]"), and the tick itself is only ever the row's aria-checked: styles.css draws the box off
 // that attribute, and what it says is what a click reads back, so the drawn tick and the ticked list
-// cannot drift apart.
+// cannot drift apart. A row is drawn ticked, because the box arrives holding the whole roll; a click
+// is what takes a student out of it.
 function payrollRow(student) {
     const row = document.createElement('li');
 
@@ -424,7 +418,7 @@ function payrollRow(student) {
     option.type = 'button';
     option.className = 'picker__option';
     option.setAttribute('role', 'checkbox'); // a button drawn as a checkbox: role + aria-checked
-    option.setAttribute('aria-checked', PAYROLL_STARTS_TICKED ? 'true' : 'false');
+    option.setAttribute('aria-checked', 'true');
     option.setAttribute('data-student-name', student.name);
 
     const name = document.createElement('span');
@@ -434,7 +428,7 @@ function payrollRow(student) {
     const word = document.createElement('span');
     word.className = 'picker__choose';
     word.setAttribute('aria-hidden', 'true');
-    word.textContent = PAYROLL_STARTS_TICKED ? PAYROLL_CHECKED_WORD : PAYROLL_UNCHECKED_WORD;
+    word.textContent = PAYROLL_CHECKED_WORD;
 
     const box = document.createElement('span');
     box.className = 'picker__box';
@@ -464,16 +458,15 @@ function payrollOptions() {
 }
 
 // Draws every student into the box, in the order they were read (alphabetical), every one of them
-// ticked on a page that starts ticked and none of them ticked on one that does not: this page always
-// arrives at the same box, whatever it held a moment ago. Nothing is restored from an earlier visit
-// on purpose — a tick here is a payment, and a payment that outlived the page could be sent a second
-// time.
+// ticked: this page always arrives at the same box, whatever it held a moment ago. Nothing is
+// restored from an earlier visit on purpose — a tick here is a payment, and a payment that outlived
+// the page could be sent a second time.
 function fillPayrollPicker(students) {
     if (!payrollList) return;
 
     // Written from the rows about to be drawn, so the ticked list and the drawn ticks agree from the
     // first frame on.
-    tickedStudents = PAYROLL_STARTS_TICKED ? students.map((student) => student.name) : [];
+    tickedStudents = students.map((student) => student.name);
     payrollList.replaceChildren(...students.map(payrollRow));
 }
 
@@ -1031,8 +1024,8 @@ async function openPayrollPage() {
     }
 
     // The listing and the permission are the page's, in that order: the students are in the box before
-    // it may be used, and the ticked list is the box's own state — empty on a page that starts empty,
-    // every name on one that starts ticked, which is a box ready to be used at once.
+    // it may be used, and the box arrives with every one of them ticked, which is a box ready to be
+    // used at once.
     listedStudents = students;
     fillPayrollPicker(students);
     permission = 'granted';
@@ -1043,19 +1036,13 @@ async function openPayrollPage() {
     console.log(`${listed} of the admin "${admin}" listed for ${PAYROLL_NOUN}.`);
 
     // What the box holds, said the way a count is said: one student is the one, everything above it
-    // is all of them.
+    // is all of them. The sentence then says which way round the box is — the ticking is already done,
+    // so what it spells out is what an untick is for.
     const boxState = students.length === 1
         ? `The one student of “${admin}” is ticked`
         : `All ${listed} of “${admin}” are ticked, in alphabetical order`;
 
-    // A page that arrives empty spells out how to fill it. A page that arrives ticked says which way
-    // round it is now — the ticking is already done, so the sentence names what an untick is for.
-    showPayrollMessage(
-        PAYROLL_STARTS_TICKED
-            ? `${boxState} — untick anyone who is not to be ${PAYROLL_IS_RENT ? 'charged the rent' : 'paid'}, and press ${payrollButtonWords()}.`
-            : `${listed} of “${admin}”, in alphabetical order — tick the box beside each student to ${PAYROLL_IS_RENT ? 'charge the rent to' : 'pay a salary to'} and press ${payrollButtonWords()}.`,
-        false
-    );
+    showPayrollMessage(`${boxState} — untick anyone who is not to be ${PAYROLL_IS_RENT ? 'charged the rent' : 'paid'}, and press ${payrollButtonWords()}.`, false);
 }
 
 // One listener for the whole box, so a row drawn later needs no listener of its own. A click walks up

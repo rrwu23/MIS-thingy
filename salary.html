@@ -9,7 +9,7 @@
     <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Comfortaa:wght@300..700&display=swap">
     <link rel="stylesheet" href="styles.css?v=24">
     <script src="apibase.js?v=1" defer></script>
-    <script src="payroll.js?v=4" defer></script>
+    <script src="payroll.js?v=5" defer></script>
 </head>
 <!-- data-payroll="salary" is how payroll.js knows which of the two money pages this is: everything the
      two don't share — the route a tick is sent to, the noun and the verb its sentences are written
@@ -30,9 +30,10 @@
                      the accounts of the admin behind the session cookie (GET /current-admin names that
                      admin, GET /getuser lists their students), one <li> per student, each row a button
                      wearing role="checkbox" so the whole row is the click's target and the tick is the
-                     row's own aria-checked state. No row is ever restored from an earlier visit. While
-                     the backend is being read, and whenever the answer leaves nobody to pay, the one
-                     <li> in the list is the line that says so. -->
+                     row's own aria-checked state, and every row arrives ticked. No row is ever
+                     restored from an earlier visit. While the backend is being read, and whenever the
+                     answer leaves nobody to pay, the one <li> in the list is the line that says
+                     so. -->
                 <section class="picker picker--payroll" aria-labelledby="payrolltitle">
                     <p class="picker__title" id="payrolltitle">Select students to pay</p>
 
