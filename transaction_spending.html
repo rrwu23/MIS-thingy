@@ -9,7 +9,7 @@
     <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Comfortaa:wght@300..700&display=swap">
     <link rel="stylesheet" href="styles.css?v=24">
     <script src="apibase.js?v=1" defer></script>
-    <script src="app.js?v=23" defer></script>
+    <script src="app.js?v=24" defer></script>
 </head>
 <body>
     <div class="page">
@@ -34,8 +34,16 @@
                      amounts from the table's amount column: 2 up to 200. Those are
                      money out, so app.js signs them negative: the dropdown shows
                      "(-2 pts)" and the transaction carries -2. A fallback option
-                     above has no amount at all, and nothing is invented for it. -->
-                <select id="reason" name="reason" data-reason-type="WAYS TO SPEND BONURA BUCKS" aria-label="Select expense">
+                     above has no amount at all, and nothing is invented for it.
+                     data-transaction-type is what the approved row is filed under
+                     instead - the type column of the history table as this card
+                     wants it read. It is kept apart from data-reason-type so that
+                     the plain word on the row ("expense") does not have to be a
+                     route on the API: the list and the sign are read from
+                     data-reason-type alone, which is why the signed figures below
+                     still come out negative. -->
+                <select id="reason" name="reason" data-reason-type="WAYS TO SPEND BONURA BUCKS"
+                        data-transaction-type="expense" aria-label="Select expense">
                     <option value="" selected>Choose an expense&hellip;</option>
                     <option value="Add pencil">Add pencil</option>
                     <option value="Colouring books">Colouring books</option>

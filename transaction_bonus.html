@@ -9,7 +9,7 @@
     <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Comfortaa:wght@300..700&display=swap">
     <link rel="stylesheet" href="styles.css?v=24">
     <script src="apibase.js?v=1" defer></script>
-    <script src="app.js?v=23" defer></script>
+    <script src="app.js?v=24" defer></script>
 </head>
 <body>
     <div class="page">
@@ -31,8 +31,15 @@
                      answer; they are the exact reason column values, each one both
                      the value and the text. The live list comes back with the
                      amounts from the table's amount column: 5 up to 100, a bonus
-                     being money in, so the sign is kept. -->
-                <select id="reason" name="reason" data-reason-type="BONUS BUCKS" aria-label="Select bonus">
+                     being money in, so the sign is kept.
+                     data-transaction-type is what the approved row is filed under
+                     instead - the type column of the history table as this card
+                     wants it read. It is kept apart from data-reason-type so that
+                     a plain word on a row ("Bonura bonus") does not have to be a
+                     route on the API: the list and the sign are read from
+                     data-reason-type alone. -->
+                <select id="reason" name="reason" data-reason-type="BONUS BUCKS"
+                        data-transaction-type="Bonura bonus" aria-label="Select bonus">
                     <option value="" selected>Choose a bonus&hellip;</option>
                     <option value="Above &amp; Beyond behaviour">Above &amp; Beyond behaviour</option>
                     <option value="Birthday Bonus">Birthday Bonus</option>
