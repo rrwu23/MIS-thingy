@@ -1,0 +1,69 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Bonura bank</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Comfortaa:wght@300..700&display=swap">
+    <link rel="stylesheet" href="styles.css?v=25">
+    <script src="apibase.js?v=1" defer></script>
+    <script src="app.js?v=27" defer></script>
+</head>
+<body>
+    <!-- The page behind the hub's "Approve transactions" door, and the whole of it is one box of
+         rows, the way the sketch draws it: the transactions students have asked for, one per
+         row — the student it is for, the day it names, the type it is filed under, the amount
+         and the memo, then the balance that account would end on — with the two buttons that
+         answer it at the end of the row, and the bars the sketch draws between the values.
+
+         app.js fills the rows in from GET /getsubmittransaction, oldest submission first, and
+         reads the answer of every button: Approve asks "confirm transaction, Y/N" and writes
+         the row into the transaction table through POST /transaction-record — the add-
+         transaction route the reason pages write through; Decline asks its own question and
+         takes the submission off the list through POST /removesubmittransaction. Neither route
+         is a student's to call: the page refuses on its own when this browser holds no admin
+         session, and the backend refuses the request as well. Every other page leaves the empty
+         <ul> and the hidden list exactly as they are.
+
+         The read is the one route the backend has yet to answer (GET /getsubmittransaction is
+         not in the API's openapi.json, and answers 404 today), so the line above the box is
+         where that is said in the API's own words until it is there. -->
+    <div class="page">
+        <main class="card">
+            <header class="bar">
+                <h1 class="card__title">Bonura bank</h1>
+                <a class="tag" href="/home.html">&#8592; Home</a>
+            </header>
+
+            <!-- The page's own name, in the students page's shape: what the page lists, and
+                 what may be done with each row. -->
+            <p class="card__hint"><strong id="approvalstitle">Transactions waiting to be approved.</strong> Every transaction a student has asked for and the admin has not answered yet, the one that has been waiting longest at the top — the student it is for, the day it names, the type it is filed under, the amount, the memo and the balance that account would end on. Approve writes the row into the transaction table, one row for the account the submission names; Decline takes the submission off this list. Both are asked about once more before anything happens, because neither can be undone. A value the backend did not send is drawn as a dash, and the list reads itself again whenever you come back to this tab.</p>
+
+            <!-- The box, and the whole of the page inside it: the line that says what the read
+                 found or what the last answer did, the rows themselves, and the foot. The rows
+                 stay hidden until there are some: a read that found nothing, or one that failed,
+                 says so on the line rather than leaving a bare box behind. -->
+            <section class="approvals" aria-labelledby="approvalstitle">
+                <div id="approvalsstatus" class="results" role="status" aria-live="polite"
+                     data-empty="Asking the backend which transactions are waiting to be approved&hellip;"></div>
+
+                <!-- One row per submission, filled by app.js in date order, the oldest first.
+                     The list ends with the last submission — no foot of its own, and nothing
+                     added up. -->
+                <ul id="approvalslist" class="approvals__list" hidden></ul>
+
+                <!-- The foot of the box: when the list was last read, and the button that reads
+                     it again — the students page's own foot, for the same reason. -->
+                <div class="roster__actions">
+                    <p id="approvalsstamp" class="roster__stamp"></p>
+                    <button type="button" id="approvalsrefresh" class="btn btn--ghost">Refresh</button>
+                </div>
+            </section>
+
+            <p class="footnote">Nothing waiting? <a class="tag" href="/home.html">&#8592; Home</a></p>
+        </main>
+    </div>
+</body>
+</html>

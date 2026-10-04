@@ -3056,3 +3056,685 @@ openOtherPage();
 // and start nothing, so this last line is the only one with work to do there.
 openRemovePage();
 
+// ----------------------------------------- approve transactions page --------
+// approve_transactions.html, the page behind the hub's "Approve transactions" door: the
+// transactions students have asked for, one row each, waiting for the admin to answer.
+// A row reads the way the sketch draws it — the student it is for, the day it names, the
+// type it is filed under, the amount and the memo, then the balance that account ended on —
+// with Approve and Decline at the end of it, and the whole list runs from the oldest
+// submission to the newest.
+//
+// Three routes stand behind the page:
+//   GET  /getsubmittransaction     -> every transaction waiting to be approved. It is the
+//                                     route the backend has yet to answer: it is not in
+//                                     https://api.rongrongwu.com/openapi.json and the API
+//                                     answers 404 {"detail": "Not Found"} to it (checked
+//                                     live), which is the sentence this page's status line
+//                                     writes until it is there. Its reply is read the way
+//                                     every other untyped route in this project is read
+//                                     (see SUBMITTED_STUDENT_KEYS below).
+//   POST /removesubmittransaction  -> takes one submission off that list, named by its id,
+//                                     which is the one field POST /remove is written with
+//                                     ({"id": 5}, read off openapi.json). The name is this
+//                                     page's own reading of the read above: the same
+//                                     single-word spelling, wearing the "remove" its sibling
+//                                     /remove wears. No other line in the app spells it, so
+//                                     a backend that answers under another name is one line
+//                                     to change here.
+//   POST /transaction-record       -> the add-transaction route, and the whole of what
+//                                     approving means: the row the submission asked for is
+//                                     written into the transaction table with the five fields
+//                                     the reason pages write (transactionBody), so the
+//                                     submission's own figure is filed under its own type and
+//                                     dated its own day. Nothing about it is re-priced here —
+//                                     the sign on the amount is the submission's, the way the
+//                                     admin's own sign is the Other page's.
+const SUBMITTED_URL = `${API_ORIGIN}/getsubmittransaction`;
+const SUBMITTED_DECLINE_URL = `${API_ORIGIN}/removesubmittransaction`;
+
+// The names a submitted transaction is likely to carry its own fields under, most likely
+// first. The read is untyped — no schema for it exists yet — so each field is asked for by
+// every name it could plausibly wear rather than trusted to one, the way the students page
+// reads an account and the history page reads a transaction. The student comes first because
+// the row's first value is the student; the balance is the backend's own figure for the
+// account the row would end on, drawn as it came and never sent back (a change does not send
+// it either — it is the backend's to work out).
+const SUBMITTED_STUDENT_KEYS = ['user', 'student', 'username', 'name'];
+const SUBMITTED_DATE_KEYS = ['date', 'created_at', 'timestamp', 'time'];
+const SUBMITTED_TYPE_KEYS = ['type', 'category', 'kind'];
+const SUBMITTED_AMOUNT_KEYS = ['amount', 'bonura_bucks', 'value', 'points'];
+const SUBMITTED_MEMO_KEYS = ['memo', 'note', 'notes'];
+const SUBMITTED_BALANCE_KEYS = ['ending_balance', 'balance_after', 'end_balance', 'balance'];
+
+// The submission's own id: what POST /removesubmittransaction names the row it takes away by,
+// the way POST /remove names a transaction. Only unambiguous names for an identifier are
+// read, and nothing is guessed at — reading some other field as an id would point a decline
+// at the wrong row, while reading none only means the row cannot be declined, which is the
+// safe half of the two. An id of 0 is an id like any other: the value is asked for being
+// present, not for being true.
+const SUBMITTED_ID_KEYS = ['id', 'transaction_id', 'submit_id'];
+
+// The six values a row draws, in the order the sketch reads them, each with the word a screen
+// reader is given for it (the six are never named on screen — the bars between the values are
+// the whole of what the eye gets). field is the name submissionFields collects the value under;
+// className is the one a value needs a rule of its own for (the stamp that may not wrap, the two
+// figures), and numeric marks the two figures, which is what lets a minus stand in the red a pale
+// surface carries. Every other value is a plain .approvals__value, so no class is written into
+// the page that nothing draws.
+const SUBMITTED_LINE = [
+    { field: 'student', label: 'Student' },
+    { field: 'date', label: 'Date', className: 'approvals__value--date' },
+    { field: 'type', label: 'Type' },
+    { field: 'amount', label: 'Amount', className: 'approvals__value--amount', numeric: true },
+    { field: 'memo', label: 'Memo' },
+    { field: 'balance', label: 'Ending balance', className: 'approvals__value--balance', numeric: true }
+];
+
+// The shapes a submitted row's day may arrive in — the very reader the history page's own Date
+// column is re-cut with (STAMP in transactionview.js), for the same value and the same reason:
+// the day in three parts behind either separator, the ISO one this app writes itself and the
+// slash the backend stamps its transactions with, and, when the row carries one, a clock of two
+// parts behind a T, a space or a slash. Minutes may be followed by seconds the row does not
+// show, and by the timezone the backend stamped the day in; both are read past rather than
+// drawn, and half a date is no date at all — the pattern is anchored at both ends, because a
+// day left behind in a row would be worse than one drawn in a shape nobody planned.
+const SUBMITTED_STAMP = /^(\d{4})[-/](\d{2})[-/](\d{2})(?:[T/ ](\d{2})[:/](\d{2})(?::\d{2}(?:\.\d+)?)?(?:Z|[+-]\d{2}:?\d{2})?)?$/;
+
+// Every transaction in a GET /getsubmittransaction reply, read the way studentEntries and the
+// history page's reader read an untyped list:
+//   [{...}, …]                                                    -> used as is
+//   {"transactions": […]}, {"submissions": […]}, {"records": […]},
+//   {"data": […]}, {"items": […]}                                 -> the inner list
+//   {…}                                                           -> wrapped in an array
+//   null / undefined / ""                                         -> []
+// Only objects count as rows: a transaction is a set of fields, so a bare string cannot be
+// one, and anything else is dropped rather than drawn as a row of dashes.
+function submissionRecords(payload) {
+    if (Array.isArray(payload)) {
+        return payload.filter(isSubmissionRecord);
+    }
+
+    if (payload === null || payload === undefined || payload === '' || typeof payload !== 'object') {
+        return [];
+    }
+
+    for (const key of ['transactions', 'submissions', 'records', 'data', 'items']) {
+        const nested = payload[key];
+
+        if (Array.isArray(nested)) {
+            return nested.filter(isSubmissionRecord);
+        }
+
+        if (nested && typeof nested === 'object') {
+            return submissionRecords(nested);
+        }
+    }
+
+    return [payload];
+}
+
+function isSubmissionRecord(entry) {
+    return entry !== null && typeof entry === 'object';
+}
+
+// A stamp in the shape the history page's Date column names — YYYY/MM/DD HH:mm, as in
+// 2026/09/29 16:17 — or null when the value is no whole day. A row's day is re-cut into that
+// one shape for three reasons: it is the shape every other date in this app is shown in, it is
+// what the row is written with when the submission is approved, and its fixed width and
+// leading zeros are what make two stamps comparable as text (see rankSubmissionRows). A day
+// with no clock reading on it keeps the two parts it has — the time of day is the backend's to
+// send, and a time nobody recorded is not invented.
+function submissionStamp(value) {
+    const parts = SUBMITTED_STAMP.exec(String(value).trim());
+
+    if (!parts) {
+        return null;
+    }
+
+    return `${parts[1]}/${parts[2]}/${parts[3]} ${parts[4] || '00'}:${parts[5] || '00'}`;
+}
+
+// One row's own fields, read off the record once — the six values the row draws, the re-cut
+// stamp behind the date, and the id a decline names the row by. Everything the page says about
+// a submission is said from this object: the row is drawn from it, the question asked before a
+// write names it, the body the row is written with is built from it, and the sentence the
+// status line shows afterwards names it again. Reading the record once is what keeps those
+// four from disagreeing about what the submission said.
+function submissionFields(record) {
+    const student = firstField(record, SUBMITTED_STUDENT_KEYS);
+    const date = firstField(record, SUBMITTED_DATE_KEYS);
+    const type = firstField(record, SUBMITTED_TYPE_KEYS);
+    const amount = firstField(record, SUBMITTED_AMOUNT_KEYS);
+    const memo = firstField(record, SUBMITTED_MEMO_KEYS);
+    const balance = firstField(record, SUBMITTED_BALANCE_KEYS);
+
+    return {
+        student: student === null ? null : String(student),
+        date: date === null ? null : String(date),
+        // the same day re-cut into the shape a row is written and drawn in, or null when the
+        // value is no whole day — the value as it came is kept beside it, and is what is drawn
+        // and sent in that case, rather than a day nobody could read
+        stamp: submissionStamp(date),
+        type: type === null ? null : String(type),
+        amount: amount === null ? null : amount,
+        memo: memo === null ? null : String(memo),
+        balance: balance === null ? null : balance,
+        id: firstField(record, SUBMITTED_ID_KEYS)
+    };
+}
+
+// What one value of a row is drawn as: the re-cut day for the date column — falling back to
+// the value as it came when no whole day could be read out of it, and to a dash when the
+// backend sent nothing at all, the way the history table draws its own cells.
+function submissionText(fields, column) {
+    const value = fields[column.field];
+
+    if (value === null) {
+        return ROSTER_EMPTY_CELL;
+    }
+
+    return column.field === 'date' ? (fields.stamp ?? String(value)) : String(value);
+}
+
+// The list is sorted by date, the oldest submission first: a queue is answered in the order it
+// formed, so the request that has been waiting longest is the one at the top. Two rows are
+// compared by the re-cut stamp above, whose fixed width and leading zeros make a later day and
+// a later clock reading sort after an earlier one as plain text. A row the backend sent no
+// readable day for has nothing to be placed by, so it stands after every row that has one
+// rather than at the head of a list it does not belong at the head of. The sort is stable, so
+// the order the backend answered in decides between two rows of the same minute.
+function rankSubmissionRows(rows) {
+    rows.sort((a, b) => {
+        if (a.stamp === null) return b.stamp === null ? 0 : 1;
+        if (b.stamp === null) return -1;
+
+        return a.stamp < b.stamp ? -1 : a.stamp > b.stamp ? 1 : 0;
+    });
+
+    return rows;
+}
+
+// The list and the line above it. approve_transactions.html is the only page that carries
+// these elements — every other page loads app.js for its own form — so a read only ever starts
+// where there is a list to put an answer in, and the boot at the foot of this section starts
+// nothing anywhere else.
+const approvalsStatus = document.getElementById('approvalsstatus');
+const approvalsList = document.getElementById('approvalslist');
+const approvalsStamp = document.getElementById('approvalsstamp');
+const approvalsRefreshButton = document.getElementById('approvalsrefresh');
+
+// Every button the list holds, so the whole list can be greyed while a read or an action is on
+// its way — the attribute styles.css greys .btn with, the same rule the students page's
+// Refresh follows. The list is drawn again from scratch on every read, so this is emptied as
+// the rows go.
+let approvalButtons = [];
+
+// One read at a time, and one action at a time: a Refresh pressed while a slow answer is still
+// on its way must not pile a second read up behind the first, and an Approve pressed twice must
+// not write the same row twice. Neither is started while the other is running either, so the
+// list is never drawn again under a row that is being written or declined.
+let submissionsReadRunning = false;
+let submissionActionRunning = false;
+
+// Replace the previous status line with a single message — the same one-paragraph shape every
+// other page's showMessage writes into its own block, so an error here is the red variant of
+// the same panel.
+function showApprovalsMessage(text, isError) {
+    if (!approvalsStatus) return;
+
+    const paragraph = document.createElement('p');
+    paragraph.textContent = text;
+
+    if (isError) {
+        paragraph.className = 'results__error';
+    }
+
+    approvalsStatus.replaceChildren(paragraph);
+}
+
+// Greys every Approve and Decline of the list, or brings them back. The greyed attribute is
+// what the eye and the mouse see and what stops the click; the flags above are what the
+// handlers are checked against, because a button is reachable by Tab whatever it looks like.
+function setApprovalsEnabled(enabled) {
+    for (const button of approvalButtons) {
+        if (enabled) {
+            button.removeAttribute('aria-disabled');
+        } else {
+            button.setAttribute('aria-disabled', 'true');
+        }
+    }
+}
+
+// One of the two buttons a row ends with. Both are ordinary .btn buttons, so they look and
+// behave like every other button in the app: Approve is the filled ink one that takes the row
+// further in, Decline the red the app draws a refusal in.
+function approvalButton(label, variant) {
+    const button = document.createElement('button');
+    button.type = 'button';
+    button.className = `btn ${variant}`;
+    button.textContent = label;
+
+    return button;
+}
+
+// One row: the six values of the sketch's line, each with the word a screen reader is given
+// for it, and the pair of buttons that answer it at the end of the row. The fields object is
+// closed over by the row's own two buttons, so an Approve is about the very submission the row
+// was drawn from and not about the values as they happen to read.
+function submissionLine(fields) {
+    const item = document.createElement('li');
+    item.className = 'approvals__item';
+
+    const line = document.createElement('p');
+    line.className = 'approvals__line';
+
+    for (const column of SUBMITTED_LINE) {
+        const classes = ['approvals__value'];
+
+        if (column.className) {
+            classes.push(column.className);
+        }
+
+        // a figure below zero takes the red as well as its own sign: the figure itself carries
+        // the minus, so nothing else has to say which way the account moved
+        if (column.numeric && Number(fields[column.field]) < 0) {
+            classes.push('approvals__value--negative');
+        }
+
+        const value = document.createElement('span');
+        value.className = classes.join(' ');
+
+        // The six words are never drawn — the bar between two values is the whole of what the
+        // eye gets — so each value carries its own word for a screen reader, which is what
+        // makes a row read as "Student: Venus Wu, Date: …, Amount: …" rather than as a string
+        // of values nobody could tell apart.
+        const label = document.createElement('span');
+        label.className = 'sr-only';
+        label.textContent = `${column.label}: `;
+
+        value.append(label, submissionText(fields, column));
+        line.append(value);
+    }
+
+    const actions = document.createElement('div');
+    actions.className = 'approvals__actions';
+
+    const approve = approvalButton('Approve', 'btn--primary');
+    approve.addEventListener('click', function () {
+        approveSubmission(fields, item, approve);
+    });
+
+    const decline = approvalButton('Decline', 'btn--danger');
+    decline.addEventListener('click', function () {
+        declineSubmission(fields, item, decline);
+    });
+
+    actions.append(approve, decline);
+    item.append(line, actions);
+
+    return item;
+}
+
+// Fills the list: one row per submission, oldest first. Every value is built as a node rather
+// than with innerHTML, because the words come from the backend.
+function drawSubmissions(rows) {
+    const body = document.createDocumentFragment();
+    const buttons = [];
+
+    for (const fields of rows) {
+        const item = submissionLine(fields);
+        buttons.push(...item.children[1].children);
+        body.append(item);
+    }
+
+    approvalsList.replaceChildren(body);
+    approvalsList.hidden = false;
+    approvalButtons = buttons;
+
+    console.log(`Listed ${rows.length} transaction(s) waiting to be approved.`, rows);
+}
+
+// Drops the rows and hides the list they stand in. A read that failed or came back empty must
+// not leave the rows of the read before standing as if they were current.
+function clearSubmissions() {
+    approvalsList?.replaceChildren();
+    approvalButtons = [];
+
+    if (approvalsList) {
+        approvalsList.hidden = true;
+    }
+}
+
+// The line beside the Refresh button, outside the live region, so a clock written there every
+// read is not read out to a screen reader.
+function stampSubmissions() {
+    if (!approvalsStamp) return;
+
+    approvalsStamp.textContent = `Last read at ${new Date().toLocaleTimeString()}.`;
+}
+
+// Which transactions are waiting to be approved — then the rows, oldest first. Anything that
+// is not a list is spelled out on the status line above it, and the rows of the read before
+// are dropped rather than left standing as if they were current.
+//
+// The read is asked of the backend as it stands: GET /getsubmittransaction is a route the API
+// does not answer yet, and its 404 is said in the API's own words — with what the page asked
+// for — rather than dressed up as something the page did wrong. Everything else about the read
+// is the students page's read, one route shorter: one read at a time, a line while it is on
+// its way, and a sentence that says what came back.
+async function readSubmissions() {
+    if (!approvalsList) return; // every other page loads app.js for its own form
+    if (submissionsReadRunning) return;
+
+    // A row being written or declined is a row this read would draw back under it — the write
+    // takes its row off the page when the backend has answered, and a read in between would put
+    // it back — so the list is left exactly as it is until the action is done.
+    if (submissionActionRunning) return;
+
+    submissionsReadRunning = true;
+    setApprovalsEnabled(false);
+    approvalsRefreshButton?.setAttribute('aria-disabled', 'true'); // one read at a time
+    showApprovalsMessage('Asking the backend which transactions are waiting to be approved…', false);
+
+    try {
+        const response = await fetch(SUBMITTED_URL, {
+            method: 'GET',
+            credentials: 'include'
+        });
+        const result = await response.json().catch(() => null);
+
+        if (!response.ok) {
+            console.error('Approvals read error:', response.status, result);
+            clearSubmissions();
+
+            // The route answers "Not logged in" to a browser with no admin session, the way
+            // every protected route in the API does, and that is a sentence the admin can act
+            // on rather than a fault of the page's.
+            if (response.status === 401) {
+                showApprovalsMessage('Not logged in — the backend refused the request. Log into the admin account first.', true);
+                return;
+            }
+
+            showApprovalsMessage(
+                `The backend could not list the transactions waiting to be approved (${response.status}): ${describeError(result)}`
+                + (response.status === 404
+                    ? ' The page asks GET /getsubmittransaction for them, which is the route the API has not been given yet — there is nothing to approve until it answers.'
+                    : ''),
+                true
+            );
+            return;
+        }
+
+        const records = submissionRecords(result);
+
+        if (!records.length) {
+            clearSubmissions();
+            showApprovalsMessage('The backend lists no transaction waiting to be approved — every submission it holds has been answered.', false);
+            return;
+        }
+
+        // One fields object per record, then the queue in order: every value the page draws,
+        // asks about and writes comes from these, so a record is read once and the row, the
+        // question and the request cannot disagree about what the submission said.
+        const rows = rankSubmissionRows(records.map(submissionFields));
+
+        drawSubmissions(rows);
+        showApprovalsMessage(
+            `The ${rows.length} transaction${rows.length === 1 ? '' : 's'} waiting to be approved, oldest first — the student each one is for, the day it names, the type it is filed under, the amount and the memo, then the balance its account would reach.`
+            + ' Approve writes the row into the transaction table; Decline takes it off this list.',
+            false
+        );
+    } catch (error) {
+        console.error('Approvals read error:', error);
+        clearSubmissions();
+        showApprovalsMessage('Network error — the transactions waiting to be approved could not be read from the API. Press Refresh to read them again.', true);
+    } finally {
+        submissionsReadRunning = false;
+        setApprovalsEnabled(true);
+        approvalsRefreshButton?.removeAttribute('aria-disabled');
+        stampSubmissions();
+    }
+}
+
+// The question the Decline button asks, in the shape the Approve button's question is written
+// in — one heading, one sentence, answered with Y and N.
+const DECLINE_QUESTION = 'confirm decline transaction, Y/N';
+
+// The transaction a submission asks for, in the shape the reason pages build theirs in: the same
+// five fields, with the account it is for as the whole of `students`, the type it is filed under
+// as it was submitted, the amount as it was submitted — the sign is the submission's own, the
+// way the admin's own sign is the Other page's — and the memo as it was submitted. `label` is
+// null on purpose: there is no list here to name a reason from, so nothing is quoted that the
+// submission did not say.
+//
+// The day is the one value re-cut rather than passed on: when the submission's day could be read
+// as a day, it is filed in the shape every row this app writes is filed in, YYYY/MM/DD HH:mm;
+// when it could not be read, the value as it came is sent, that shape being the backend's own;
+// and when the submission names no day at all the field is null, which the route takes and
+// stamps itself.
+function submissionTransaction(fields) {
+    return {
+        students: fields.student === null ? [] : [fields.student],
+        type: fields.type ?? '',
+        amount: fields.amount,
+        date: fields.stamp ?? fields.date,
+        memo: fields.memo,
+        label: null
+    };
+}
+
+// One submission in a sentence: the type it is filed under, the figure it asks for, the account
+// it is for and the day it names — the same values the row draws, said in words, so a row in
+// front of the admin and a sentence about that row cannot describe two different things. A value
+// the backend did not send is left out of the sentence rather than spelled there as a dash.
+function submissionWords(fields) {
+    const head = fields.type === null ? 'The submission' : `The “${fields.type}” submission`;
+    const amount = fields.amount === null
+        ? ''
+        : ` of ${fields.amount} ${Math.abs(Number(fields.amount)) === 1 ? 'pt' : 'pts'}`;
+    const student = fields.student === null ? '' : ` for ${fields.student}`;
+    const date = fields.stamp ?? fields.date;
+    const day = date === null ? '' : `, dated ${date}`;
+
+    return `${head}${amount}${student}${day}`;
+}
+
+// What the decline question says under its heading: the submission the row draws, and what each
+// answer does to it — the shape remove.html's question is written in, with a decline in place of
+// a removal.
+function describeDecline(fields) {
+    return `${submissionWords(fields)}, will be taken off the approvals list, and this app has no undo.`
+        + ' Y declines it and it is off the list for good, N leaves it waiting.';
+}
+
+// What approving writes: the row the submission asked for, through POST /transaction-record —
+// the add-transaction route the reason pages write through, one row for the one account this
+// submission names.
+//
+// The backend is asked whether this browser still holds an admin session first, at the last
+// moment before the row leaves, exactly as sendTransaction() asks it: the page was read with a
+// session that may have run out since, and a refusal writes nothing.
+async function writeApprovedSubmission(fields, line) {
+    const transaction = submissionTransaction(fields);
+    const words = submissionWords(fields);
+
+    // A submission naming nobody is refused rather than sent as a row for an empty username:
+    // there is no account to put the row on, and the backend's own `user` is a required field.
+    if (!transaction.students.length) {
+        showApprovalsMessage('Nothing was recorded — this submission names no student, so there is no account to write the row to.', true);
+        return;
+    }
+
+    const check = await checkAdminPermission();
+
+    if (!check.granted) {
+        showApprovalsMessage(`Nothing was recorded — ${check.text}`, true);
+        return;
+    }
+
+    const answer = await writeTransaction(transactionBody(transaction, transaction.students[0]));
+
+    if (!answer.ok) {
+        console.error('Approve error:', answer);
+        showApprovalsMessage(`Nothing was recorded — ${answer.text}.`, true);
+        return;
+    }
+
+    // The row comes off the page the moment the backend has written it, because a row left
+    // standing is a row that can be approved twice and this app has no undo. The submission on
+    // the backend's own list is the backend's to take away, and the sentence does not claim it
+    // has: Refresh asks for the list again, and a submission the backend has not taken off its
+    // list comes back with it.
+    line?.remove();
+
+    showApprovalsMessage(
+        `Recorded ${words} — the backend wrote the ${transaction.type} transaction into the transaction table (POST /transaction-record), and the row is off this page so it cannot be approved twice.`
+        + ' Refresh asks the backend for the list again.',
+        false
+    );
+}
+
+// What declining does: POST /removesubmittransaction, the route that takes one submission off
+// the list, named by the id the read gave the row — the same one-field body POST /remove takes a
+// transaction away with ({"id": 5}). Like the write above, the admin session is confirmed at the
+// last moment, so a decline is never asked for with a session that has run out.
+//
+// A row the backend sent no id for cannot be declined: the route names the row it is to take
+// away, and with no id there is nothing it could be asked. The button is still there, so every
+// row ends the same way, and pressing it says the one thing that is missing.
+async function removeSubmission(fields, line) {
+    const words = submissionWords(fields);
+
+    if (fields.id === null) {
+        showApprovalsMessage(`Nothing was declined — ${words} carries no id, and the request that takes a submission away names the row by its id: there is nothing to ask the backend about.`, true);
+        return;
+    }
+
+    const check = await checkAdminPermission();
+
+    if (!check.granted) {
+        showApprovalsMessage(`Nothing was declined — ${check.text}`, true);
+        return;
+    }
+
+    const body = { id: fields.id };
+    console.log('Declining:', body);
+
+    try {
+        const response = await fetch(SUBMITTED_DECLINE_URL, {
+            method: 'POST',
+            credentials: 'include', // carry the admin session cookie along
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify(body)
+        });
+
+        // A refusal can answer with something that is not JSON, so the body is read once and
+        // never trusted to parse.
+        const result = await response.json().catch(() => null);
+
+        if (!response.ok) {
+            console.error('Decline error:', response.status, result);
+            showApprovalsMessage(`Nothing was declined — the backend refused the request (${response.status}): ${describeError(result)}`, true);
+            return;
+        }
+
+        line?.remove();
+
+        showApprovalsMessage(
+            `Declined — ${words} was taken off the list (POST /removesubmittransaction answered ${response.status}), and the row is off this page.`
+            + ' Refresh asks the backend for the list again.',
+            false
+        );
+    } catch (error) {
+        console.error('Decline error:', error);
+        showApprovalsMessage(`Network error — ${words} could not be declined: the API could not be reached. Press Decline again, or Refresh to read the list afresh.`, true);
+    }
+}
+
+// Approving a row writes a transaction, and this app has no undo, so every approve is asked
+// about first: "confirm transaction, Y/N", with the row the request will carry — the same
+// transaction object the question and the write are built from, so what the question names is
+// what the backend is sent. Nothing leaves the page while the question is up.
+//
+// One action at a time: a second button pressed while the question is on screen would only put
+// the same question up again, and one click is one answer. The whole list is greyed for as long
+// as the answer takes, so the row being worked on is plain to see.
+async function approveSubmission(fields, line, button) {
+    if (submissionActionRunning) return;
+    if (submissionsReadRunning) return; // a read in flight is about to draw this list again
+
+    submissionActionRunning = true;
+    setApprovalsEnabled(false);
+
+    try {
+        const confirmed = await askConfirmation(
+            CONFIRM_QUESTION,
+            describeTransaction(submissionTransaction(fields)),
+            { returnFocus: button }
+        );
+
+        if (!confirmed) {
+            showApprovalsMessage(`Nothing was recorded — ${submissionWords(fields)} was not confirmed with Y.`, true);
+            return;
+        }
+
+        await writeApprovedSubmission(fields, line);
+    } finally {
+        submissionActionRunning = false;
+        setApprovalsEnabled(true);
+    }
+}
+
+// Declining is asked about the same way, with a heading of its own and Y drawn in the red the
+// app draws a refusal in: the answer that takes the submission off the list is the one that
+// cannot be undone.
+async function declineSubmission(fields, line, button) {
+    if (submissionActionRunning) return;
+    if (submissionsReadRunning) return; // a read in flight is about to draw this list again
+
+    submissionActionRunning = true;
+    setApprovalsEnabled(false);
+
+    try {
+        const confirmed = await askConfirmation(DECLINE_QUESTION, describeDecline(fields), {
+            returnFocus: button,
+            danger: true
+        });
+
+        if (!confirmed) {
+            showApprovalsMessage(`Nothing was declined — ${submissionWords(fields)} was not confirmed with Y.`, true);
+            return;
+        }
+
+        await removeSubmission(fields, line);
+    } finally {
+        submissionActionRunning = false;
+        setApprovalsEnabled(true);
+    }
+}
+
+// The page starts itself the way the students page's table does: the first read happens as
+// approve_transactions.html opens, Refresh reads again on demand, and a submission made in
+// another tab turns up here when this tab comes back to the front. Every other page loads app.js
+// for its own form, has no list to fill, and starts nothing.
+if (approvalsList) {
+    readSubmissions();
+
+    approvalsRefreshButton?.addEventListener('click', readSubmissions);
+
+    document.addEventListener('visibilitychange', function () {
+        if (!document.hidden) {
+            readSubmissions();
+        }
+    });
+}
+
+
+
+
+
+
+
+
+
+

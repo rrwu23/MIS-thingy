@@ -21,7 +21,7 @@
    fallback shown while the webfont swaps in.
    Loaded by every page in the project.
    Every page links this file as styles.css?v=N, and its own scripts the same way, each
-   asset carrying its own N — this one is at 23. Bump the N of whichever file has
+   asset carrying its own N — this one is at 25. Bump the N of whichever file has
    changed, the stylesheet for a new look or a script for new behaviour: the host sends
    assets with max-age=14400, so without a new URL a browser can go on painting a
    four-hour-old copy — of this file or of app.js — while the HTML around it is
@@ -1539,6 +1539,114 @@ a.tag:hover {
     text-align: right;
     font-variant-numeric: tabular-nums;
     font-weight: 650;
+}
+
+/* ------------------------- approve transactions (approve_transactions.html) ---- */
+/* The hub's "Approve transactions" door: the transactions students have asked for, one row
+   each, and beside every row the two buttons that answer it. The sketch draws the rows as
+   separate boxes inside one big box rather than as a table — a line of the five fields a
+   transaction is written with, plus the balance the account would end on, and <approve>
+   <decline> at the end of the line — so the box is the picker's box (a pale surface outlined
+   in the accent ink, rounded), and each row inside it is a box of its own standing on the
+   palest surface the app has, so a row the eye is following reads as one thing from its first
+   value to its two buttons, whichever of them the pointer is over. The values are held apart
+   by the bar the sketch draws between them: the bar belongs to the value that follows it, so
+   it stays where the sketch puts it even when a value the read did not carry is drawn as a
+   dash, and the value it follows is never pushed onto a line of its own — only the wrap of a
+   whole value, bar and all, moves a separator. The words the bars stand in for — Student,
+   Date, Type, Amount, Memo, Ending balance — are written into each value for a screen reader,
+   the six never being named on screen. */
+
+/* the box the rows stand in: the picker's own surface, outline and corners */
+.approvals {
+    display: grid;
+    gap: 0.9rem;
+    padding: clamp(0.85rem, 2.6vw, 1.2rem);
+    background: var(--surface);
+    border: 1.5px solid var(--accent-ink);
+    border-radius: var(--radius);
+}
+
+/* the status line is the box's first line — the students page's line over its table — so it
+   keeps the panel's own look but not the margin it carries when it stands on the card */
+.approvals .results { margin-top: 0; }
+
+.approvals__list {
+    display: grid;
+    gap: 0.6rem;
+    margin: 0;
+    padding: 0;
+    list-style: none;
+}
+
+.approvals__list[hidden] { display: none; }
+
+/* One row, and its two halves: the values, which take the room, and the buttons, which keep
+   the end of the row — dropping under the values when the row runs out of width, the way the
+   sketch's line would wrap. */
+.approvals__item {
+    display: flex;
+    align-items: center;
+    flex-wrap: wrap;
+    gap: 0.5rem 1rem;
+    padding: 0.6rem 0.75rem;
+    background: var(--surface-3);
+    border: 1.5px solid var(--accent-ink);
+    border-radius: var(--radius-sm);
+}
+
+.approvals__line {
+    flex: 1 1 18rem;
+    display: flex;
+    flex-wrap: wrap;
+    gap: 0.15rem 0.55rem;
+    margin: 0;
+    font-size: 0.94rem;
+    color: var(--accent-ink);
+}
+
+/* a type or a memo can be a whole sentence or a slug with no space in it: wrapped, not
+   clipped — anywhere but between two words, the way the history table's own two columns are */
+.approvals__value { overflow-wrap: anywhere; }
+
+/* the sketch's bar, worn by the value it follows — not by the one after it, so a row that wraps
+   ends its line with the separator and starts the next with a value rather than a bar nobody's
+   value is on the left of; the quiet tier of the ink, so the values are read as one line each
+   rather than as a run of text */
+.approvals__value:not(:last-child)::after {
+    content: "|";
+    margin-left: 0.55rem;
+    color: var(--accent-ink-soft);
+}
+
+/* the day and the clock are one stamp and do not wrap at all — the shape the history page's
+   own date column keeps — so a squeezed row moves the whole stamp rather than breaking it
+   between its date and its time */
+.approvals__value--date { white-space: nowrap; }
+
+/* the two figures, and the red a pale surface carries for one below zero — the figure itself
+   holds its own minus sign, so nothing else has to say which way the account moved */
+.approvals__value--amount,
+.approvals__value--balance { font-variant-numeric: tabular-nums; }
+
+.approvals__value--negative { color: var(--danger); }
+
+/* the two buttons at the size a row can carry — the letter of a row rather than the letter of
+   a page, the same cut the history table's own controls wear — and the pair kept at the end of
+   the row: they are the last thing read on it, whichever of the six values runs long */
+.approvals__actions {
+    flex: none;
+    display: flex;
+    gap: 0.4rem;
+    margin-left: auto;
+}
+
+.approvals__actions .btn {
+    padding: 0.35rem 0.7rem;
+    font-size: 0.82rem;
+    letter-spacing: 0.01em;
+    border-radius: calc(var(--radius-sm) - 3px);
+    box-shadow: none;
 }
 
 /* ------------------------------------------------------------ footnote ---- */
