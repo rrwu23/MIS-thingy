@@ -3921,14 +3921,14 @@ openRemovePage();
 //                                     schema names the fields of, so it is read the way every
 //                                     other untyped route in this project is read (see
 //                                     SUBMITTED_STUDENT_KEYS below).
-//   POST /removesubmittransaction  -> takes one submission off that list, named by its id,
+//   POST /decline                  -> takes one submission off that list, named by its id,
 //                                     which is the one field POST /remove is written with
-//                                     ({"id": 5}, read off openapi.json). The name is this
-//                                     page's own reading of the read above: the same
-//                                     single-word spelling, wearing the "remove" its sibling
-//                                     /remove wears. No other line in the app spells it, so
-//                                     a backend that answers under another name is one line
-//                                     to change here.
+//                                     ({"id": 5}). It is the route a decline is sent to, and
+//                                     it is not in the API's openapi.json yet: the API answers
+//                                     404 to it today (checked live), so a decline reports
+//                                     that refusal until the backend answers it. The name is
+//                                     spelled here and nowhere else, so a backend that
+//                                     answers under another name is one line to change.
 //   POST /transaction-record       -> the add-transaction route, and the whole of what
 //                                     approving means: the row the submission asked for is
 //                                     written into the transaction table with the five fields
@@ -3938,7 +3938,7 @@ openRemovePage();
 //                                     the sign on the amount is the submission's, the way the
 //                                     admin's own sign is the Other page's.
 const SUBMITTED_URL = `${API_ORIGIN}/getsubmittransaction`;
-const SUBMITTED_DECLINE_URL = `${API_ORIGIN}/removesubmittransaction`;
+const SUBMITTED_DECLINE_URL = `${API_ORIGIN}/decline`;
 
 // The names a submitted transaction is likely to carry its own fields under, most likely
 // first. The read is untyped — the route answers a list of records and no schema names the
@@ -3955,12 +3955,12 @@ const SUBMITTED_AMOUNT_KEYS = ['amount', 'bonura_bucks', 'value', 'points'];
 const SUBMITTED_MEMO_KEYS = ['memo', 'note', 'notes'];
 const SUBMITTED_BALANCE_KEYS = ['ending_balance', 'balance_after', 'end_balance', 'balance'];
 
-// The submission's own id: what POST /removesubmittransaction names the row it takes away by,
-// the way POST /remove names a transaction. Only unambiguous names for an identifier are
-// read, and nothing is guessed at — reading some other field as an id would point a decline
-// at the wrong row, while reading none only means the row cannot be declined, which is the
-// safe half of the two. An id of 0 is an id like any other: the value is asked for being
-// present, not for being true.
+// The submission's own id: what POST /decline names the row it takes away by, the way
+// POST /remove names a transaction. Only unambiguous names for an identifier are read, and
+// nothing is guessed at — reading some other field as an id would point a decline at the wrong
+// row, while reading none only means the row cannot be declined, which is the safe half of the
+// two. An id of 0 is an id like any other: the value is asked for being present, not for being
+// true.
 const SUBMITTED_ID_KEYS = ['id', 'transaction_id', 'submit_id'];
 
 // The six values a row draws, in the order the sketch reads them, each with the word a screen
@@ -4539,8 +4539,8 @@ async function writeApprovedSubmission(fields, line) {
 // Output: none — the submission is taken off the list and the status line says what came of it.
 // Action: refuses a row the backend sent no id for, the route naming the row it is to take away
 //   and there being nothing to ask without one; re-asks the backend for admin powers at the last
-//   moment; POSTs { id } as JSON to SUBMITTED_DECLINE_URL with the session cookie; and takes the
-//   row off the page once the backend has answered 200.
+//   moment; POSTs { id } as JSON to POST /decline (SUBMITTED_DECLINE_URL) with the session cookie;
+//   and takes the row off the page once the backend has answered 200.
 // Role: what the Decline button does — the other half of the approvals page, and the same one-field
 //   body POST /remove takes a transaction away with. The button stands on every row, so every row
 //   ends the same way, saying the one thing that is missing when there is no id to name.
@@ -4583,7 +4583,7 @@ async function removeSubmission(fields, line) {
         line?.remove();
 
         showApprovalsMessage(
-            `Declined — ${words} was taken off the list (POST /removesubmittransaction answered ${response.status}), and the row is off this page.`
+            `Declined — ${words} was taken off the list (POST /decline answered ${response.status}), and the row is off this page.`
             + ' Refresh asks the backend for the list again.',
             false
         );
