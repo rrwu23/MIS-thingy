@@ -3910,7 +3910,10 @@ openRemovePage();
 // A row reads the way the sketch draws it — the student it is for, the day it names, the
 // type it is filed under, the amount and the memo, then the balance that account ended on —
 // with Approve and Decline at the end of it, and the whole list runs from the oldest
-// submission to the newest.
+// submission to the newest. Over the list stands one head row naming the six values a row
+// draws — Student | Date | Type | Amount | Memo | Ending balance (#approvalshead) — written
+// once for the whole list, in the same order SUBMITTED_LINE files the values under, and shown
+// only with the rows it names, so a value with no word over it is never left to be guessed at.
 //
 // Three routes stand behind the page:
 //   GET  /getsubmittransaction     -> every transaction waiting to be approved. The route is
@@ -3968,13 +3971,16 @@ const SUBMITTED_BALANCE_KEYS = ['ending_balance', 'balance_after', 'end_balance'
 // asked for being present, not for being true.
 const SUBMITTED_ID_KEYS = ['id', 'transaction_id', 'submit_id'];
 
-// The six values a row draws, in the order the sketch reads them, each with the word a screen
-// reader is given for it (the six are never named on screen — the bars between the values are
-// the whole of what the eye gets). field is the name submissionFields collects the value under;
-// className is the one a value needs a rule of its own for (the stamp that may not wrap, the two
-// figures), and numeric marks the two figures, which is what lets a minus stand in the red a pale
-// surface carries. Every other value is a plain .approvals__value, so no class is written into
-// the page that nothing draws.
+// The six values a row draws, in the order the sketch reads them, each with the word the head row
+// over the list and a screen reader both name it by: the head draws the word once for the eye (the
+// #approvalshead element on approve_transactions.html), and the same word is written into every
+// value for a screen reader, so a row is named whether or not the head is standing over the box.
+// field is the name submissionFields collects the value under; className is the one a value needs
+// a rule of its own for (the stamp that may not wrap, the two figures), and numeric marks the two
+// figures, which is what lets a minus stand in the red a pale surface carries. Every other value is
+// a plain .approvals__value, so no class is written into the page that nothing draws. The order and
+// the words here are the ones the head row in approve_transactions.html is written in, kept in step
+// by hand the way this project keeps every shared word that no module can carry.
 const SUBMITTED_LINE = [
     { field: 'student', label: 'Student' },
     { field: 'date', label: 'Date', className: 'approvals__value--date' },
@@ -4136,12 +4142,13 @@ function rankSubmissionRows(rows) {
     return rows;
 }
 
-// The list and the line above it. approve_transactions.html is the only page that carries
-// these elements — every other page loads app.js for its own form — so a read only ever starts
-// where there is a list to put an answer in, and the boot at the foot of this section starts
-// nothing anywhere else.
+// The list and the line above it, and the head row over the list that names the six values a
+// row draws. approve_transactions.html is the only page that carries these elements — every other
+// page loads app.js for its own form — so a read only ever starts where there is a list to put an
+// answer in, and the boot at the foot of this section starts nothing anywhere else.
 const approvalsStatus = document.getElementById('approvalsstatus');
 const approvalsList = document.getElementById('approvalslist');
+const approvalsHead = document.getElementById('approvalshead');
 const approvalsStamp = document.getElementById('approvalsstamp');
 const approvalsRefreshButton = document.getElementById('approvalsrefresh');
 
@@ -4217,10 +4224,11 @@ function approvalButton(label, variant) {
 //   and the id.
 // Output: the <li> the approvals list is made of — one row of values with the pair of buttons that
 //   answer it at the end.
-// Action: builds one <span> per SUBMITTED_LINE column, each carrying its own sr-only word (the six
-//   words are never drawn — the bar between two values is the whole of what the eye gets), marks a
-//   figure below zero in the red as well as with its own sign, and wires Approve and Decline to
-//   approveSubmission() and declineSubmission().
+// Action: builds one <span> per SUBMITTED_LINE column, each carrying its own sr-only word — the
+//   word the head row over the list draws once for the eye is written into every value for a screen
+//   reader too, because the head is a name standing over the box rather than a table heading the
+//   cells are read against — marks a figure below zero in the red as well as with its own sign, and
+//   wires Approve and Decline to approveSubmission() and declineSubmission().
 // Role: one row of the approvals page, drawn from the record's own fields object, which its two
 //   buttons close over — so an Approve is about the very submission the row was drawn from and not
 //   about the values as they happen to read.
@@ -4247,10 +4255,10 @@ function submissionLine(fields) {
         const value = document.createElement('span');
         value.className = classes.join(' ');
 
-        // The six words are never drawn — the bar between two values is the whole of what the
-        // eye gets — so each value carries its own word for a screen reader, which is what
-        // makes a row read as "Student: Venus Wu, Date: …, Amount: …" rather than as a string
-        // of values nobody could tell apart.
+        // The name over this value is drawn once for the whole list, up in the head row, so each
+        // value carries the same word here for a screen reader — which reads the row out as
+        // "Student: Venus Wu, Date: …, Amount: …" rather than as a string of values nobody could
+        // tell apart, and does not need the head row to be standing over the box to say it.
         const label = document.createElement('span');
         label.className = 'sr-only';
         label.textContent = `${column.label}: `;
@@ -4290,14 +4298,16 @@ function submissionLine(fields) {
 }
 
 // Input: rows — the submissions as rankSubmissionRows() ordered them.
-// Output: none — #approvalslist is emptied and given one row per submission and shown, and the
-//   buttons of every row are collected in approvalButtons; the count is logged.
+// Output: none — the head row and #approvalslist are shown together, the list emptied and given
+//   one row per submission, and the buttons of every row are collected in approvalButtons; the
+//   count is logged.
 // Action: builds every row with submissionLine(), gathers each row's two buttons, and swaps the
-//   lot in with replaceChildren().
+//   lot in with replaceChildren(), then shows the head row with the list it names.
 // Role: how the approvals page draws what it read — one row per submission, oldest first. Every
 //   value is built as a node rather than with innerHTML, because the words come from the backend,
 //   and the buttons are collected so that a read or an action can grey the whole list at once
-//   (setApprovalsEnabled).
+//   (setApprovalsEnabled). The head row comes and goes with the list rather than on its own, so the
+//   six names are never left standing over a box with nothing under them (clearSubmissions).
 function drawSubmissions(rows) {
     const body = document.createDocumentFragment();
     const buttons = [];
@@ -4310,23 +4320,45 @@ function drawSubmissions(rows) {
 
     approvalsList.replaceChildren(body);
     approvalsList.hidden = false;
+    approvalsHead.hidden = false; // the names and the rows they name arrive together
     approvalButtons = buttons;
 
     console.log(`Listed ${rows.length} transaction(s) waiting to be approved.`, rows);
 }
 
 // Input: none.
-// Output: none — the list's rows are dropped, the list is hidden and approvalButtons is emptied.
-// Action: empties #approvalslist, hides it, and forgets the buttons it held.
+// Output: none — the list's rows are dropped, the head row and the list are hidden, and
+//   approvalButtons is emptied.
+// Action: empties #approvalslist, hides it and the head row, and forgets the buttons it held.
 // Role: what every failed or empty read of the approvals page does before it says so on the
 //   status line: a read that failed or came back empty must not leave the rows of the read before
-//   standing as if they were current.
+//   standing as if they were current — nor the six names of the head row left over a box with
+//   nothing under them.
 function clearSubmissions() {
     approvalsList?.replaceChildren();
     approvalButtons = [];
 
     if (approvalsList) {
         approvalsList.hidden = true;
+    }
+
+    if (approvalsHead) {
+        approvalsHead.hidden = true;
+    }
+}
+
+// Input: none.
+// Output: none — when the list no longer holds a row, the head row and the list are hidden the way
+//   clearSubmissions() hides them.
+// Action: asks whether #approvalslist still holds any row and, when it does not, runs
+//   clearSubmissions(); a list that still holds rows is left exactly as it is.
+// Role: what an answered row does after it takes itself off the page — sendApproval and
+//   removeSubmission each remove the row they answered, and the last row answered would otherwise
+//   leave the box and the six names of the head row standing over nothing. The list is only tidied
+//   when it is empty, so a row answered while others are still waiting does not disturb the rest.
+function pruneEmptySubmissions() {
+    if (approvalsList && approvalsList.children.length === 0) {
+        clearSubmissions();
     }
 }
 
@@ -4492,7 +4524,8 @@ function describeDecline(fields) {
 // Action: refuses a row the backend sent no id for, the route naming the row it is to approve
 //   and there being nothing to ask without one; re-asks the backend for admin powers at the last
 //   moment; POSTs { id } as JSON to POST /approve (SUBMITTED_APPROVE_URL) with the session cookie;
-//   and takes the row off the page once the backend has answered 200.
+//   and takes the row off the page once the backend has answered 200 — hiding the head row and the
+//   list with it when that was the last row waiting (pruneEmptySubmissions).
 // Role: what the Approve button does — the write half of the approvals page, and the twin of
 //   removeSubmission. The row the submission asked for becomes a transaction the backend files
 //   itself, and the submission leaves the backend's list: the id read off the row is the whole of
@@ -4537,6 +4570,7 @@ async function sendApproval(fields, line) {
         }
 
         line?.remove();
+        pruneEmptySubmissions(); // the last row answered takes the head row and the box down with it
 
         showApprovalsMessage(
             `Approved — ${words} was taken off the list (POST /approve answered ${response.status}), and the row is off this page so it cannot be approved twice.`
@@ -4554,7 +4588,8 @@ async function sendApproval(fields, line) {
 // Action: refuses a row the backend sent no id for, the route naming the row it is to take away
 //   and there being nothing to ask without one; re-asks the backend for admin powers at the last
 //   moment; POSTs { id } as JSON to POST /decline (SUBMITTED_DECLINE_URL) with the session cookie;
-//   and takes the row off the page once the backend has answered 200.
+//   and takes the row off the page once the backend has answered 200 — hiding the head row and the
+//   list with it when that was the last row waiting (pruneEmptySubmissions).
 // Role: what the Decline button does — the other half of the approvals page, and the same one-field
 //   body POST /remove takes a transaction away with. The button stands on every row, so every row
 //   ends the same way, saying the one thing that is missing when there is no id to name.
@@ -4595,6 +4630,7 @@ async function removeSubmission(fields, line) {
         }
 
         line?.remove();
+        pruneEmptySubmissions(); // the last row answered takes the head row and the box down with it
 
         showApprovalsMessage(
             `Declined — ${words} was taken off the list (POST /decline answered ${response.status}), and the row is off this page.`

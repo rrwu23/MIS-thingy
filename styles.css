@@ -21,7 +21,7 @@
    fallback shown while the webfont swaps in.
    Loaded by every page in the project.
    Every page links this file as styles.css?v=N, and its own scripts the same way, each
-   asset carrying its own N — this one is at 25. Bump the N of whichever file has
+   asset carrying its own N — this one is at 27. Bump the N of whichever file has
    changed, the stylesheet for a new look or a script for new behaviour: the host sends
    assets with max-age=14400, so without a new URL a browser can go on painting a
    four-hour-old copy — of this file or of app.js — while the HTML around it is
@@ -1548,8 +1548,10 @@ a.tag:hover {
    it stays where the sketch puts it even when a value the read did not carry is drawn as a
    dash, and the value it follows is never pushed onto a line of its own — only the wrap of a
    whole value, bar and all, moves a separator. The words the bars stand in for — Student,
-   Date, Type, Amount, Memo, Ending balance — are written into each value for a screen reader,
-   the six never being named on screen. */
+   Date, Type, Amount, Memo, Ending balance — are drawn once over the whole list as the head
+   row the sketch's own bars imply, in the students page's own head-of-table cut (.approvals__head
+   below), and every value carries the same word for a screen reader as well, so a row is read
+   out with its names whether or not the head row is standing over the box. */
 
 /* the box the rows stand in: the picker's own surface, outline and corners */
 .approvals {
@@ -1564,6 +1566,44 @@ a.tag:hover {
 /* the status line is the box's first line — the students page's line over its table — so it
    keeps the panel's own look but not the margin it carries when it stands on the card */
 .approvals .results { margin-top: 0; }
+
+/* The head of the list — the one line of names the box was missing, in the students page's own
+   head-of-table cut (see .roster__table:not(.history__table) thead th): the card's ink at the
+   weight that page's names are drawn at, not uppercased, one name per value in the order the rows
+   write them. It takes a row's own flex and gaps, so a name stands as near over the value it names
+   as a run of values of no fixed width allows, and a row's own side padding, so the first name
+   starts over the first value rather than at the box's edge. The hairline under it is the line the
+   students table draws between its head row and its first student, so the names read as a head over
+   the rows rather than as another row. It is drawn only with the rows it names (see drawSubmissions
+   and clearSubmissions in app.js), so an empty or failed read leaves nothing standing over the box. */
+.approvals__head {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 0.15rem 0.55rem;
+    margin: 0;
+    padding: 0 0.75rem 0.5rem;
+    font-size: 1rem;
+    font-weight: 600;
+    letter-spacing: 0;
+    text-transform: none;
+    color: var(--accent-ink);
+    border-bottom: 1px solid rgba(6, 131, 113, 0.28);
+}
+
+.approvals__head[hidden] { display: none; }
+
+/* a name is one word or two — Ending balance — so it wraps rather than clips, the way every value
+   under it does (.approvals__value) */
+.approvals__label { overflow-wrap: anywhere; }
+
+/* the sketch's bar, worn here by the name it follows — the same bar .approvals__value draws, out
+   of the same quiet tier of the ink, so the head row and the rows under it are read as the same
+   line of things; the last name ends the line, so that column takes no bar */
+.approvals__label:not(:last-child)::after {
+    content: "|";
+    margin-left: 0.55rem;
+    color: var(--accent-ink-soft);
+}
 
 .approvals__list {
     display: grid;

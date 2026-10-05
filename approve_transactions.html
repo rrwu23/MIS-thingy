@@ -7,9 +7,9 @@
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Comfortaa:wght@300..700&display=swap">
-    <link rel="stylesheet" href="styles.css?v=26">
+    <link rel="stylesheet" href="styles.css?v=27">
     <script src="apibase.js?v=1" defer></script>
-    <script src="app.js?v=33" defer></script>
+    <script src="app.js?v=34" defer></script>
 </head>
 <body>
     <!-- The page behind the hub's "Approve transactions" door, and the whole of it is one box of
@@ -48,6 +48,25 @@
             <section class="approvals" aria-labelledby="approvalstitle">
                 <div id="approvalsstatus" class="results" role="status" aria-live="polite"
                      data-empty="Asking the backend which transactions are waiting to be approved&hellip;"></div>
+
+                <!-- The head of the list: the name of each of the six values a row draws, in the
+                     order the rows write them — the students page's own head row, for the same
+                     reason: a value with no name over it cannot be told from the value beside it,
+                     and the bars alone say where one value ends rather than what it is. The six
+                     names are written in the case SUBMITTED_LINE in app.js files them under, and
+                     that list is the one place the order is set, so the two are kept in step by
+                     hand the way this project keeps every shared word. It is drawn only when
+                     there are rows to name — a read that found nothing, or one that failed,
+                     leaves the head hidden with the list, so a bare header row is never left
+                     standing over an empty box. -->
+                <p id="approvalshead" class="approvals__head" hidden>
+                    <span class="approvals__label">Student</span>
+                    <span class="approvals__label">Date</span>
+                    <span class="approvals__label">Type</span>
+                    <span class="approvals__label">Amount</span>
+                    <span class="approvals__label">Memo</span>
+                    <span class="approvals__label">Ending balance</span>
+                </p>
 
                 <!-- One row per submission, filled by app.js in date order, the oldest first.
                      The list ends with the last submission — no foot of its own, and nothing
