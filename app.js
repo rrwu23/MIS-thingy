@@ -3927,14 +3927,16 @@ openRemovePage();
 //                                     means is the backend's own — it holds the submission's
 //                                     fields, so it files the transaction and takes the
 //                                     submission off its list, and the page only says which row
-//                                     was approved. The route is not in the API's openapi.json
-//                                     yet and the API answers 404 to it today (checked live),
-//                                     so an approve reports that refusal until it ships.
+//                                     was approved. The route works: an admin session is
+//                                     answered for it (checked live). It is the one route of the
+//                                     three the API's openapi.json does not list, and a request
+//                                     carrying no session is answered 404 rather than the 401 the
+//                                     read answers — the API hiding the route rather than naming
+//                                     it, so a 404 here does not mean the route is gone.
 //   POST /decline                  -> turns one submission down, named by its id: the same
-//                                     one-field body ({"id": 5}). It is not in the API's
-//                                     openapi.json yet either and the API answers 404 to it
-//                                     today (checked live), so a decline reports that refusal
-//                                     until it ships.
+//                                     one-field body ({"id": 5}), and the same standing — it
+//                                     works, it is unlisted in openapi.json, and a request with no
+//                                     session is answered 404 (checked live).
 //
 // Both routes name the row the same way — the id read off the submission (SUBMITTED_ID_KEYS) —
 // and each is spelled in exactly one place (SUBMITTED_APPROVE_URL, SUBMITTED_DECLINE_URL), so a
@@ -3958,12 +3960,12 @@ const SUBMITTED_AMOUNT_KEYS = ['amount', 'bonura_bucks', 'value', 'points'];
 const SUBMITTED_MEMO_KEYS = ['memo', 'note', 'notes'];
 const SUBMITTED_BALANCE_KEYS = ['ending_balance', 'balance_after', 'end_balance', 'balance'];
 
-// The submission's own id: what POST /decline names the row it takes away by, the way
-// POST /remove names a transaction. Only unambiguous names for an identifier are read, and
-// nothing is guessed at — reading some other field as an id would point a decline at the wrong
-// row, while reading none only means the row cannot be declined, which is the safe half of the
-// two. An id of 0 is an id like any other: the value is asked for being present, not for being
-// true.
+// The submission's own id: what POST /approve approves and POST /decline takes away, each route
+// naming the row by it, the way POST /remove names a transaction. Only unambiguous names for an
+// identifier are read, and nothing is guessed at — reading some other field as an id would point
+// an approve or a decline at the wrong row, while reading none only means the row cannot be
+// answered, which is the safe half of the two. An id of 0 is an id like any other: the value is
+// asked for being present, not for being true.
 const SUBMITTED_ID_KEYS = ['id', 'transaction_id', 'submit_id'];
 
 // The six values a row draws, in the order the sketch reads them, each with the word a screen
