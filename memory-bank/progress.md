@@ -97,9 +97,12 @@ There is no test suite in the repo, so the alignment of the approvals head row a
 proved with a throwaway headless-Chrome fixture (all of it under `/tmp`, so it must be re-created
 from the notes in `activeContext.md`):
 1. `/tmp/approvals-harness.html` — the approvals page's real markup with three hand-written rows.
-2. `/tmp/measure.js` — on `load`, for `scrollLeft` 0, 150 and the far end, compares each
-   `.approvals__label`'s rect against the same column's `.approvals__value` in every row and writes
-   the report into `<pre id="measure">`.
+2. `/tmp/measure.js` — on `load`, reports two things into `<pre id="measure">`. **Alignment:** for
+   `scrollLeft` 0, 150 and the far end, compares each `.approvals__label`'s rect against the same
+   column's `.approvals__value` in every row. **Wrapping:** ranges over each visible value's own
+   text node (the `sr-only` name is `position: absolute`, so it takes no room) and reads the line
+   boxes it broke into — `lines=`, the widest line, the cell's own content width, its height and its
+   `white-space`, flagging `*** OVERFLOWS ***` and (for a `nowrap` cell) `*** NOWRAP BUSTED ***`.
 3. `/tmp/build.py` — inlines the two into `/tmp/scroll-test.html` (the harness links the real
    `styles.css`).
 4. `python3 /tmp/extract.py /tmp/scroll-<width>.html` — prints the report out of each DOM dump.
@@ -108,4 +111,17 @@ Run Chrome as
 --no-sandbox --no-first-run --no-default-browser-check --user-data-dir=/tmp/prof-n
 --force-device-scale-factor=1 --window-size=760,900 --virtual-time-budget=5000 --dump-dom
 file:///tmp/scroll-test.html > /tmp/scroll-narrow.html`, backgrounded with a poll for the dump,
-then `pkill -f 'user-data-dir=/tmp/prof-n'`. Every column must read `ALIGNED` at every offset.
+then `pkill -f 'user-data-dir=/tmp/prof-n'`. Every column must read `ALIGNED` at every offset, and
+nothing may read `OVERFLOWS` or `NOWRAP BUSTED`.
+
+**What it last proved (2026-10-05, one commit after the change):** 30/30 `ALIGNED`, 0
+`MISALIGNED`/`OVERFLOWS`/`NOWRAP BUSTED` across both widths. Two facts worth keeping:
+- **A long memo wraps inside its own column and the row grows taller instead of pushing its
+  neighbours.** At 1440px the memo cell has 133.23px of content and broke into 3/3/5 lines (widest
+  line 127.92px); at 760px it has 105.6px and broke into 3/4/6 (widest 100.77px). Row heights
+  followed (91.13/91.13/137.75 at 1440px) — no value ever pushed the buttons out or ran under them.
+- **The date's `white-space: nowrap` never breaks** (always `lines=1`) and the stamp — the widest
+  single value on the page at 126.86px — is what sizes that column's 11rem.
+- A long hyphenated student name is the one thing that *does* break across lines (row 2's
+  "Liam Fitzgerald-Kowalski", 3 lines at 760px). That is `overflow-wrap: anywhere` doing its job:
+  it breaks rather than overflowing, so the column holds.

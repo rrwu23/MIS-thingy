@@ -19,9 +19,12 @@ ended. A type the backend spells long is re-cut by `submittedTypeWord()` (`SUBMI
 `/tmp/build.py` from `/tmp/approvals-harness.html` + `/tmp/measure.js`, report read out by
 `/tmp/extract.py`) loads the real `styles.css` against the exact DOM `submissionLine()` and
 `approve_transactions.html` build, and at 760px and 1440px — at scrollLeft 0, 150 and the far end —
-every head label and its matching value in all three rows report **identical left..right**, and the
-frame's `scrollWidth`/`clientWidth` and the head/list widths match. This is now the way to re-prove it
-after any change to those columns.
+every head label and its matching value in all three rows report **identical left..right** (30/30),
+and the frame's `scrollWidth`/`clientWidth` and the head/list widths match. The same script also
+measures **wrapping** — the line boxes each value's text broke into inside its column — and reports
+`0 OVERFLOWS`, `0 NOWRAP BUSTED`: a sentence-long memo wraps inside its own 133.23px (1440px) /
+105.6px (760px) column over 3–6 lines and simply makes its row taller, while the date's `nowrap`
+stamp holds one line. This is now the way to re-prove the columns after any change to them.
 
 Before that, the **approvals** flow was finished and live. The "Approve transactions" page draws a **head row**
 over the list naming each of the five values a row shows — Student | Date | Type | Amount | Memo —
