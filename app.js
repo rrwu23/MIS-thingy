@@ -3921,23 +3921,26 @@ openRemovePage();
 //                                     schema names the fields of, so it is read the way every
 //                                     other untyped route in this project is read (see
 //                                     SUBMITTED_STUDENT_KEYS below).
-//   POST /decline                  -> takes one submission off that list, named by its id,
-//                                     which is the one field POST /remove is written with
-//                                     ({"id": 5}). It is the route a decline is sent to, and
-//                                     it is not in the API's openapi.json yet: the API answers
-//                                     404 to it today (checked live), so a decline reports
-//                                     that refusal until the backend answers it. The name is
-//                                     spelled here and nowhere else, so a backend that
-//                                     answers under another name is one line to change.
-//   POST /transaction-record       -> the add-transaction route, and the whole of what
-//                                     approving means: the row the submission asked for is
-//                                     written into the transaction table with the five fields
-//                                     the reason pages write (transactionBody), so the
-//                                     submission's own figure is filed under its own type and
-//                                     dated its own day. Nothing about it is re-priced here —
-//                                     the sign on the amount is the submission's, the way the
-//                                     admin's own sign is the Other page's.
+//   POST /approve                  -> approves one submission, named by its id: the one-field
+//                                     body POST /remove is written with ({"id": 5}), read off
+//                                     the row (see SUBMITTED_ID_KEYS below). What approving
+//                                     means is the backend's own — it holds the submission's
+//                                     fields, so it files the transaction and takes the
+//                                     submission off its list, and the page only says which row
+//                                     was approved. The route is not in the API's openapi.json
+//                                     yet and the API answers 404 to it today (checked live),
+//                                     so an approve reports that refusal until it ships.
+//   POST /decline                  -> turns one submission down, named by its id: the same
+//                                     one-field body ({"id": 5}). It is not in the API's
+//                                     openapi.json yet either and the API answers 404 to it
+//                                     today (checked live), so a decline reports that refusal
+//                                     until it ships.
+//
+// Both routes name the row the same way — the id read off the submission (SUBMITTED_ID_KEYS) —
+// and each is spelled in exactly one place (SUBMITTED_APPROVE_URL, SUBMITTED_DECLINE_URL), so a
+// backend that answers under other names is one line to change each.
 const SUBMITTED_URL = `${API_ORIGIN}/getsubmittransaction`;
+const SUBMITTED_APPROVE_URL = `${API_ORIGIN}/approve`;
 const SUBMITTED_DECLINE_URL = `${API_ORIGIN}/decline`;
 
 // The names a submitted transaction is likely to carry its own fields under, most likely
@@ -4408,7 +4411,7 @@ async function readSubmissions() {
         drawSubmissions(rows);
         showApprovalsMessage(
             `The ${rows.length} transaction${rows.length === 1 ? '' : 's'} waiting to be approved, oldest first — the student each one is for, the day it names, the type it is filed under, the amount and the memo, then the balance its account would reach.`
-            + ' Approve writes the row into the transaction table; Decline takes it off this list.',
+            + ' Approve files it into the transaction table; Decline takes it off this list.',
             false
         );
     } catch (error) {
@@ -4483,56 +4486,65 @@ function describeDecline(fields) {
 }
 
 // Input: fields — one submission as submissionFields() read it; line — the row drawn from it.
-// Output: none — the row is written and the status line says what came of it.
-// Action: refuses a submission naming nobody, there being no account to put the row on and the
-//   backend's own `user` being a required field; re-asks the backend for admin powers at the last
-//   moment before the row leaves; sends it through writeTransaction(transactionBody(...)), the one
-//   body POST /transaction-record is written with; and takes the row off the page once it is
-//   written.
-// Role: what the Approve button does — the write half of the approvals page. The row the
-//   submission asked for goes into the transaction table through the add-transaction route the
-//   reason pages write through, one row for the one account this submission names. The row leaves
-//   the page the moment the backend has written it, a row left standing being a row that can be
-//   approved twice and this app having no undo; the submission on the backend's own list is the
-//   backend's to take away, and the sentence does not claim it has.
-async function writeApprovedSubmission(fields, line) {
-    const transaction = submissionTransaction(fields);
+// Output: none — the submission is approved and the status line says what came of it.
+// Action: refuses a row the backend sent no id for, the route naming the row it is to approve
+//   and there being nothing to ask without one; re-asks the backend for admin powers at the last
+//   moment; POSTs { id } as JSON to POST /approve (SUBMITTED_APPROVE_URL) with the session cookie;
+//   and takes the row off the page once the backend has answered 200.
+// Role: what the Approve button does — the write half of the approvals page, and the twin of
+//   removeSubmission. The row the submission asked for becomes a transaction the backend files
+//   itself, and the submission leaves the backend's list: the id read off the row is the whole of
+//   what the page says, because the backend already holds the submission's fields and files the
+//   figure under its own type, dated its own day, with nothing re-priced here. The row leaves the
+//   page the moment the backend has answered, a row left standing being a row that can be approved
+//   twice and this app having no undo.
+async function sendApproval(fields, line) {
     const words = submissionWords(fields);
 
-    // A submission naming nobody is refused rather than sent as a row for an empty username:
-    // there is no account to put the row on, and the backend's own `user` is a required field.
-    if (!transaction.students.length) {
-        showApprovalsMessage('Nothing was recorded — this submission names no student, so there is no account to write the row to.', true);
+    if (fields.id === null) {
+        showApprovalsMessage(`Nothing was approved — ${words} carries no id, and the request that approves a submission names the row by its id: there is nothing to ask the backend about.`, true);
         return;
     }
 
     const check = await checkAdminPermission();
 
     if (!check.granted) {
-        showApprovalsMessage(`Nothing was recorded — ${check.text}`, true);
+        showApprovalsMessage(`Nothing was approved — ${check.text}`, true);
         return;
     }
 
-    const answer = await writeTransaction(transactionBody(transaction, transaction.students[0]));
+    const body = { id: fields.id };
+    console.log('Approving:', body);
 
-    if (!answer.ok) {
-        console.error('Approve error:', answer);
-        showApprovalsMessage(`Nothing was recorded — ${answer.text}.`, true);
-        return;
+    try {
+        const response = await fetch(SUBMITTED_APPROVE_URL, {
+            method: 'POST',
+            credentials: 'include', // carry the admin session cookie along
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify(body)
+        });
+
+        // A refusal can answer with something that is not JSON, so the body is read once and
+        // never trusted to parse.
+        const result = await response.json().catch(() => null);
+
+        if (!response.ok) {
+            console.error('Approve error:', response.status, result);
+            showApprovalsMessage(`Nothing was approved — the backend refused the request (${response.status}): ${describeError(result)}`, true);
+            return;
+        }
+
+        line?.remove();
+
+        showApprovalsMessage(
+            `Approved — ${words} was taken off the list (POST /approve answered ${response.status}), and the row is off this page so it cannot be approved twice.`
+            + ' Refresh asks the backend for the list again.',
+            false
+        );
+    } catch (error) {
+        console.error('Approve error:', error);
+        showApprovalsMessage(`Network error — ${words} could not be approved: the API could not be reached. Press Approve again, or Refresh to read the list afresh.`, true);
     }
-
-    // The row comes off the page the moment the backend has written it, because a row left
-    // standing is a row that can be approved twice and this app has no undo. The submission on
-    // the backend's own list is the backend's to take away, and the sentence does not claim it
-    // has: Refresh asks for the list again, and a submission the backend has not taken off its
-    // list comes back with it.
-    line?.remove();
-
-    showApprovalsMessage(
-        `Recorded ${words} — the backend wrote the ${transaction.type} transaction into the transaction table (POST /transaction-record), and the row is off this page so it cannot be approved twice.`
-        + ' Refresh asks the backend for the list again.',
-        false
-    );
 }
 
 // Input: fields — one submission as submissionFields() read it; line — the row drawn from it.
@@ -4598,9 +4610,9 @@ async function removeSubmission(fields, line) {
 // Output: none — the row is written and the status line says what came of it; a question answered
 //   with N writes nothing.
 // Action: refuses a second action while one is running and a read in flight; greys the whole list;
-//   puts the Y/N question up about submissionTransaction(fields) — the very object the write will
-//   carry — and on Y runs writeApprovedSubmission(); the list is brought back however it ended.
-// Role: the Approve button of the approvals page. Approving writes a transaction and this app has
+//   puts the Y/N question up about submissionTransaction(fields) — the row as the submission
+//   describes it — and on Y runs sendApproval(); the list is brought back however it ended.
+// Role: the Approve button of the approvals page. Approving files a transaction and this app has
 //   no undo, so every approve is asked about first, and one action runs at a time: a second button
 //   pressed while the question is up would only put the same question up again, one click being
 //   one answer.
@@ -4623,7 +4635,7 @@ async function approveSubmission(fields, line, button) {
             return;
         }
 
-        await writeApprovedSubmission(fields, line);
+        await sendApproval(fields, line);
     } finally {
         submissionActionRunning = false;
         setApprovalsEnabled(true);

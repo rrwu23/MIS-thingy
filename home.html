@@ -9,7 +9,7 @@
     <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Comfortaa:wght@300..700&display=swap">
     <link rel="stylesheet" href="styles.css?v=26">
     <script src="apibase.js?v=1" defer></script>
-    <script src="app.js?v=31" defer></script>
+    <script src="app.js?v=32" defer></script>
 </head>
 <body>
     <!-- index.html is the front door: the sign-in card, and nothing else. This is the
@@ -62,12 +62,11 @@
                 <!-- The door that was added beside the history one, and about the same
                      students: the transactions they have asked for, one row each, with
                      Approve and Decline at the end of every row. approve_transactions.html
-                     reads them from GET /getsubmittransaction, and answers each row by
-                     writing it into the transaction table (POST /transaction-record) or
-                     taking it off the submission list (POST /decline, named by the row's
-                     id). Like the doors beside it, it is a plain link, so app.js knows
-                     nothing about it: the page refuses on its own when this browser holds
-                     no admin session. -->
+                     reads them from GET /getsubmittransaction, and answers each row by its
+                     own id — POST /approve files the transaction and takes the submission
+                     off the list, POST /decline takes it off the list alone. Like the doors
+                     beside it, it is a plain link, so app.js knows nothing about it: the page
+                     refuses on its own when this browser holds no admin session. -->
                 <a class="btn btn--door" href="/approve_transactions.html">Approve transactions</a>
                 <a class="btn btn--door" href="/job_rotation.html">Rotate jobs</a>
                 <!-- The two money doors, at the foot of the grid: each opens a page of its own —

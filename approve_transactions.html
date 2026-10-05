@@ -9,7 +9,7 @@
     <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Comfortaa:wght@300..700&display=swap">
     <link rel="stylesheet" href="styles.css?v=26">
     <script src="apibase.js?v=1" defer></script>
-    <script src="app.js?v=31" defer></script>
+    <script src="app.js?v=32" defer></script>
 </head>
 <body>
     <!-- The page behind the hub's "Approve transactions" door, and the whole of it is one box of
@@ -19,13 +19,13 @@
          answer it at the end of the row, and the bars the sketch draws between the values.
 
          app.js fills the rows in from GET /getsubmittransaction, oldest submission first, and
-         reads the answer of every button: Approve asks "confirm transaction, Y/N" and writes
-         the row into the transaction table through POST /transaction-record — the add-
-         transaction route the reason pages write through; Decline asks its own question and
-         takes the submission off the list through POST /decline, named by the row's own id.
-         Neither route is a student's to call: the page refuses on its own when this browser
-         holds no admin session, and the backend refuses the request as well. Every other page
-         leaves the empty <ul> and the hidden list exactly as they are.
+         reads the answer of every button: Approve asks "confirm transaction, Y/N" and hands
+         the row to the backend through POST /approve — which files the transaction and takes
+         the submission off its list — and Decline asks its own question and hands it over
+         through POST /decline; each names the row by its own id. Neither route is a student's
+         to call: the page refuses on its own when this browser holds no admin session, and the
+         backend refuses the request as well. Every other page leaves the empty <ul> and the
+         hidden list exactly as they are.
 
          The read is live: GET /getsubmittransaction is in the API's openapi.json and answers
          the submissions themselves, so the line above the box draws the rows it sends — and
