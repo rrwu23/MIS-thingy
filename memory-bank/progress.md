@@ -103,6 +103,8 @@ from the notes in `activeContext.md`):
    text node (the `sr-only` name is `position: absolute`, so it takes no room) and reads the line
    boxes it broke into — `lines=`, the widest line, the cell's own content width, its height and its
    `white-space`, flagging `*** OVERFLOWS ***` and (for a `nowrap` cell) `*** NOWRAP BUSTED ***`.
+   **Columns:** prints the resolved `gridTemplateColumns` of the head row and of every row, and says
+   whether they are all the same list — the one direct read of what each column's width really is.
 3. `/tmp/build.py` — inlines the two into `/tmp/scroll-test.html` (the harness links the real
    `styles.css`).
 4. `python3 /tmp/extract.py /tmp/scroll-<width>.html` — prints the report out of each DOM dump.
@@ -115,7 +117,31 @@ then `pkill -f 'user-data-dir=/tmp/prof-n'`. Every column must read `ALIGNED` at
 nothing may read `OVERFLOWS` or `NOWRAP BUSTED`.
 
 **What it last proved (2026-10-05, one commit after the change):** 30/30 `ALIGNED`, 0
-`MISALIGNED`/`OVERFLOWS`/`NOWRAP BUSTED` across both widths. Two facts worth keeping:
+`MISALIGNED`/`OVERFLOWS`/`NOWRAP BUSTED` across both widths, and `every row shares the head's track
+list=YES`. The report also prints the **resolved** tracks (`getComputedStyle().gridTemplateColumns`),
+which settles what the column widths actually are — measured at window widths 760, 1000, 1005, 1015,
+1030, 1200, 1440 and 1920:
+
+| track | resolved | constant? |
+|---|---|---|
+| Student | 104px (6.5rem) | yes — at every width, head and rows |
+| Date | 176px (11rem) | yes |
+| Type | 96px (6rem) | yes |
+| Amount | 88px (5.5rem) | yes |
+| Memo | 128px (its 8rem floor) … 155.625px | **the only one that moves** |
+| Actions (buttons) | 184px (11.5rem) | yes |
+
+- **Five of the six tracks never change**, and none of them depends on content — that is why a name
+  and its value stay cut on one line (a 6-line memo does not widen its column, it wraps).
+- **The Memo track is the window's one lever**, and its range is small: pinned at 128px for any
+  window narrower than ≈1014px, then growing 1:1 with the frame until the frame itself stops at
+  830px (the card caps at `60rem` = 960px and its padding takes the rest). So 128px → 155.625px, and
+  no further. The relation is exactly `memo = frame.clientWidth − 27 − 648` (27 = the head row's
+  24px padding + 3px transparent borders; 648 = the other five tracks), which is why the figure
+  moves only 27.6px in total.
+- **The tracks are `rem`, so "constant" is in `rem`, not in px** — at the browser's default 16px root
+  (confirmed in the report) they are the px above; a different root font size scales all six.
+- Two more facts worth keeping:
 - **A long memo wraps inside its own column and the row grows taller instead of pushing its
   neighbours.** At 1440px the memo cell has 133.23px of content and broke into 3/3/5 lines (widest
   line 127.92px); at 760px it has 105.6px and broke into 3/4/6 (widest 100.77px). Row heights
