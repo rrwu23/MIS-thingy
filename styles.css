@@ -21,7 +21,7 @@
    fallback shown while the webfont swaps in.
    Loaded by every page in the project.
    Every page links this file as styles.css?v=N, and its own scripts the same way, each
-   asset carrying its own N — this one is at 27. Bump the N of whichever file has
+   asset carrying its own N — this one is at 28. Bump the N of whichever file has
    changed, the stylesheet for a new look or a script for new behaviour: the host sends
    assets with max-age=14400, so without a new URL a browser can go on painting a
    four-hour-old copy — of this file or of app.js — while the HTML around it is
@@ -1539,7 +1539,7 @@ a.tag:hover {
 /* The hub's "Approve transactions" door: the transactions students have asked for, one row
    each, and beside every row the two buttons that answer it. The sketch draws the rows as
    separate boxes inside one big box rather than as a table — a line of the five fields a
-   transaction is written with, plus the balance the account would end on, and <approve>
+   transaction is written with, and <approve>
    <decline> at the end of the line — so the box is the picker's box (a pale surface outlined
    in the accent ink, rounded), and each row inside it is a box of its own standing on the
    palest surface the app has, so a row the eye is following reads as one thing from its first
@@ -1548,10 +1548,12 @@ a.tag:hover {
    it stays where the sketch puts it even when a value the read did not carry is drawn as a
    dash, and the value it follows is never pushed onto a line of its own — only the wrap of a
    whole value, bar and all, moves a separator. The words the bars stand in for — Student,
-   Date, Type, Amount, Memo, Ending balance — are drawn once over the whole list as the head
+   Date, Type, Amount, Memo — are drawn once over the whole list as the head
    row the sketch's own bars imply, in the students page's own head-of-table cut (.approvals__head
    below), and every value carries the same word for a screen reader as well, so a row is read
-   out with its names whether or not the head row is standing over the box. */
+   out with its names whether or not the head row is standing over the box. The ending balance a
+   submission may carry is not one of the five: the account's own figure is drawn nowhere on this
+   page, in the head row or in a row. */
 
 /* the box the rows stand in: the picker's own surface, outline and corners */
 .approvals {
@@ -1592,8 +1594,8 @@ a.tag:hover {
 
 .approvals__head[hidden] { display: none; }
 
-/* a name is one word or two — Ending balance — so it wraps rather than clips, the way every value
-   under it does (.approvals__value) */
+/* every name here is a single word, but a name wraps rather than clips even if one ever runs long,
+   the way every value under it does (.approvals__value) */
 .approvals__label { overflow-wrap: anywhere; }
 
 /* the sketch's bar, worn here by the name it follows — the same bar .approvals__value draws, out
@@ -1658,16 +1660,15 @@ a.tag:hover {
    between its date and its time */
 .approvals__value--date { white-space: nowrap; }
 
-/* the two figures, and the red a pale surface carries for one below zero — the figure itself
+/* the figure the row carries, and the red a pale surface gives one below zero — the figure itself
    holds its own minus sign, so nothing else has to say which way the account moved */
-.approvals__value--amount,
-.approvals__value--balance { font-variant-numeric: tabular-nums; }
+.approvals__value--amount { font-variant-numeric: tabular-nums; }
 
 .approvals__value--negative { color: var(--danger); }
 
 /* the two buttons at the size a row can carry — the letter of a row rather than the letter of
    a page, the same cut the history table's own controls wear — and the pair kept at the end of
-   the row: they are the last thing read on it, whichever of the six values runs long */
+   the row: they are the last thing read on it, whichever of the five values runs long */
 .approvals__actions {
     flex: none;
     display: flex;

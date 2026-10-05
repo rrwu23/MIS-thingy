@@ -3908,12 +3908,14 @@ openRemovePage();
 // approve_transactions.html, the page behind the hub's "Approve transactions" door: the
 // transactions students have asked for, one row each, waiting for the admin to answer.
 // A row reads the way the sketch draws it — the student it is for, the day it names, the
-// type it is filed under, the amount and the memo, then the balance that account ended on —
-// with Approve and Decline at the end of it, and the whole list runs from the oldest
-// submission to the newest. Over the list stands one head row naming the six values a row
-// draws — Student | Date | Type | Amount | Memo | Ending balance (#approvalshead) — written
-// once for the whole list, in the same order SUBMITTED_LINE files the values under, and shown
-// only with the rows it names, so a value with no word over it is never left to be guessed at.
+// type it is filed under, the amount and the memo — with Approve and Decline at the end of
+// it, and the whole list runs from the oldest submission to the newest. Over the list stands
+// one head row naming the five values a row draws — Student | Date | Type | Amount | Memo
+// (#approvalshead) — written once for the whole list, in the same order SUBMITTED_LINE files
+// the values under, and shown only with the rows it names, so a value with no word over it is
+// never left to be guessed at. The ending balance the account would end on is drawn nowhere
+// on this page — not in the head row and not in a row — so the five values are the whole of
+// what a row reads.
 //
 // Three routes stand behind the page:
 //   GET  /getsubmittransaction     -> every transaction waiting to be approved. The route is
@@ -3952,16 +3954,12 @@ const SUBMITTED_DECLINE_URL = `${API_ORIGIN}/decline`;
 // first. The read is untyped — the route answers a list of records and no schema names the
 // fields of one — so each field is asked for by every name it could plausibly wear rather
 // than trusted to one, the way the students page reads an account and the history page reads
-// a transaction. The student comes first because
-// the row's first value is the student; the balance is the backend's own figure for the
-// account the row would end on, drawn as it came and never sent back (a change does not send
-// it either — it is the backend's to work out).
+// a transaction. The student comes first because the row's first value is the student.
 const SUBMITTED_STUDENT_KEYS = ['user', 'student', 'username', 'name'];
 const SUBMITTED_DATE_KEYS = ['date', 'created_at', 'timestamp', 'time'];
 const SUBMITTED_TYPE_KEYS = ['type', 'category', 'kind'];
 const SUBMITTED_AMOUNT_KEYS = ['amount', 'bonura_bucks', 'value', 'points'];
 const SUBMITTED_MEMO_KEYS = ['memo', 'note', 'notes'];
-const SUBMITTED_BALANCE_KEYS = ['ending_balance', 'balance_after', 'end_balance', 'balance'];
 
 // The submission's own id: what POST /approve approves and POST /decline takes away, each route
 // naming the row by it, the way POST /remove names a transaction. Only unambiguous names for an
@@ -3971,23 +3969,24 @@ const SUBMITTED_BALANCE_KEYS = ['ending_balance', 'balance_after', 'end_balance'
 // asked for being present, not for being true.
 const SUBMITTED_ID_KEYS = ['id', 'transaction_id', 'submit_id'];
 
-// The six values a row draws, in the order the sketch reads them, each with the word the head row
+// The five values a row draws, in the order the sketch reads them, each with the word the head row
 // over the list and a screen reader both name it by: the head draws the word once for the eye (the
 // #approvalshead element on approve_transactions.html), and the same word is written into every
 // value for a screen reader, so a row is named whether or not the head is standing over the box.
 // field is the name submissionFields collects the value under; className is the one a value needs
-// a rule of its own for (the stamp that may not wrap, the two figures), and numeric marks the two
-// figures, which is what lets a minus stand in the red a pale surface carries. Every other value is
+// a rule of its own for (the stamp that may not wrap, the one figure), and numeric marks that
+// figure, which is what lets a minus stand in the red a pale surface carries. Every other value is
 // a plain .approvals__value, so no class is written into the page that nothing draws. The order and
 // the words here are the ones the head row in approve_transactions.html is written in, kept in step
-// by hand the way this project keeps every shared word that no module can carry.
+// by hand the way this project keeps every shared word that no module can carry. The ending balance
+// a submission may carry is deliberately not one of them: the head row and the rows draw these five
+// values and nothing else.
 const SUBMITTED_LINE = [
     { field: 'student', label: 'Student' },
     { field: 'date', label: 'Date', className: 'approvals__value--date' },
     { field: 'type', label: 'Type' },
     { field: 'amount', label: 'Amount', className: 'approvals__value--amount', numeric: true },
-    { field: 'memo', label: 'Memo' },
-    { field: 'balance', label: 'Ending balance', className: 'approvals__value--balance', numeric: true }
+    { field: 'memo', label: 'Memo' }
 ];
 
 // The shapes a submitted row's day may arrive in — the very reader the history page's own Date
@@ -4069,12 +4068,12 @@ function submissionStamp(value) {
 }
 
 // Input: record — one transaction of a GET /getsubmittransaction reply, as the backend sent it.
-// Output: { student, date, stamp, type, amount, memo, balance, id } — the six values the row draws
-//   (the day as it came, and the stamp it could be re-cut into, which is null when it could not),
-//   plus the id a decline names the row by; every one of them null where the backend sent nothing.
+// Output: { student, date, stamp, type, amount, memo, id } — the five values the row draws (the
+//   day as it came, and the stamp it could be re-cut into, which is null when it could not), plus
+//   the id a decline names the row by; every one of them null where the backend sent nothing.
 // Action: asks firstField() for each field group in turn (SUBMITTED_*_KEYS), writes the values it
-//   found as strings except the two figures, which are kept as they came, and re-cuts the day
-//   with submissionStamp().
+//   found as strings except the one figure, which is kept as it came, and re-cuts the day with
+//   submissionStamp().
 // Role: the one read of a submitted record — the row is drawn from this object, the question asked
 //   before a write names it, the body the row is written with is built from it, and the sentence
 //   the status line shows afterwards names it again. Reading the record once is what keeps those
@@ -4085,7 +4084,6 @@ function submissionFields(record) {
     const type = firstField(record, SUBMITTED_TYPE_KEYS);
     const amount = firstField(record, SUBMITTED_AMOUNT_KEYS);
     const memo = firstField(record, SUBMITTED_MEMO_KEYS);
-    const balance = firstField(record, SUBMITTED_BALANCE_KEYS);
 
     return {
         student: student === null ? null : String(student),
@@ -4097,7 +4095,6 @@ function submissionFields(record) {
         type: type === null ? null : String(type),
         amount: amount === null ? null : amount,
         memo: memo === null ? null : String(memo),
-        balance: balance === null ? null : balance,
         id: firstField(record, SUBMITTED_ID_KEYS)
     };
 }
@@ -4142,7 +4139,7 @@ function rankSubmissionRows(rows) {
     return rows;
 }
 
-// The list and the line above it, and the head row over the list that names the six values a
+// The list and the line above it, and the head row over the list that names the five values a
 // row draws. approve_transactions.html is the only page that carries these elements — every other
 // page loads app.js for its own form — so a read only ever starts where there is a list to put an
 // answer in, and the boot at the foot of this section starts nothing anywhere else.
@@ -4220,7 +4217,7 @@ function approvalButton(label, variant) {
     return button;
 }
 
-// Input: fields — one submission as submissionFields() read it: the six values, the re-cut stamp
+// Input: fields — one submission as submissionFields() read it: the five values, the re-cut stamp
 //   and the id.
 // Output: the <li> the approvals list is made of — one row of values with the pair of buttons that
 //   answer it at the end.
@@ -4307,7 +4304,7 @@ function submissionLine(fields) {
 //   value is built as a node rather than with innerHTML, because the words come from the backend,
 //   and the buttons are collected so that a read or an action can grey the whole list at once
 //   (setApprovalsEnabled). The head row comes and goes with the list rather than on its own, so the
-//   six names are never left standing over a box with nothing under them (clearSubmissions).
+//   five names are never left standing over a box with nothing under them (clearSubmissions).
 function drawSubmissions(rows) {
     const body = document.createDocumentFragment();
     const buttons = [];
@@ -4332,7 +4329,7 @@ function drawSubmissions(rows) {
 // Action: empties #approvalslist, hides it and the head row, and forgets the buttons it held.
 // Role: what every failed or empty read of the approvals page does before it says so on the
 //   status line: a read that failed or came back empty must not leave the rows of the read before
-//   standing as if they were current — nor the six names of the head row left over a box with
+//   standing as if they were current — nor the five names of the head row left over a box with
 //   nothing under them.
 function clearSubmissions() {
     approvalsList?.replaceChildren();
@@ -4354,7 +4351,7 @@ function clearSubmissions() {
 //   clearSubmissions(); a list that still holds rows is left exactly as it is.
 // Role: what an answered row does after it takes itself off the page — sendApproval and
 //   removeSubmission each remove the row they answered, and the last row answered would otherwise
-//   leave the box and the six names of the head row standing over nothing. The list is only tidied
+//   leave the box and the five names of the head row standing over nothing. The list is only tidied
 //   when it is empty, so a row answered while others are still waiting does not disturb the rest.
 function pruneEmptySubmissions() {
     if (approvalsList && approvalsList.children.length === 0) {
@@ -4444,7 +4441,7 @@ async function readSubmissions() {
 
         drawSubmissions(rows);
         showApprovalsMessage(
-            `The ${rows.length} transaction${rows.length === 1 ? '' : 's'} waiting to be approved, oldest first — the student each one is for, the day it names, the type it is filed under, the amount and the memo, then the balance its account would reach.`
+            `The ${rows.length} transaction${rows.length === 1 ? '' : 's'} waiting to be approved, oldest first — the student each one is for, the day it names, the type it is filed under, the amount and the memo.`
             + ' Approve files it into the transaction table; Decline takes it off this list.',
             false
         );

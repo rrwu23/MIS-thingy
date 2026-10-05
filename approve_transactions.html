@@ -7,16 +7,17 @@
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Comfortaa:wght@300..700&display=swap">
-    <link rel="stylesheet" href="styles.css?v=27">
+    <link rel="stylesheet" href="styles.css?v=28">
     <script src="apibase.js?v=1" defer></script>
-    <script src="app.js?v=34" defer></script>
+    <script src="app.js?v=35" defer></script>
 </head>
 <body>
     <!-- The page behind the hub's "Approve transactions" door, and the whole of it is one box of
          rows, the way the sketch draws it: the transactions students have asked for, one per
          row — the student it is for, the day it names, the type it is filed under, the amount
-         and the memo, then the balance that account would end on — with the two buttons that
-         answer it at the end of the row, and the bars the sketch draws between the values.
+         and the memo — with the two buttons that answer it at the end of the row, and the bars
+         the sketch draws between the values. The ending balance an account would end on is not
+         drawn here — not in the head row and not in a row.
 
          app.js fills the rows in from GET /getsubmittransaction, oldest submission first, and
          reads the answer of every button: Approve asks "confirm transaction, Y/N" and hands
@@ -39,7 +40,7 @@
 
             <!-- The page's own name, in the students page's shape: what the page lists, and
                  what may be done with each row. -->
-            <p class="card__hint"><strong id="approvalstitle">Transactions waiting to be approved.</strong> Every transaction a student has asked for and the admin has not answered yet, the one that has been waiting longest at the top — the student it is for, the day it names, the type it is filed under, the amount, the memo and the balance that account would end on. Approve writes the row into the transaction table, one row for the account the submission names; Decline takes the submission off this list. Both are asked about once more before anything happens, because neither can be undone. A value the backend did not send is drawn as a dash, and the list reads itself again whenever you come back to this tab.</p>
+            <p class="card__hint"><strong id="approvalstitle">Transactions waiting to be approved.</strong> Every transaction a student has asked for and the admin has not answered yet, the one that has been waiting longest at the top — the student it is for, the day it names, the type it is filed under, the amount and the memo. Approve writes the row into the transaction table, one row for the account the submission names; Decline takes the submission off this list. Both are asked about once more before anything happens, because neither can be undone. A value the backend did not send is drawn as a dash, and the list reads itself again whenever you come back to this tab.</p>
 
             <!-- The box, and the whole of the page inside it: the line that says what the read
                  found or what the last answer did, the rows themselves, and the foot. The rows
@@ -49,23 +50,23 @@
                 <div id="approvalsstatus" class="results" role="status" aria-live="polite"
                      data-empty="Asking the backend which transactions are waiting to be approved&hellip;"></div>
 
-                <!-- The head of the list: the name of each of the six values a row draws, in the
+                <!-- The head of the list: the name of each of the five values a row draws, in the
                      order the rows write them — the students page's own head row, for the same
                      reason: a value with no name over it cannot be told from the value beside it,
-                     and the bars alone say where one value ends rather than what it is. The six
+                     and the bars alone say where one value ends rather than what it is. The five
                      names are written in the case SUBMITTED_LINE in app.js files them under, and
                      that list is the one place the order is set, so the two are kept in step by
                      hand the way this project keeps every shared word. It is drawn only when
                      there are rows to name — a read that found nothing, or one that failed,
                      leaves the head hidden with the list, so a bare header row is never left
-                     standing over an empty box. -->
+                     standing over an empty box. The ending balance is not among the names: the
+                     account's own figure is drawn nowhere on this page. -->
                 <p id="approvalshead" class="approvals__head" hidden>
                     <span class="approvals__label">Student</span>
                     <span class="approvals__label">Date</span>
                     <span class="approvals__label">Type</span>
                     <span class="approvals__label">Amount</span>
                     <span class="approvals__label">Memo</span>
-                    <span class="approvals__label">Ending balance</span>
                 </p>
 
                 <!-- One row per submission, filled by app.js in date order, the oldest first.
