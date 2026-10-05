@@ -76,12 +76,13 @@ const SIGN_IN_URL = '/index.html';
 // is handed back to the sign-in card — the same moment app.js gives the admin's own.
 const REDIRECT_DELAY_MS = 900;
 
-// The card: the name in the greeting, the one door left on it, the balance box and the
-// figure in it, the status line under the door, and Sign out at the foot.
+// The card: the name in the greeting, the two doors on it, the balance box and the
+// figure in it, the status line under the doors, and Sign out at the foot.
 const studentNameField = document.getElementById('studentname');
 const studentBalanceBox = document.getElementById('studentbalance');
 const studentBalanceFigure = document.getElementById('studentbalancefigure');
 const studentStatus = document.getElementById('studentstatus');
+const addTransactionDoor = document.getElementById('addtransaction');
 const viewHistoryDoor = document.getElementById('viewhistory');
 const signOutButton = document.getElementById('signout');
 
@@ -107,12 +108,16 @@ function signedInStudent() {
     return (sessionStorage.getItem(SIGNED_IN_STUDENT_KEY) || '').trim();
 }
 
-// The one door left switched off the way the history page switches its Refresh off:
-// aria-disabled, which styles.css greys out and makes unclickable, plus no tab stop. It
-// is what the hub does with no student behind it, since there is no history of nobody's to
-// open. Sign out is deliberately left alone: it ends whatever session this browser is
-// holding, which is a real thing to do even when it holds no student.
+// Both doors switched off the way the history page switches its Refresh off: aria-disabled,
+// which styles.css greys out and makes unclickable, plus no tab stop. It is what the hub does
+// with no student behind it, since there is neither a type menu nor a history of nobody's to
+// open — the two pages refuse on their own when they are reached with no session, but the hub
+// does not offer what it knows cannot be walked. Sign out is deliberately left alone: it ends
+// whatever session this browser is holding, which is a real thing to do even when it holds no
+// student.
 function lockDoor() {
+    addTransactionDoor?.setAttribute('aria-disabled', 'true');
+    addTransactionDoor?.setAttribute('tabindex', '-1');
     viewHistoryDoor?.setAttribute('aria-disabled', 'true');
     viewHistoryDoor?.setAttribute('tabindex', '-1');
 }

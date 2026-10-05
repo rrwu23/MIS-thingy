@@ -433,7 +433,7 @@ a.tag:hover {
    The card is a column rather than a grid, which is what lets Sign out be pushed to
    the foot with margin-top: auto without the doors stretching to fill the height.
    The student's own hub (student-home.html) wears the same card, built the same way:
-   its brand, greeting and one door, then the balance box and Sign out at the foot. */
+   its brand, greeting and two doors, then the balance box and Sign out at the foot. */
 .hub {
     display: flex;
     flex-direction: column;
@@ -474,12 +474,6 @@ a.tag:hover {
     gap: clamp(0.85rem, 3vw, 1.6rem);
     margin-top: clamp(0.5rem, 2vw, 1rem);
 }
-
-/* One door alone on the row: the student's own hub, where the balance stands on the card
-   itself now rather than behind a View balance button, so View transaction history is the
-   only door left on it. A single column lets that door take the whole width instead of
-   being drawn at half of it against an empty cell. */
-.hub__actions--single { grid-template-columns: 1fr; }
 
 /* The balance box on the student's own hub, under the door: the pale surface the doors are
    drawn on, so the figure reads as an answer standing on the card rather than one more way
@@ -553,8 +547,8 @@ a.tag:hover {
 
 /* The foot of the card: Sign out on a row of its own, pushed to the right as the sketch
    draws it. It keeps a row separate from the doors, so it can never be mistaken for a
-   way further into the bank. Both hubs wear it — the admin's six doors and the student's
-   one — and margin-top: auto is what lands it at the very foot. On the student's card the
+   way further into the bank. Both hubs wear it — the admin's nine doors and the student's
+   two — and margin-top: auto is what lands it at the very foot. On the student's card the
    balance box above it carries the same auto margin, so the free height is split between
    the two and Sign out is still the last thing on the card. */
 .hub__foot {
