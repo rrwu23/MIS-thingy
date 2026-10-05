@@ -1,7 +1,29 @@
 # Active Context — Bonura bank
 
 ## Current focus (as of last session)
-The **approvals** flow is finished and live. The "Approve transactions" page draws a **head row**
+The **approvals** page's **columns are fully aligned and verified**: the head row's five names and
+the values under them are laid out in **one shared six-track grid** (`--approvals-columns` set once
+on `.approvals`, read by both `.approvals__head` and `.approvals__item`), so a name and the value it
+names share a cut and cannot drift apart — the sixth track is the two buttons, which the head row
+simply leaves empty. The card was widened for it: `.page--approvals { max-width: 60rem; }` (every
+other page keeps the hub's 46rem). The head row and the list stand in one `.approvals__frame`
+(`overflow-x: auto`, both children `min-width: min-content`), so a window too narrow for the columns
+scrolls the two sideways **together** as one — the students page's own frame pattern (`.roster__frame`).
+Each value column's bar is the **left edge of the column** (`.approvals__value + .approvals__value`),
+the same way the students table draws its own, not a `::after "|"` that would sit wherever the value
+ended. A type the backend spells long is re-cut by `submittedTypeWord()` (`SUBMITTED_TYPE_WORDS` +
+`reasonSlugFromType()`), so the column can stay as narrow as `expense`/`fine` need. `app.js` is at
+`?v=36` and `styles.css` at `?v=29` across all pages that load them.
+
+**Verified by measurement, not by eye:** a headless-Chrome fixture (`/tmp/scroll-test.html`, built by
+`/tmp/build.py` from `/tmp/approvals-harness.html` + `/tmp/measure.js`, report read out by
+`/tmp/extract.py`) loads the real `styles.css` against the exact DOM `submissionLine()` and
+`approve_transactions.html` build, and at 760px and 1440px — at scrollLeft 0, 150 and the far end —
+every head label and its matching value in all three rows report **identical left..right**, and the
+frame's `scrollWidth`/`clientWidth` and the head/list widths match. This is now the way to re-prove it
+after any change to those columns.
+
+Before that, the **approvals** flow was finished and live. The "Approve transactions" page draws a **head row**
 over the list naming each of the five values a row shows — Student | Date | Type | Amount | Memo —
 so the bars alone no longer have to be read. The **ending balance is drawn nowhere on this page**
 (not in the head row, not in a row): `SUBMITTED_LINE` in `app.js` carries five columns and
@@ -17,10 +39,13 @@ made fully live:
 - **Approve** now sends `POST /approve {id}` (previously it wrote via
   `/transaction-record`); the backend files the row and removes the submission.
 - **Decline** sends `POST /decline {id}`.
-- The stale prose that claimed these routes 404'd was removed. `app.js` is at `?v=35` and
-  `styles.css` at `?v=28` across all pages that load them.
+- The stale prose that claimed these routes 404'd was removed. `app.js` is at `?v=36` and
+  `styles.css` at `?v=29` across all pages that load them.
 
 ## Recent changes (last few commits, newest first)
+- `approvals: cut the head row and the rows into one set of columns, and widen the card`
+  (app.js v36, styles.css v29, approve_transactions.html v36) — the alignment fix; verified by
+  headless-Chrome measurement at 760px and 1440px.
 - `approvals: drop the ending balance from the head row and the rows` (app.js v35, styles.css v28).
 - `approvals: name each value with a head row over the list` (app.js v34, styles.css v27).
 - `approvals: /approve and /decline are live — drop the stale 404 prose` (app.js v33).
@@ -37,11 +62,15 @@ made fully live:
   the backend adds or whatever the school asks for (per the project's short-iteration
   style).
 - **Keep versions in sync:** the `styles.css` header comment and the pages' `?v=` are now both
-  at 28 (the earlier "at 25"/`v=26` drift is fixed). Keep the header's N and the pages' N in
-  step whenever either moves — same for `app.js`, now `v=35`.
+  at 29 (the earlier "at 25"/`v=26` drift is fixed). Keep the header's N and the pages' N in
+  step whenever either moves — same for `app.js`, now `v=36`.
 - The Node test harnesses named in commit messages (`check.js`, `date-check.js`,
   `approve-check.js`, `student-check.js`) are **not in the repo**. If verification is
   needed, either re-create them or use `node --check` on the scripts.
+- **The approvals column check lives in `/tmp` only** and will be wiped: `scroll-test.html`
+  (the fixture), `build.py` (re-builds it from `approvals-harness.html` + `measure.js`) and
+  `extract.py` (reads the report). Re-create them from this description if the columns are
+  touched again — the harness must be re-cut by hand if the page's own markup changes.
 
 ## Active decisions & patterns to keep
 - **All API calls go through `/api`** (`API_ORIGIN`), never straight to the API host in
@@ -64,6 +93,14 @@ made fully live:
 - `sessionStorage` carries only the picked student across the transaction flow steps.
 
 ## Learnings / insights
+- **Alignment claims on this project are proved by measurement, not by eye.** Headless Chrome
+  (`--headless=new --dump-dom`, with a **unique `--user-data-dir`** or it is blocked by the
+  desktop Chrome already running) can dump a page after its own script has written a report into a
+  `<pre>`; the `/tmp` fixture described above does exactly that for the approvals columns. Two
+  things that cost time: a heredoc inside a `run_commands` string hangs, so build helper scripts
+  with the file-editor instead; and Chrome's own updater/helper processes keep the shell alive after
+  the dump is written, so launch it backgrounded with a poll for the dump then `pkill -f
+  'user-data-dir=…'` rather than waiting on it.
 - The reason this app needed a proxy at all is the third-party-cookie / `SameSite=lax`
   problem once it moved to `www.bonurabank.ca`. Any change that makes page scripts call the
   API host directly would reintroduce the 401 problem on the deployed custom domain.

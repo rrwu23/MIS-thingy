@@ -21,7 +21,7 @@
    fallback shown while the webfont swaps in.
    Loaded by every page in the project.
    Every page links this file as styles.css?v=N, and its own scripts the same way, each
-   asset carrying its own N — this one is at 28. Bump the N of whichever file has
+   asset carrying its own N — this one is at 29. Bump the N of whichever file has
    changed, the stylesheet for a new look or a script for new behaviour: the host sends
    assets with max-age=14400, so without a new URL a browser can go on painting a
    four-hour-old copy — of this file or of app.js — while the HTML around it is
@@ -107,6 +107,12 @@ body {
 }
 
 .page { width: 100%; max-width: 46rem; }
+
+/* The approvals page is the one page whose card is drawn wider than the app's own 46rem: a row of
+   it carries the five values a transaction is written with and the two buttons that answer it on
+   one line, and the columns those values are cut into (see the approvals section below) need more
+   room than the four columns of the students table do. Every other page keeps the hub's own width. */
+.page--approvals { max-width: 60rem; }
 
 /* ----------------------------------------------------------------- card ---- */
 /* Every inner page is one card, and that card is filled with the accent — the same
@@ -1543,20 +1549,47 @@ a.tag:hover {
    <decline> at the end of the line — so the box is the picker's box (a pale surface outlined
    in the accent ink, rounded), and each row inside it is a box of its own standing on the
    palest surface the app has, so a row the eye is following reads as one thing from its first
-   value to its two buttons, whichever of them the pointer is over. The values are held apart
-   by the bar the sketch draws between them: the bar belongs to the value that follows it, so
-   it stays where the sketch puts it even when a value the read did not carry is drawn as a
-   dash, and the value it follows is never pushed onto a line of its own — only the wrap of a
-   whole value, bar and all, moves a separator. The words the bars stand in for — Student,
-   Date, Type, Amount, Memo — are drawn once over the whole list as the head
+   value to its two buttons, whichever of them the pointer is over. The five values of a row are cut
+   into columns, and the head row over the box is cut on the same lines (--approvals-columns below),
+   so each name stands exactly over the value it names and a row's values sit under the same cuts as
+   the row above it. The bar the sketch draws between two values is drawn the way the students page's
+   table draws its own — as the left edge of the column that follows, the line that column is cut on
+   (.roster__table:not(.history__table) thead th + th, for the reason that page's own head row gives)
+   — rather than set down as a character after the value, which would stand wherever that value
+   happened to end and say nothing about where the column it belongs to is cut. A value the read did
+   not carry is drawn as a dash in its own column like every other value, so the columns keep their
+   cuts down the whole list. A type or a memo longer than its column wraps inside it rather than
+   pushing the values beside it out of line, and a window too narrow for the columns scrolls the box
+   sideways, the way the students page's own frame carries its table. The words the columns are cut
+   under — Student, Date, Type, Amount, Memo — are drawn once over the whole list as the head
    row the sketch's own bars imply, in the students page's own head-of-table cut (.approvals__head
    below), and every value carries the same word for a screen reader as well, so a row is read
    out with its names whether or not the head row is standing over the box. The ending balance a
    submission may carry is not one of the five: the account's own figure is drawn nowhere on this
    page, in the head row or in a row. */
 
-/* the box the rows stand in: the picker's own surface, outline and corners */
+/* The box the rows stand in: the picker's own surface, outline and corners. It is also the one
+   place the box's columns are set — the head row and every row under it are laid out in these same
+   tracks, so a name and the value it names share a cut and cannot drift apart. The four value
+   columns are as wide as the widest thing they hold (the day is a stamp held on one line,
+   "2026/09/29 16:17", and the widest word of the rest is "expense"), and the memo takes whatever
+   room the box has left, so a sentence-long memo wraps inside its own column instead of pushing the
+   buttons off the end of the row. The last column is the two buttons: it is a column of the head row
+   too, so a row's five values are the same five widths whatever the buttons cost, the head row
+   simply having nothing standing in its sixth cell. The air a cell stands in is set here with them,
+   both halves of the box taking the same padding, which is half of what keeps the two in step (the
+   other half is the row outline the head row carries in nothing, see .approvals__head). */
 .approvals {
+    --approvals-columns:
+        6.5rem              /* Student */
+        11rem               /* Date — the stamp, held on one line */
+        6rem                /* Type */
+        5.5rem              /* Amount */
+        minmax(8rem, 1fr)   /* Memo — whatever room the box has left */
+        11.5rem;            /* the two buttons, which no name stands over */
+    --approvals-cell-padding: 0.7rem;
+    --approvals-row-padding: 0.75rem;
+    --approvals-bar: rgba(6, 131, 113, 0.28);
     display: grid;
     gap: 0.9rem;
     padding: clamp(0.85rem, 2.6vw, 1.2rem);
@@ -1569,43 +1602,70 @@ a.tag:hover {
    keeps the panel's own look but not the margin it carries when it stands on the card */
 .approvals .results { margin-top: 0; }
 
+/* The head row and the list stand in one frame so that a window too narrow to hold the columns
+   scrolls the two of them sideways together rather than cutting the last column off the end of a
+   row — the students page's own frame, carrying its own columns the same way (.roster__frame, and
+   the note there about a card narrower than the table). min-width: min-content is the width the
+   columns need of their own accord — the four fixed ones, the memo's own least, the buttons' — so
+   a frame with room to spare draws both of them edge to edge, and a frame without it draws both at
+   exactly that width; either way the head row and the rows under it are the same width, which is
+   what keeps a name standing over its own value. */
+.approvals__frame { overflow-x: auto; }
+
+.approvals__head,
+.approvals__list { min-width: min-content; }
+
 /* The head of the list — the one line of names the box was missing, in the students page's own
    head-of-table cut (see .roster__table:not(.history__table) thead th): the card's ink at the
-   weight that page's names are drawn at, not uppercased, one name per value in the order the rows
-   write them. It takes a row's own flex and gaps, so a name stands as near over the value it names
-   as a run of values of no fixed width allows, and a row's own side padding, so the first name
-   starts over the first value rather than at the box's edge. The hairline under it is the line the
+   weight that page's names are drawn at, not uppercased, one name per column in the order the rows
+   write them. It is laid out in the box's own columns (--approvals-columns), so each name stands
+   exactly over the value it names, and it takes a row's own side padding: the 1.5px it carries on
+   either side, drawn in nothing, is the outline a row wears, so the first name starts on the same
+   line as the first value under it. Its own sixth column stands empty — the buttons at the end of
+   a row have no name over them. The hairline under it is the line the
    students table draws between its head row and its first student, so the names read as a head over
    the rows rather than as another row. It is drawn only with the rows it names (see drawSubmissions
    and clearSubmissions in app.js), so an empty or failed read leaves nothing standing over the box. */
 .approvals__head {
-    display: flex;
-    flex-wrap: wrap;
-    gap: 0.15rem 0.55rem;
+    display: grid;
+    grid-template-columns: var(--approvals-columns);
+    align-items: center;
     margin: 0;
-    padding: 0 0.75rem 0.5rem;
+    padding: 0 var(--approvals-row-padding) 0.5rem;
     font-size: 1rem;
     font-weight: 600;
     letter-spacing: 0;
     text-transform: none;
     color: var(--accent-ink);
-    border-bottom: 1px solid rgba(6, 131, 113, 0.28);
+    border-left: 1.5px solid transparent;
+    border-right: 1.5px solid transparent;
+    border-bottom: 1px solid var(--approvals-bar);
 }
 
 .approvals__head[hidden] { display: none; }
 
-/* every name here is a single word, but a name wraps rather than clips even if one ever runs long,
-   the way every value under it does (.approvals__value) */
-.approvals__label { overflow-wrap: anywhere; }
+/* every name here is a single word, held on one line so that no name is broken inside it — the
+   students page holds its own four names the same way (see that page's head row) */
+.approvals__label { white-space: nowrap; }
 
-/* the sketch's bar, worn here by the name it follows — the same bar .approvals__value draws, out
-   of the same quiet tier of the ink, so the head row and the rows under it are read as the same
-   line of things; the last name ends the line, so that column takes no bar */
-.approvals__label:not(:last-child)::after {
-    content: "|";
-    margin-left: 0.55rem;
-    color: var(--accent-ink-soft);
+/* One cell of the box, whichever half of it the cell stands in — a name in the head row, a value in
+   a row under it: the same air either side of it, and on every cell after the first the same bar on
+   its left edge, which is the line the column it opens is cut on. Both halves wear these same two
+   rules, so a name and the value under it are cut on one line and the bar runs down the box as a
+   single line through the head row and the rows, and no glyph left for a reader or a copy to pick
+   up. The head row's last name and the rows' last value (the memo) are what stands at the end of the
+   bar; the buttons' column carries none, having nothing of the head row's over it. A type or a memo
+   can be a whole sentence or a slug with no space in it: wrapped, not clipped — anywhere but between
+   two words, the way the history table's own two columns are, so the column can be as narrow as the
+   text makes it without the value leaving the cut it stands in. */
+.approvals__label,
+.approvals__value {
+    padding: 0 var(--approvals-cell-padding);
+    overflow-wrap: anywhere;
 }
+
+.approvals__label + .approvals__label,
+.approvals__value + .approvals__value { border-left: 1px solid var(--approvals-bar); }
 
 .approvals__list {
     display: grid;
@@ -1617,47 +1677,35 @@ a.tag:hover {
 
 .approvals__list[hidden] { display: none; }
 
-/* One row, and its two halves: the values, which take the room, and the buttons, which keep
-   the end of the row — dropping under the values when the row runs out of width, the way the
-   sketch's line would wrap. */
+/* One row: the box's own columns, one cell per value with the two buttons in the last of them, so
+   every value stands under the name over it. The values and the buttons are the row's six cells —
+   the line app.js draws the five values in is a grouping and takes no box of its own (display:
+   contents below), so its values stand straight in the row's columns. The row is a box of its own
+   standing on the palest surface the app has, outlined in the accent ink, so a row the eye is
+   following reads as one thing from its first value to its two buttons. */
 .approvals__item {
-    display: flex;
+    display: grid;
+    grid-template-columns: var(--approvals-columns);
     align-items: center;
-    flex-wrap: wrap;
-    gap: 0.5rem 1rem;
-    padding: 0.6rem 0.75rem;
+    padding: 0.6rem var(--approvals-row-padding);
     background: var(--surface-3);
     border: 1.5px solid var(--accent-ink);
     border-radius: var(--radius-sm);
 }
 
+/* the five values of a row, as the row's own cells: the paragraph that groups them draws no box at
+   all, so the row's columns are what lays them out and the head row's names are cut on their lines
+   (display: contents keeps the font size and the ink this rule sets, which every value inherits) */
 .approvals__line {
-    flex: 1 1 18rem;
-    display: flex;
-    flex-wrap: wrap;
-    gap: 0.15rem 0.55rem;
-    margin: 0;
+    display: contents;
     font-size: 0.94rem;
     color: var(--accent-ink);
 }
 
-/* a type or a memo can be a whole sentence or a slug with no space in it: wrapped, not
-   clipped — anywhere but between two words, the way the history table's own two columns are */
-.approvals__value { overflow-wrap: anywhere; }
-
-/* the sketch's bar, worn by the value it follows — not by the one after it, so a row that wraps
-   ends its line with the separator and starts the next with a value rather than a bar nobody's
-   value is on the left of; the quiet tier of the ink, so the values are read as one line each
-   rather than as a run of text */
-.approvals__value:not(:last-child)::after {
-    content: "|";
-    margin-left: 0.55rem;
-    color: var(--accent-ink-soft);
-}
-
 /* the day and the clock are one stamp and do not wrap at all — the shape the history page's
-   own date column keeps — so a squeezed row moves the whole stamp rather than breaking it
-   between its date and its time */
+   own date column keeps — so a column too narrow for the whole stamp moves it rather than
+   breaking it between its date and its time (the column is sized for the stamp, see
+   --approvals-columns) */
 .approvals__value--date { white-space: nowrap; }
 
 /* the figure the row carries, and the red a pale surface gives one below zero — the figure itself
@@ -1667,13 +1715,17 @@ a.tag:hover {
 .approvals__value--negative { color: var(--danger); }
 
 /* the two buttons at the size a row can carry — the letter of a row rather than the letter of
-   a page, the same cut the history table's own controls wear — and the pair kept at the end of
-   the row: they are the last thing read on it, whichever of the five values runs long */
+   a page, the same cut the history table's own controls wear — and the column they stand in: the
+   last of the row's own columns, at the end of the row, with a value's own air on their left so
+   they are not drawn against the memo's last word. They are the last thing read on the row,
+   whichever of the five values runs long, and the bar stops at the memo: nothing of the head row's
+   stands over them. */
 .approvals__actions {
-    flex: none;
+    grid-column: 6;
     display: flex;
+    justify-content: flex-end;
     gap: 0.4rem;
-    margin-left: auto;
+    padding-left: var(--approvals-cell-padding);
 }
 
 .approvals__actions .btn {

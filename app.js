@@ -4067,13 +4067,43 @@ function submissionStamp(value) {
     return `${parts[1]}/${parts[2]}/${parts[3]} ${parts[4] || '00'}:${parts[5] || '00'}`;
 }
 
+// The two types whose rows the box draws in a word of their own. The reason page a submission comes
+// from files its rows under the plain word its own card carries (data-transaction-type on
+// transaction_fines.html and transaction_spending.html — "fine" and "expense"), while a submission
+// the backend holds may name the type by the reason list's own longer name — "BONURA BANK FINES", or
+// the slug reasonSlugFromType() makes of it, "bonura-bank-fines". The keys are those slugs and the
+// values are the words the rows read as; a type the map does not hold is drawn exactly as it came,
+// and a third type can be added here the same way (the reason list's name as its slug, the card's
+// own word as the value).
+const SUBMITTED_TYPE_WORDS = {
+    'bonura-bank-fines': 'fine',
+    'ways-to-spend-bonura-bucks': 'expense'
+};
+
+// Input: value — a submitted row's type, in whatever shape the backend sent it ("fine",
+//   "bonura-bank-fines", "BONURA BANK FINES").
+// Output: the word the row is filed under — "fine" or "expense" — when the value names one of the two
+//   types SUBMITTED_TYPE_WORDS holds, and the value itself for every other type.
+// Action: reduces the value to its slug with reasonSlugFromType() and looks the slug up in
+//   SUBMITTED_TYPE_WORDS, answering the value as it came when the map holds no such slug.
+// Role: the one place a submitted type is re-cut, so the type a row draws, the question that is asked
+//   before the row is answered and the sentence the status line shows afterwards all name it the way
+//   the app's own pages file it — "fine", "expense" — however the backend spelled it, and no row on
+//   the approvals page reads as a reason list's name rather than as a type of transaction.
+function submittedTypeWord(value) {
+    const type = String(value);
+
+    return SUBMITTED_TYPE_WORDS[reasonSlugFromType(type)] ?? type;
+}
+
 // Input: record — one transaction of a GET /getsubmittransaction reply, as the backend sent it.
 // Output: { student, date, stamp, type, amount, memo, id } — the five values the row draws (the
 //   day as it came, and the stamp it could be re-cut into, which is null when it could not), plus
 //   the id a decline names the row by; every one of them null where the backend sent nothing.
 // Action: asks firstField() for each field group in turn (SUBMITTED_*_KEYS), writes the values it
-//   found as strings except the one figure, which is kept as it came, and re-cuts the day with
-//   submissionStamp().
+//   found as strings except the one figure, which is kept as it came, re-cuts the type with
+//   submittedTypeWord() so a row held under a reason list's own longer name is drawn and asked about
+//   under the word the app files that kind of row under, and re-cuts the day with submissionStamp().
 // Role: the one read of a submitted record — the row is drawn from this object, the question asked
 //   before a write names it, the body the row is written with is built from it, and the sentence
 //   the status line shows afterwards names it again. Reading the record once is what keeps those
@@ -4092,7 +4122,7 @@ function submissionFields(record) {
         // value is no whole day — the value as it came is kept beside it, and is what is drawn
         // and sent in that case, rather than a day nobody could read
         stamp: submissionStamp(date),
-        type: type === null ? null : String(type),
+        type: type === null ? null : submittedTypeWord(type),
         amount: amount === null ? null : amount,
         memo: memo === null ? null : String(memo),
         id: firstField(record, SUBMITTED_ID_KEYS)

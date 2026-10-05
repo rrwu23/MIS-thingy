@@ -7,9 +7,9 @@
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Comfortaa:wght@300..700&display=swap">
-    <link rel="stylesheet" href="styles.css?v=28">
+    <link rel="stylesheet" href="styles.css?v=29">
     <script src="apibase.js?v=1" defer></script>
-    <script src="app.js?v=35" defer></script>
+    <script src="app.js?v=36" defer></script>
 </head>
 <body>
     <!-- The page behind the hub's "Approve transactions" door, and the whole of it is one box of
@@ -30,8 +30,14 @@
 
          The read is live: GET /getsubmittransaction is in the API's openapi.json and answers
          the submissions themselves, so the line above the box draws the rows it sends — and
-         says whatever the backend answers, in the API's own words, when it refuses. -->
-    <div class="page">
+         says whatever the backend answers, in the API's own words, when it refuses.
+
+         The five values of a row stand in columns — the head row over the box cut on the same
+         lines — so every name stands over the value it names and the bars are drawn down the box
+         as one line, and a window too narrow for those columns scrolls the head row and the rows
+         sideways together. The card is the one in the app drawn wider than 46rem (.page--approvals,
+         styles.css) so the row's six columns have the room they need. -->
+    <div class="page page--approvals">
         <main class="card">
             <header class="bar">
                 <h1 class="card__title">Bonura bank</h1>
@@ -50,29 +56,41 @@
                 <div id="approvalsstatus" class="results" role="status" aria-live="polite"
                      data-empty="Asking the backend which transactions are waiting to be approved&hellip;"></div>
 
-                <!-- The head of the list: the name of each of the five values a row draws, in the
-                     order the rows write them — the students page's own head row, for the same
-                     reason: a value with no name over it cannot be told from the value beside it,
-                     and the bars alone say where one value ends rather than what it is. The five
-                     names are written in the case SUBMITTED_LINE in app.js files them under, and
-                     that list is the one place the order is set, so the two are kept in step by
-                     hand the way this project keeps every shared word. It is drawn only when
-                     there are rows to name — a read that found nothing, or one that failed,
-                     leaves the head hidden with the list, so a bare header row is never left
-                     standing over an empty box. The ending balance is not among the names: the
-                     account's own figure is drawn nowhere on this page. -->
-                <p id="approvalshead" class="approvals__head" hidden>
-                    <span class="approvals__label">Student</span>
-                    <span class="approvals__label">Date</span>
-                    <span class="approvals__label">Type</span>
-                    <span class="approvals__label">Amount</span>
-                    <span class="approvals__label">Memo</span>
-                </p>
+                <!-- The head row and the rows themselves stand in one frame: the two are the same
+                     width to a pixel — the columns the values are cut into, with the buttons'
+                     column held open in the head row (styles.css, .approvals__frame) — so every
+                     name stands over the value it names, and a window too narrow for those columns
+                     scrolls the pair sideways together rather than cutting the last column off the
+                     end of a row, the way the students page's own frame carries its table. -->
+                <div class="approvals__frame">
+                    <!-- The head of the list: the name of each of the five values a row draws, in
+                         the order the rows write them — the students page's own head row, for the
+                         same reason: a value with no name over it cannot be told from the value
+                         beside it, and the bar alone says where one value's column ends rather
+                         than what the value is. The five names are the box's own columns (see
+                         --approvals-columns in styles.css): the head row is laid out in the very
+                         columns every row under it is laid out in, so a name stands exactly over
+                         the value it names and the bar between two values is drawn down the box as
+                         one line. The names are written in the case SUBMITTED_LINE in app.js files
+                         them under, and that list is the one place the order is set, so the two are
+                         kept in step by hand the way this project keeps every shared word. It is
+                         drawn only when there are rows to name — a read that found nothing, or one
+                         that failed, leaves the head hidden with the list, so a bare header row is
+                         never left standing over an empty box. The ending balance is not among the
+                         names: the account's own figure is drawn nowhere on this page. -->
+                    <p id="approvalshead" class="approvals__head" hidden>
+                        <span class="approvals__label">Student</span>
+                        <span class="approvals__label">Date</span>
+                        <span class="approvals__label">Type</span>
+                        <span class="approvals__label">Amount</span>
+                        <span class="approvals__label">Memo</span>
+                    </p>
 
-                <!-- One row per submission, filled by app.js in date order, the oldest first.
-                     The list ends with the last submission — no foot of its own, and nothing
-                     added up. -->
-                <ul id="approvalslist" class="approvals__list" hidden></ul>
+                    <!-- One row per submission, filled by app.js in date order, the oldest first.
+                         The list ends with the last submission — no foot of its own, and nothing
+                         added up. -->
+                    <ul id="approvalslist" class="approvals__list" hidden></ul>
+                </div>
 
                 <!-- The foot of the box: when the list was last read, and the button that reads
                      it again — the students page's own foot, for the same reason. -->
