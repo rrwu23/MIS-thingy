@@ -127,4 +127,8 @@
   holding the "in progress" sentence shown before the first answer.
 - Tables: the students roster (`.roster__table`) ranks rows by **balance ascending**
   (smallest first); the history table is a different table and is not uppercased.
+- The approvals list (`approve_transactions.html`) is a `<ul>` of rows rather than a table,
+  headed by one `<p id="approvalshead" class="approvals__head">` naming the six values in
+  order; the head is shown only while rows exist (`drawSubmissions` / `clearSubmissions` /
+  `pruneEmptySubmissions`), never left standing over an empty box.
 - The transaction type menu reuses `.btn--door` links (four equal choices, none commits).

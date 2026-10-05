@@ -49,8 +49,8 @@ Assets are referenced as `file.js?v=N` / `styles.css?v=N`. The host sends assets
 every page that loads it**, or browsers keep painting a stale copy.
 Current versions (as of last update — verify with `grep -rho '?v=[0-9]*' *.html`):
 - `apibase.js?v=1`
-- `styles.css?v=26`
-- `app.js?v=33`
+- `styles.css?v=27`
+- `app.js?v=34`
 - `sessionstorage.js?v=6`
 - `transactionview.js?v=10`
 - `studentpicker.js?v=6`

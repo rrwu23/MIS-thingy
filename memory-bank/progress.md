@@ -26,7 +26,9 @@ end. The latest work (approvals) is finished and committed.
   admin page only.
 - **Approve transactions** (`approve_transactions.html`): submissions from
   `GET /getsubmittransaction`, **Approve** (`POST /approve {id}`) and **Decline**
-  (`POST /decline {id}`), each behind a Y/N confirm.
+  (`POST /decline {id}`), each behind a Y/N confirm. A head row over the list
+  (`#approvalshead`) names the six values in order — Student | Date | Type | Amount |
+  Memo | Ending balance — and is shown only while there are rows.
 - **Rotate jobs** (`job_rotation.html`): per-student job boxes with `/get-jobs`
   suggestions, `POST /set-jobs`.
 - **Pay salaries** (`salary.html`) / **Pay rent** (`rent.html`): the admin's students
@@ -54,8 +56,9 @@ end. The latest work (approvals) is finished and committed.
   went live).
 
 ## Known issues / things to watch
-1. **Stale comment in `styles.css`:** the header says the stylesheet is "at 25" while all
-   pages load `styles.css?v=26`. Cosmetic; fix when next editing that file.
+1. **`styles.css` comment/version drift — fixed:** the header used to say the stylesheet was
+   "at 25" while pages loaded `?v=26`; as of the approvals head-row change it reads "at 27" and
+   pages load `styles.css?v=27`. Keep the header's N and the pages' N in step when either moves.
 2. **Asset version drift:** every change to a shared asset (`app.js`, `styles.css`, …)
    must bump its `?v=` in all pages that load it. Forgetting leaves users on a 4-hour-old
    cache. Verify with `grep -rho '[a-z.]*js?v=[0-9]*\|styles.css?v=[0-9]*' *.html | sort -u`.
@@ -79,6 +82,6 @@ end. The latest work (approvals) is finished and committed.
   with `/add-transaction-submit` and the student hub.
 
 ## Version snapshot (verify before relying on it)
-`apibase.js` v1 · `styles.css` v26 · `app.js` v33 · `sessionstorage.js` v6 ·
+`apibase.js` v1 · `styles.css` v27 · `app.js` v34 · `sessionstorage.js` v6 ·
 `transactionview.js` v10 · `studentpicker.js` v6 · `jobrotation.js` v5 ·
 `payroll.js` v5 · `studenthome.js` v5

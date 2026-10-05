@@ -1,16 +1,24 @@
 # Active Context — Bonura bank
 
 ## Current focus (as of last session)
-Finishing the **approvals** flow. The most recent work made the "Approve transactions"
-page fully live:
+The **approvals** flow is finished and live. The latest piece: the "Approve transactions" page
+now draws a **head row** over the list naming each of the six values a row shows —
+Student | Date | Type | Amount | Memo | Ending balance — so the bars alone no longer have to be
+read. The head is the `<p id="approvalshead" class="approvals__head">` element on
+`approve_transactions.html` (words hardcoded there, kept by hand in step with `SUBMITTED_LINE`
+in `app.js`), styled in the students table's head-of-table cut (`.approvals__head` /
+`.approvals__label` in `styles.css`), and shown/hidden with the list by `drawSubmissions` /
+`clearSubmissions` / `pruneEmptySubmissions` (the last was added so answering the final row takes
+the head and the box down with it). Before that the page was made fully live:
 - `GET /getsubmittransaction` loads the waiting submissions (one row each, oldest first).
 - **Approve** now sends `POST /approve {id}` (previously it wrote via
   `/transaction-record`); the backend files the row and removes the submission.
 - **Decline** sends `POST /decline {id}`.
-- The stale prose that claimed these routes 404'd was removed, and `app.js` was bumped to
-  `?v=33` across all pages that load it.
+- The stale prose that claimed these routes 404'd was removed. `app.js` was bumped to `?v=34`
+  and `styles.css` to `?v=27` across all pages that load them.
 
 ## Recent changes (last few commits, newest first)
+- `approvals: name each value with a head row over the list` (app.js v34, styles.css v27).
 - `approvals: /approve and /decline are live — drop the stale 404 prose` (app.js v33).
 - `approve: send POST /approve {id} instead of writing via /transaction-record`.
 - `Decline sends POST /decline with {id: <transaction id>}` (app.js v31).
@@ -24,9 +32,9 @@ page fully live:
 - No obviously unfinished feature is recorded in the repo. Likely next work is whatever
   the backend adds or whatever the school asks for (per the project's short-iteration
   style).
-- **Keep versions in sync:** the CSS header comment says the stylesheet is "at 25" but the
-  pages load `styles.css?v=26`. That is a stale comment, not a bug — worth fixing the
-  comment if `styles.css` is next touched.
+- **Keep versions in sync:** the `styles.css` header comment and the pages' `?v=` are now both
+  at 27 (the earlier "at 25"/`v=26` drift is fixed). Keep the header's N and the pages' N in
+  step whenever either moves — same for `app.js`, now `v=34`.
 - The Node test harnesses named in commit messages (`check.js`, `date-check.js`,
   `approve-check.js`, `student-check.js`) are **not in the repo**. If verification is
   needed, either re-create them or use `node --check` on the scripts.
