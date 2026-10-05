@@ -11,12 +11,34 @@
     <script src="apibase.js?v=1" defer></script>
     <script src="app.js?v=29" defer></script>
 </head>
-<body>
+<!-- The student's own fine page: transaction_fines.html to the letter — the same card, the same
+     dropdown of fines, the same date box, the same Next and the same status line — with the
+     student flow's two words in it. data-flow="student" on the <body> is how app.js is told which
+     flow this is (the same way the two history pages say data-history), and it changes exactly two
+     things about the page:
+
+         the student is not typed, picked or stored. Who the row is submitted for is the account
+         behind the session cookie, read from the backend as the page opens and again at the last
+         moment before the row leaves —
+             GET /current-student
+         — so nothing of this flow is in sessionStorage at all, and a browser with no student
+         behind it is told so on the status line below, with the dropdown and Next switched off.
+
+         the submit goes to POST /add-transaction-submit. That is the route the backend has yet to
+         answer — it is not in https://api.rongrongwu.com/openapi.json and the API answers
+         404 {"detail": "Not Found"} to it, checked live — so the row waits for an admin on the
+         approvals page until it answers; the admin's own page records there and then, through
+         POST /transaction-record. Nothing else about the body differs: the same five fields,
+         built by the same functions.
+
+     Everything else is the admin's page's own, read the same way: the reason list asked for, the
+     built-in options below, the sign the figures carry and the shape of the date. -->
+<body data-flow="student">
     <div class="page">
         <main class="card">
             <header class="bar">
                 <h1 class="card__title">Bonura bank</h1>
-                <a class="tag" href="/home.html">&#8592; Home</a>
+                <a class="tag" href="/student-home.html">&#8592; Home</a>
             </header>
 
             <section class="panel" aria-labelledby="reasontitle">
@@ -79,7 +101,7 @@
             <div id="reasonresults" class="results" role="status" aria-live="polite"
                  data-empty="Asking the backend for the fine list&hellip;"></div>
 
-            <p class="footnote">Wrong student? <a class="tag" href="/transaction-middle.html">&#8592; Back</a></p>
+            <p class="footnote">Wrong account? <a class="tag" href="/transaction_student_middle.html">&#8592; Back</a></p>
         </main>
     </div>
 </body>

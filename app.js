@@ -460,20 +460,21 @@ const HOME_URL = '/home.html';
 const REDIRECT_DELAY_MS = 900;
 
 // Input: delayMs — how long the sentence just written should stay up (the flows pass
-//   REDIRECT_DELAY_MS).
-// Output: none — the browser is sent to HOME_URL once the delay is up.
-// Action: sets a timer that assigns window.location.href = HOME_URL.
-// Role: the shared last step of every flow that finishes on the home page — add account, add
-//   admin, both sign-ins, a recorded transaction and a sign-out: the sentence that says what
-//   just happened is given its moment before the page it stands on is left behind.
-function redirectHomeAfter(delayMs) {
+//   REDIRECT_DELAY_MS); url — where the browser belongs once it is up, HOME_URL unless the caller
+//   says otherwise (the student flow passes FLOW_HOME_URL, which is the student's own hub there).
+// Output: none — the browser is sent to url once the delay is up.
+// Action: sets a timer that assigns window.location.href = url.
+// Role: the shared last step of every flow that finishes on a hub — add account, add admin, both
+//   sign-ins, a written or submitted transaction and a sign-out: the sentence that says what just
+//   happened is given its moment before the page it stands on is left behind.
+function redirectHomeAfter(delayMs, url = HOME_URL) {
     // Input: none — the timer fires delayMs after the sentence was written.
-    // Output: none — the browser is sent to HOME_URL.
-    // Action: assigns window.location.href = HOME_URL.
+    // Output: none — the browser is sent to the url the caller named.
+    // Action: assigns window.location.href = url.
     // Role: the delay redirectHomeAfter() exists for — the sentence that says what just happened
     //   is read before the page it stands on is left behind.
     window.setTimeout(function () {
-        window.location.href = HOME_URL;
+        window.location.href = url;
     }, delayMs);
 }
 
@@ -1921,6 +1922,211 @@ async function jobSalaries() {
     return salaries;
 }
 
+// Student transaction flow -------------------------------------------------------
+// The student's own way into the transaction flow: transaction_student_middle.html, the type
+// menu transaction-middle.html draws, and behind its four doors the same four pages —
+// transaction_student_bonus.html, transaction_student_fines.html, transaction_student_spending.html
+// and transaction_student_other.html. Each of those is its admin twin to the letter: the same
+// form, the same markup, the same script (this file), the same dropdown, date box, Y/N question
+// and row. Two things are a student's own, and they are the whole of the difference:
+//
+//   who the row is for. On the admin's pages it is the pick transaction1.html had the backend
+//     confirm and left in sessionStorage. Nothing of that is on a student's page — no name is
+//     typed, picked or stored — because it is the account the session cookie belongs to, and
+//     only the backend can name it:
+//         GET /current-student  ->  {"student_name": "Rongrong Wu", …}   (checked live: the
+//                                   route is untyped, an object of strings, and answers
+//                                   401 {"detail": "Not logged in"} without a session, like
+//                                   every other protected route)
+//     and it is asked twice: once as the page opens (currentStudent, through flowPermission),
+//     and once more at the last moment before the row leaves (sendTransaction), so a session
+//     that ran out while the page stood is still caught.
+//
+//   where the row is written. The admin's pages record a transaction there and then, with
+//     POST /transaction-record; a student's own page hands the very same five fields to
+//     POST /add-transaction-submit, which is the route the backend has yet to answer: it is
+//     not in https://api.rongrongwu.com/openapi.json and the API answers
+//     404 {"detail": "Not Found"} to it (checked live). So what a student's page writes is a
+//     submission — what the approvals page (approve_transactions.html) then lists — and the 404
+//     is said in the API's own words with the route named, the way that page reads its own
+//     GET /getsubmittransaction, rather than dressed up as something the page did wrong.
+//
+// Which flow a page is on, the page says about itself, the way the two history pages say
+// data-history: a student's own page carries data-flow="student" on its <body> and the admin's
+// pages carry nothing at all, so the word is read once and every difference above hangs off it.
+// Read that way round on purpose: a page that says nothing at all — one not written yet, one
+// whose word is misspelled, a copy of a student's page saved under another name — is read as the
+// admin's flow, where the student is the pick sessionStorage already holds and the write is the
+// admin's own route. A student's browser holds no such pick, so the worst a page nobody vouched
+// for can do is refuse to write rather than write for the wrong account.
+const STUDENT_FLOW = document.body?.dataset.flow === 'student';
+
+// The two routes of the student flow: where the account behind the session cookie is named, and
+// where that account's own transactions are handed over. Both are asked with the session cookie,
+// and no page of the admin's flow asks either of them.
+const CURRENT_STUDENT_URL = `${API_ORIGIN}/current-student`;
+const SUBMIT_URL = `${API_ORIGIN}/add-transaction-submit`;
+
+// The hub the student flow hands the browser back to when a page is done with it: the student's
+// own hub, never the admin's, which is what HOME_URL is on every other page of this file.
+const FLOW_HOME_URL = STUDENT_FLOW ? STUDENT_HOME_URL : HOME_URL;
+
+// What the flow calls its own write, so that no sentence has to say "recorded" about a row nothing
+// recorded. An admin's pages record a transaction — the row is in the transaction table the moment
+// the backend answers (POST /transaction-record) — while a student's own page submits one
+// (POST /add-transaction-submit) for an admin to approve, which is what the approvals page lists.
+const WRITE_VERB = STUDENT_FLOW ? 'Submitted' : 'Recorded';  // opens the sentence
+const WRITE_WORD = STUDENT_FLOW ? 'submitted' : 'recorded';  // after "Nothing was …"
+const WRITE_NOUN = STUDENT_FLOW ? 'submission' : 'row';      // "the backend refused the …"
+
+// The student GET /current-student named for this browser, or '' while none has been read. It is
+// the whole of who a student flow's row is for (selectedStudents), and what the type menu's line
+// is written with. Nothing of it is in sessionStorage, and nothing of it is the pick the admin's
+// pages read there, so the two flows can never be mistaken for one another.
+let studentFlowName = '';
+
+// Input: none — it sends the browser's own session cookie.
+// Output: { granted, name, text, isError } — whether a student session is behind this browser, the
+//   account's name when the backend named one ('' when it did not), and the sentence the page
+//   should show for the answer.
+// Action: GETs CURRENT_STUDENT_URL with the cookie and reads the reply through studentName() — the
+//   same untyped-object reader the student sign-in's own reply goes through — turning a 401 into
+//   "log into the student account", a 200 that names nobody into a sentence saying so, and anything
+//   else, network included, into a sentence naming what the backend answered. A name that is read
+//   is kept in studentFlowName.
+// Role: the one student gate of the student flow, and that flow's answer to every question the
+//   admin's flow asks with checkAdminPermission(). It is asked as a type page opens
+//   (openReasonPage, openOtherPage) and again at the last moment before the row leaves
+//   (sendTransaction) — the same two moments the admin probe is asked at. It probes no other route,
+//   because this one already answers what these pages need: who the row is for.
+async function currentStudent() {
+    try {
+        const response = await fetch(CURRENT_STUDENT_URL, {
+            method: 'GET',
+            credentials: 'include' // send the student session cookie
+        });
+
+        if (response.status === 401) {
+            studentFlowName = '';
+            console.error('Current student check: the backend refused the request — not logged in.');
+            return {
+                granted: false,
+                name: '',
+                text: 'Not logged in — the backend refused the request. Log into the student account first, then reload this page.',
+                isError: true
+            };
+        }
+
+        if (!response.ok) {
+            studentFlowName = '';
+            console.error('Current student check error:', response.status, await response.text());
+            return {
+                granted: false,
+                name: '',
+                text: `Unexpected reply from the API (${response.status}) — the student behind this browser could not be named.`,
+                isError: true
+            };
+        }
+
+        const name = studentName(await response.json());
+
+        if (!name) {
+            studentFlowName = '';
+            console.error('Current student check: the backend named no student.');
+            return {
+                granted: false,
+                name: '',
+                text: 'The backend named no student for this browser — GET /current-student answered without a name, so there is no account to write a transaction for.',
+                isError: true
+            };
+        }
+
+        studentFlowName = name;
+        return {
+            granted: true,
+            name,
+            text: `The backend confirmed this browser is signed in as ${name}.`,
+            isError: false
+        };
+    } catch (error) {
+        studentFlowName = '';
+        console.error('Network Error:', error);
+        return {
+            granted: false,
+            name: '',
+            text: 'Network error — GET /current-student could not reach the API, so the student behind this browser could not be named.',
+            isError: true
+        };
+    }
+}
+
+// Input: none — it sends the browser's own session cookie.
+// Output: { granted, text, isError } — the verdict and the sentence for it, in the one shape both
+//   gates answer in (currentStudent() hands the name back beside them as well).
+// Action: answers currentStudent() on a student's own page and checkAdminPermission() on every other
+//   page.
+// Role: the gate the transaction-type pages ask, whichever flow they belong to — the two boots, the
+//   two approvals and the write all ask it rather than either gate by name, so which session a page
+//   needs is decided in one place and nowhere else.
+async function flowPermission() {
+    return STUDENT_FLOW ? currentStudent() : checkAdminPermission();
+}
+
+// transaction_student_middle.html's own line above its four doors — the only element of its kind on
+// a page that loads this file (transaction-middle.html, the admin's menu, loads sessionstorage.js
+// instead, which writes that same id from the pick), so a read only ever starts where there is a
+// line to write an answer into.
+const transactionStudentLine = document.getElementById('transactionstudent');
+
+// Input: none — it sends the browser's own session cookie and reads the page's own line.
+// Output: none — the line above the four doors names the student, or says why it cannot.
+// Action: calls currentStudent() once as the page loads, writes the name it answered into the line,
+//   and, with no student behind the browser, writes that sentence instead and locks the four doors.
+// Role: the boot of transaction_student_middle.html, the type menu of the student flow — the
+//   student's half of the question transaction-middle.html's line is written from the pick for.
+//   Where the admin's menu waits for a student the flow has already had confirmed, this one waits
+//   for the backend to name the account behind the session cookie, so no type can be opened by a
+//   browser with nobody behind it. A page that carries the line but does not say data-flow is left
+//   alone: it is not a page of this flow, and its line is sessionstorage.js's to write.
+async function openStudentTypeMenu() {
+    if (!transactionStudentLine || !STUDENT_FLOW) return; // every other page loads this file for its own form
+
+    const student = await currentStudent();
+
+    if (!student.granted) {
+        console.error('Student type menu: no student behind this browser.');
+        transactionStudentLine.textContent = student.text;
+        lockStudentTypeDoors();
+        return;
+    }
+
+    transactionStudentLine.textContent = student.name;
+    console.log(`The type menu is open for ${student.name}.`);
+}
+
+// Input: none — it reads the page's own doors.
+// Output: none — every type door is switched off.
+// Action: walks the links of the .actions nav and gives each of them aria-disabled, no href and no
+//   tab stop.
+// Role: what the student's menu does with no account behind it — the same treatment
+//   sessionstorage.js gives the admin menu's four doors (lockTransactionTypes), written out here
+//   because this page loads this file and not that one. The footnote's way out is deliberately left
+//   alone: it is the way out of this state.
+function lockStudentTypeDoors() {
+    document.querySelectorAll('.actions .btn').forEach(function (link) {
+        link.setAttribute('aria-disabled', 'true');
+        link.removeAttribute('href');
+        link.setAttribute('tabindex', '-1');
+    });
+}
+
+// Input: none — the boot runs as this file is read on the student's type menu.
+// Output: none — openStudentTypeMenu() does everything, on the page's own line.
+// Action: calls openStudentTypeMenu() once, as the page loads.
+// Role: the boot of transaction_student_middle.html; every other page loads this file for its own
+//   form, and the call returns at once there, there being no menu line to write.
+openStudentTypeMenu();
+
 // Reason pages --------------------------------------------------------------
 // transaction_bonus.html, transaction_fines.html and transaction_spending.html each
 // show one dropdown of reasons that comes from the backend. Every /reasons/{slug}
@@ -1942,6 +2148,12 @@ async function jobSalaries() {
 // for and the sign a figure is recorded with come from data-reason-type alone, while
 // the row's own `type` column is what data-transaction-type holds - so "Bonura bonus",
 // "expense" and "fine" can be the words on the rows without being routes on the API.
+//
+// The same three cards exist as the student flow's own pages — transaction_student_bonus.html,
+// transaction_student_fines.html and transaction_student_spending.html — and every line above
+// holds for them unchanged: the same dropdown, the same data-reason-type, the same list. What
+// differs is only who the row is for and which route writes it, and both hang off the one word
+// data-flow="student" on the page's <body> (see the student flow section above).
 const REASONS_URL = `${API_ORIGIN}/reasons`;
 
 // Input: type — a `type` column value exactly as the table spells it ("JOB SALARIES", "BONUS
@@ -2000,6 +2212,11 @@ function reasonSlugFromType(type) {
 // Nothing of this browser's session is what authorizes the write: the same body answered
 // 200 with no cookie at all, so the five fields below are the whole of what this page has
 // to get right.
+//
+// A student's own page does not write through this route: it hands the same five fields to
+// POST /add-transaction-submit, and the row waits for an admin to approve it (see the student
+// flow section above). The two routes are told apart in writeTransaction() alone, which is the
+// one place either of them is spoken to.
 const RECORD_URL = `${API_ORIGIN}/transaction-record`;
 
 // Input: none — it reads the browser's own local clock.
@@ -2009,9 +2226,10 @@ const RECORD_URL = `${API_ORIGIN}/transaction-record`;
 // Action: reads the year, month, day, hour and minute off a Date by hand, each padded to two
 //   digits with its leading zero — deliberately not through toISOString(), which works in UTC
 //   and would date an evening transaction tomorrow on this side of the world.
-// Role: the one clock of the four transaction-type pages: the default their date boxes are
-//   filled with (boxStamp), the reading a box nobody has picked a day in is set to once more as
-//   the transaction is built (transactionDate), and the stamp written by a page that carries no
+// Role: the one clock of the transaction-type pages — the admin's four and the student flow's four
+//   alike: the default their date boxes are filled with (boxStamp), the reading a box nobody has
+//   picked a day in is set to once more as the transaction is built (transactionDate), and the
+//   stamp written by a page that carries no
 //   box at all. The route keeps no stamp of its own, so the shape is this app's to choose, and
 //   choosing the history column's own shape keeps the rows this app writes and the rows the
 //   backend wrote reading alike (transactionview.js re-cuts both into that one shape, and reads
@@ -2027,7 +2245,8 @@ function transactionStamp() {
 }
 
 // The date box ----------------------------------------------------------------
-// The four transaction-type pages - the three reason lists and the Other page - carry one box
+// The transaction-type pages - the three reason lists and the Other page, on the admin's side
+// and in the student flow alike - carry one box
 // for the row's date, so a transaction can be filed under the day and time it happened rather
 // than under the moment it was typed in. The box is the browser's own day-and-clock control,
 // type="datetime-local": a date input - the control addaccount.html's birthday box is - with a
@@ -2037,11 +2256,11 @@ function transactionStamp() {
 // on it, January 1st through December 31st, and the months and the years around them are walked
 // by the control itself. What a date input alone could not carry is the time of day, and a row's
 // date is a stamp rather than a day - the history column heads it YYYY/MM/DD HH:mm - so the box
-// is the one that keeps a clock as well as a calendar. The id below is the one all four pages
-// give it. The box is filled from the clock as the page loads, so it starts at now, and whatever
-// it holds at approval is what the row is written with: the day it names, at the time beside it,
-// or at 00:00 when it names a day with no time on it, the time of day being the one part of the
-// stamp a box is allowed to leave off (readStamp).
+// is the one that keeps a clock as well as a calendar. The id below is the one every one of
+// those pages gives it. The box is filled from the clock as the page loads, so it starts at now,
+// and whatever it holds at approval is what the row is written with: the day it names, at the time
+// beside it, or at 00:00 when it names a day with no time on it, the time of day being the one part
+// of the stamp a box is allowed to leave off (readStamp).
 const dateField = document.getElementById('transactiondate');
 
 // Input: none — it reads the clock through transactionStamp().
@@ -2049,7 +2268,7 @@ const dateField = document.getElementById('transactiondate');
 //   2026/09/29 16:17 -> 2026-09-29T16:17.
 // Action: splits the stamp into its day and its time, swaps the day's slashes for hyphens and
 //   puts a T in place of the space.
-// Role: the date box's default on the four transaction-type pages (filled by the `if (dateField)`
+// Role: the date box's default on the transaction-type pages (filled by the `if (dateField)`
 //   boot below). Both shapes come off the one reading, so a box's default and the row it is
 //   written into can never name two different minutes.
 function boxStamp() {
@@ -2092,8 +2311,8 @@ const BOX_STAMP = /^(\d{4})-(\d{2})-(\d{2})(?:T(\d{2}):(\d{2}))?$/;
 // Action: matches it against BOX_STAMP and re-cuts the parts; a day with no clock reading beside
 //   it is filed at 00:00, so a box holding 2026-03-04 and one holding 2026-03-04T00:00 write the
 //   same row.
-// Role: the reader transactionDate() puts between the box and the row, so the four transaction
-//   pages cannot date a row four ways. The shape is the whole test, the way it is for the
+// Role: the reader transactionDate() puts between the box and the row, so the transaction
+//   pages cannot date a row one way each. The shape is the whole test, the way it is for the
 //   birthday box, and for the same reason: the browser answers with a day it could name and a
 //   clock reading it could make sense of, and leaves the box empty when it could not — February
 //   the 30th is not a day any calendar offers, so the control keeps no such value — which means
@@ -2115,7 +2334,7 @@ function readStamp(value) {
 // Action: on a page with no box it answers transactionStamp(); on a page whose box nobody has
 //   touched it fills the box from the clock once more (boxStamp) and then reads it back
 //   (readStamp).
-// Role: the one date read the four approving pages share, called as each of them builds its
+// Role: the one date read the approving pages share, called as each of them builds its
 //   transaction, so the reason pages and the Other page cannot drift into two shapes or two
 //   moments — a page left open for an hour still writes the minute it happened. A day with no
 //   time on it is not a refusal (readStamp files it at 00:00, and DATE_PROMPT says so); a box
@@ -2132,8 +2351,8 @@ function transactionDate() {
     return readStamp(dateField.value);
 }
 
-// What the four pages' status line says when the date box holds no whole day at all. One sentence
-// for all of them, so the four cannot word the same refusal two ways. A time of day is not asked
+// What the transaction pages' status line says when the date box holds no whole day at all. One
+// sentence for all of them, so they cannot word the same refusal two ways. A time of day is not asked
 // for: a box left holding only a day is filed at 00:00, and the sentence says so, so the admin who
 // reads it knows what leaving the time off will do before they have to find out.
 const DATE_PROMPT = 'The date box has to hold a day — pick one from its calendar, or type one in, before the row can be written; a day left with no time on it is filed at 00:00.';
@@ -2152,12 +2371,14 @@ const ADMIN_CHECK_URL = `${API_ORIGIN}/adduser`;
 
 // The student this transaction is for, stored by transaction1.html: the first of the students
 // that page's box picked, so it is the one name these pages had before the box could pick
-// several. Kept in sync with STUDENT_USERNAME_KEY in sessionstorage.js.
+// several. Kept in sync with STUDENT_USERNAME_KEY in sessionstorage.js. A student's own page
+// never reads it — nothing about that flow is in sessionStorage — and asks the backend who the
+// browser is instead (currentStudent, through selectedStudents).
 const STUDENT_KEY = 'student_username';
 
 // The whole pick the same box made - every picked student's name, in the order they were
 // picked, which is the order the box was clicked in - kept in sync with SELECTED_STUDENTS_KEY
-// in sessionstorage.js. The four pages that approve a transaction load app.js and not that
+// in sessionstorage.js. The pages that approve a transaction load app.js and not that
 // file, so the reader below is kept here by hand, the way the key itself is, and both read the
 // one key the box wrote.
 const SELECTED_STUDENTS_KEY = 'selected_students';
@@ -2169,7 +2390,7 @@ const SELECTED_STUDENTS_KEY = 'selected_students';
 // Role: the reader of the pick transaction1.html's box stores — the same reading
 //   sessionstorage.js's storedStudentSelection() makes, so half a JSON object, or a key somebody
 //   else wrote, can only ever come back as no pick at all rather than as a student to write a
-//   row for. It is kept here by hand because the four approving pages load this file and not
+//   row for. It is kept here by hand because the approving pages load this file and not
 //   that one.
 function storedStudentSelection() {
     const stored = sessionStorage.getItem(SELECTED_STUDENTS_KEY);
@@ -2190,19 +2411,25 @@ function storedStudentSelection() {
     }
 }
 
-// Input: none — it reads the stored pick (storedStudentSelection) and, as a fallback, the one
-//   name STUDENT_KEY carries.
-// Output: the students the transaction is for, as an array of names in pick order; [] when
-//   neither key holds one.
-// Action: answers the pick when there is one, and otherwise the one stored username when it
-//   holds something.
-// Role: who an approved transaction is written for — every student of the pick, in the order the
-//   box was clicked in, because the one transaction typed on these pages is recorded for each of
-//   them rather than for the first of them alone. It is read once, as the approving page builds
-//   the transaction — the very object the Y/N question is asked about — so what is written is
-//   what the admin agreed to; with neither key holding a name the list is empty, and the
-//   approval writes nothing rather than a row for a student nobody named.
+// Input: none — on a student's own page it reads studentFlowName, and on every other page the stored
+//   pick (storedStudentSelection) and, as a fallback, the one name STUDENT_KEY carries.
+// Output: the students the transaction is for, as an array of names; [] when nothing holds one.
+// Action: answers the one name the backend gave this browser on a student's own page, and otherwise
+//   the pick when there is one, falling back to the single stored username when it holds something.
+// Role: who an approved transaction is written for — every student of the pick on the admin's pages,
+//   in the order the box was clicked in, because the one transaction typed there is recorded for
+//   each of them rather than for the first of them alone, and the one account behind the session
+//   cookie on a student's own page, where a student writes for themselves and for nobody else. It
+//   is read once, as the approving page builds the transaction — the very object the Y/N question is
+//   asked about — so what is written is what was agreed to; with nothing holding a name the list is
+//   empty, and the approval writes nothing rather than a row for a student nobody named.
 function selectedStudents() {
+    // Nothing is stored on a student's own page: who the row is for is the account the backend named
+    // for this browser's session cookie (currentStudent), kept in studentFlowName.
+    if (STUDENT_FLOW) {
+        return studentFlowName ? [studentFlowName] : [];
+    }
+
     const pick = storedStudentSelection();
 
     if (pick.length) {
@@ -2870,7 +3097,10 @@ let permissionState = 'unknown';
 //   remove page ask it as they open and again at the last moment before a write, because a
 //   session can expire while a page stands. It is the same empty-body POST /adduser trick
 //   sessionstorage.js uses, kept for the one request it costs: the route answers "Not logged in"
-//   before it ever looks at the body, and an empty body can never create a user.
+//   before it ever looks at the body, and an empty body can never create a user. The transaction
+//   pages reach it through flowPermission(), which asks a student's own page for the student
+//   (currentStudent) instead: a student holds no admin session, and the route that names the
+//   account is the one that also answers who the row is for.
 async function checkAdminPermission() {
     try {
         const response = await fetch(ADMIN_CHECK_URL, {
@@ -2914,24 +3144,29 @@ async function checkAdminPermission() {
     }
 }
 
-// Input: none — it reads the page's own dropdown and the stored student pick.
+// Input: none — it reads the page's own dropdown, the flow's gate and, on the admin's pages, the
+//   stored student pick.
 // Output: none — the dropdown is filled (or the page's built-in list left as it is), the Next
 //   button is left live or grey, and the one status line says what happened.
-// Action: refuses to go on with no student confirmed on transaction1.html and with no type value
-//   on the <select>; otherwise asks the backend for admin powers (checkAdminPermission), then
-//   reads the reason list (loadReasons) and puts both halves of the answer on the one status
+// Action: refuses a page with no type value on the <select>, and — on the admin's pages alone —
+//   one with no student confirmed on transaction1.html; otherwise asks the flow's own gate
+//   (flowPermission: the student read on a student's own page, the admin probe on every other),
+//   then reads the reason list (loadReasons) and puts both halves of the answer on the one status
 //   line, styled as an error if either half went wrong.
-// Role: the boot of the three reason pages (transaction_bonus, transaction_fines,
-//   transaction_spending) — what stops a type being opened straight from the URL with nobody
-//   behind it.
+// Role: the boot of the six reason pages (transaction_bonus, transaction_fines,
+//   transaction_spending and their transaction_student_* twins) — what stops a type being opened
+//   straight from the URL with nobody behind it. On a student's own page there is no stored pick to
+//   look for: the read the gate makes is the check, because it both names the account and proves
+//   the session, and a browser with none behind it is refused with that sentence on this same line.
 async function openReasonPage() {
     if (!reasonSelect) return; // every other page loads app.js for its own form only
 
-    // A transaction is only ever for a student confirmed on transaction1.html, so
-    // without one the dropdown and the Next button stay switched off and the status
-    // line says where to go. This is what stops a type being opened straight from
-    // the URL with nobody behind it.
-    if (!sessionStorage.getItem(STUDENT_KEY)) {
+    // A transaction on the admin's pages is only ever for a student confirmed on transaction1.html,
+    // so without one the dropdown and the Next button stay switched off and the status line says
+    // where to go. This is what stops a type being opened straight from the URL with nobody behind
+    // it. A student's own page has no such pick to look for: the gate below is asked instead, and
+    // it is the read that names the account.
+    if (!STUDENT_FLOW && !sessionStorage.getItem(STUDENT_KEY)) {
         setApproveEnabled(false);
         setReasonEnabled(false);
         showReasonMessage('No student was confirmed by the backend — go back to the transaction page and enter a username that exists.', true);
@@ -2947,7 +3182,7 @@ async function openReasonPage() {
 
     setApproveEnabled(false);
 
-    const check = await checkAdminPermission();
+    const check = await flowPermission();
     setApproveEnabled(check.granted);
 
     const list = await loadReasons();
@@ -2983,15 +3218,18 @@ async function approveReason() {
     }
 }
 
-// Input: none — it reads the dropdown, its selected option, the date box and sessionStorage.
+// Input: none — it reads the dropdown, its selected option, the date box and the flow's gate.
 // Output: none — the row is written, or the status line (and Next's state) says why it was not.
-// Action: refuses an empty dropdown and a date box holding no whole day; re-asks the backend for
-//   admin powers; builds the row (students, type, amount, date, memo, label) with the amount read
-//   off the selected option (optionAmount) and the date through transactionDate(); asks the Y/N
-//   question about that very object; and on Y sends it (sendTransaction), greying Next once it is
-//   recorded and handing the browser back to the home page.
+// Action: refuses an empty dropdown and a date box holding no whole day; re-asks the flow's gate
+//   (flowPermission); builds the row (students, type, amount, date, memo, label) with the amount
+//   read off the selected option (optionAmount), the students the flow's own (selectedStudents) and
+//   the date through transactionDate(); asks the Y/N question about that very object; and on Y sends
+//   it (sendTransaction), greying Next once it is written and handing the browser back to the flow's
+//   own hub (FLOW_HOME_URL).
 // Role: the approval itself, behind approveReason() — split out so the one-at-a-time flag covers
-//   every way out of it: recorded, refused, unanswered or off the network.
+//   every way out of it: written, refused, unanswered or off the network. It is the same function on
+//   an admin's page and on a student's own, which is why the gate, the students and the hub are all
+//   asked of the flow rather than named here.
 async function runApproval() {
     if (!reasonSelect.value) {
         showReasonMessage('Choose a reason before approving.', true);
@@ -3011,7 +3249,7 @@ async function runApproval() {
     }
 
     setApproveEnabled(false);
-    const check = await checkAdminPermission();
+    const check = await flowPermission();
 
     if (!check.granted) {
         showReasonMessage(check.text, true);
@@ -3048,10 +3286,10 @@ async function runApproval() {
         label: label
     };
 
-    // The approved choice is parked next to the student username transaction1.html
-    // stored, and it is parked before anything is sent: the bodies kept in
-    // sessionStorage are the ones the requests carry, so a send that fails loses
-    // nothing.
+    // The approved choice is parked next to the student the flow is for — the pick
+    // transaction1.html stored, or the account the backend named on a student's own page —
+    // and it is parked before anything is sent: the bodies kept in sessionStorage are the
+    // ones the requests carry, so a send that fails loses nothing.
     const forStudent = transaction.students.length ? ` for ${nameList(transaction.students)}` : '';
 
     // The Y/N question stands between the choice and the write: "confirm transaction,
@@ -3064,24 +3302,26 @@ async function runApproval() {
     });
 
     if (!confirmed) {
-        showReasonMessage(`Nothing was recorded — the "${transaction.label}" transaction${forStudent} was not confirmed with Y.`, true);
+        showReasonMessage(`Nothing was ${WRITE_WORD} — the "${transaction.label}" transaction${forStudent} was not confirmed with Y.`, true);
         return;
     }
 
-    // POST /transaction-record writes it, through the one function both approving
-    // pages send with, so the reason pages and the Other page cannot drift apart.
+    // The flow's own write route takes it — POST /transaction-record on the admin's pages,
+    // POST /add-transaction-submit on a student's own (writeTransaction) — through the one
+    // function both approving pages send with, so the reason pages and the Other page cannot
+    // drift apart.
     const sent = await sendTransaction(transaction);
 
     if (sent.ok) {
-        // Recorded once is recorded: Next goes grey until another reason is
+        // Written once is written: Next goes grey until another reason is
         // chosen, so a second click cannot write the same transaction twice.
         setApproveEnabled(false);
         showReasonMessage(recordedMessage(transaction), false);
 
-        // The transaction is done with this account, and the home page is where the
-        // balance it just changed is drawn, so the flow hands the admin back to it
-        // instead of leaving them on a form with nothing left to do.
-        redirectHomeAfter(REDIRECT_DELAY_MS);
+        // The transaction is done with this account, and the flow's own hub is where the
+        // balance it just changed is drawn, so the flow hands the browser back to it
+        // instead of leaving it on a form with nothing left to do.
+        redirectHomeAfter(REDIRECT_DELAY_MS, FLOW_HOME_URL);
         return;
     }
 
@@ -3119,51 +3359,57 @@ function transactionBody(transaction, student) {
 // Output: { ok: true, count } once the backend has written every row, or { ok: false, text }
 //   with the sentence to show when it refused, when the network was gone, or when there is no
 //   student to write for.
-// Action: re-asks the backend for admin powers at the last moment before the rows leave (a
-//   refusal writes nothing, so nothing is parked either); refuses a transaction naming nobody;
-//   builds one body per student (transactionBody, only `user` differing); parks them all in
-//   sessionStorage before the first request leaves, so a send that fails loses nothing; then
-//   POSTs one row per student in a for loop (writeTransaction), stopping at the first refusal.
-// Role: the one write of both approving pages, made for the whole pick: one transaction typed
-//   once is recorded for every picked student, one row each, rather than for the first of them
-//   alone. The loop stops at the first row the backend refuses or that never reaches it — the
-//   rest of the pick would be asked for with the same session and answered the same way, and
+// Action: re-asks the flow's own gate at the last moment before the rows leave (a refusal writes
+//   nothing, so nothing is parked either); refuses a transaction naming nobody; builds one body per
+//   student (transactionBody, only `user` differing); parks them all in sessionStorage before the
+//   first request leaves, so a send that fails loses nothing; then POSTs one row per student in a
+//   for loop (writeTransaction), stopping at the first refusal.
+// Role: the one write of both approving pages, and of a student's own pages — the same function,
+//   because the only thing a flow changes about a write is the route it goes to, which
+//   writeTransaction() knows. On the admin's pages it is made for the whole pick: one transaction
+//   typed once is recorded for every picked student, one row each, rather than for the first of them
+//   alone; on a student's own page the list is one name long, the account the backend named for the
+//   session cookie. The loop stops at the first row the backend refuses or that never reaches it —
+//   the rest of the pick would be asked for with the same session and answered the same way, and
 //   every one of them would sit out the network's own timeout again, once per student, while the
-//   admin is the one who has to read what happened and decide about the rest. What it answers
-//   names the students it did write for (stoppedMessage).
+//   admin is the one who has to read what happened and decide about the rest. What it answers names
+//   the students it did write for (stoppedMessage), or, on a student's own page, the one account.
 async function sendTransaction(transaction) {
-    // The rows are only written for an admin, and the backend is the only thing that can say who
-    // is one: the empty-body POST /adduser probe is asked here, once for the whole approval
-    // rather than once per student, at the last moment before the rows leave. The approving
-    // pages have already asked it once — before the Y/N question — but an answer given there is
-    // not an answer given here, and a session that ran out in between is precisely what this
-    // check is for. A refusal writes nothing, so nothing is parked either: these rows were never
-    // on their way.
-    const check = await checkAdminPermission();
+    // The rows are only written for a session the backend recognizes, and the backend is the only
+    // thing that can say which one that is: the flow's gate is asked here, once for the whole
+    // approval rather than once per student, at the last moment before the rows leave. The approving
+    // pages have already asked it once — before the Y/N question — but an answer given there is not
+    // an answer given here, and a session that ran out in between is precisely what this check is
+    // for. On the admin's pages it is the empty-body POST /adduser probe; on a student's own page it
+    // is GET /current-student, which is also the read that re-names the account the rows are for. A
+    // refusal writes nothing, so nothing is parked either: these rows were never on their way.
+    const check = await flowPermission();
 
     if (!check.granted) {
-        return { ok: false, text: `Nothing was recorded — ${check.text}` };
+        return { ok: false, text: `Nothing was ${WRITE_WORD} — ${check.text}` };
     }
 
-    // Who the rows are for is the pick the Y/N question was asked about - the students the
-    // approving page read out of sessionStorage as it built this transaction - so what is written
-    // is what the admin agreed to, name for name. A transaction naming nobody is refused rather
-    // than sent as a row for an empty username: the approving pages sit behind transaction1.html's
-    // confirmed pick, so this is a page whose storage was emptied while it was open, and the
-    // sentence says where to pick a student instead.
+    // Who the rows are for is what the Y/N question was asked about - the students the approving
+    // page read out of sessionStorage as it built this transaction, or the one account the backend
+    // named on a student's own page - so what is written is what was agreed to, name for name. A
+    // transaction naming nobody is refused rather than sent as a row for an empty username: the
+    // admin's approving pages sit behind transaction1.html's confirmed pick, so this is a page whose
+    // storage was emptied while it was open, and the sentence says where to pick a student instead.
     const students = transaction.students;
 
     if (!students.length) {
         return {
             ok: false,
-            text: 'Nothing was recorded — this transaction names no student, so there is no account to write the rows to. Go back to the transaction page, pick the students it is for, and press continue.'
+            text: STUDENT_FLOW
+                ? 'Nothing was submitted — this page has no student behind it, so there is no account to submit for. Sign in as the student on the front door, then reload this page.'
+                : 'Nothing was recorded — this transaction names no student, so there is no account to write the rows to. Go back to the transaction page, pick the students it is for, and press continue.'
         };
     }
 
     const bodies = students.map((student) => transactionBody(transaction, student));
 
     sessionStorage.setItem(PENDING_KEY, JSON.stringify(bodies));
-    console.log('Approved:', bodies);
+    console.log(STUDENT_FLOW ? 'Submitted:' : 'Approved:', bodies);
 
     const written = [];
     let refusal = null;
@@ -3183,6 +3429,16 @@ async function sendTransaction(transaction) {
         return { ok: true, count: written.length };
     }
 
+    // A student's own page had one account to write for and nobody else, so a refusal needs none of
+    // the pick's own words: the sentence names the account and says what the backend answered.
+    if (STUDENT_FLOW) {
+        return {
+            ok: false,
+            count: written.length,
+            text: `Nothing was submitted for ${refusal.student} — ${refusal.text}`
+        };
+    }
+
     // The students of the pick the loop never reached are named with the ones it did: a
     // half-written approval is the one thing the admin must not have to work out for themselves.
     return {
@@ -3193,17 +3449,23 @@ async function sendTransaction(transaction) {
 }
 
 // Input: body — one row's five fields, as transactionBody() built them.
-// Output: { ok: true, result } once the backend has written the row, or { ok: false, text } with
-//   the reason alone when it refused or the network was gone.
-// Action: POSTs the body as JSON to RECORD_URL with the admin session cookie and reads the answer
-//   once (a refusal is never trusted to parse).
-// Role: the one request of a transaction approval, called once per student by
-//   sendTransaction()'s loop — and the same call the approvals page's Approve makes for a
-//   submission. The sentence the admin reads is the caller's, which is why only the reason is
-//   handed back: the caller is the one that has to name the student this row was for.
+// Output: { ok: true, result } once the backend has taken the row, or { ok: false, text } with the
+//   reason alone when it refused or the network was gone.
+// Action: picks the flow's own route — POST /transaction-record on the admin's pages,
+//   POST /add-transaction-submit on a student's own — POSTs the body as JSON to it with the session
+//   cookie and reads the answer once (a refusal is never trusted to parse); a 404 on the student
+//   route is handed back with the sentence that names it as the route the API has not been given
+//   yet.
+// Role: the one request of a write on the transaction pages, called once per student by
+//   sendTransaction()'s loop — and the same call the approvals page's Approve makes for a submission
+//   (through the admin's route, that page being an admin's). The sentence the reader sees is the
+//   caller's, which is why only the reason is handed back: the caller is the one that has to name
+//   the student this row was for. It is the one place the two routes are told apart.
 async function writeTransaction(body) {
+    const url = STUDENT_FLOW ? SUBMIT_URL : RECORD_URL;
+
     try {
-        const response = await fetch(RECORD_URL, {
+        const response = await fetch(url, {
             method: 'POST',
             credentials: 'include',
             headers: { 'Content-Type': 'application/json' },
@@ -3215,32 +3477,54 @@ async function writeTransaction(body) {
         const result = await response.json().catch(() => null);
 
         if (response.ok) {
-            console.log('Transaction recorded:', result);
+            console.log(STUDENT_FLOW ? 'Transaction submitted:' : 'Transaction recorded:', result);
             return { ok: true, result };
         }
 
-        console.error('Transaction record error:', result);
+        console.error('Transaction write error:', response.status, url, result);
+
+        // A student's route is one the backend has yet to answer, so its 404 is read the way the
+        // approvals page reads GET /getsubmittransaction's: the API's own words, with the route
+        // named, rather than dressed up as something the page did wrong.
+        const missing = STUDENT_FLOW && response.status === 404
+            ? ' — the page asks POST /add-transaction-submit for it, which is the route the API has not been given yet, so there is nothing to submit until it answers.'
+            : '';
+
         return {
             ok: false,
-            text: `the backend refused the row (${response.status}): ${describeError(result)}`
+            text: `the backend refused the ${WRITE_NOUN} (${response.status}): ${describeError(result)}${missing}`
         };
     } catch (error) {
         console.error('Network Error:', error);
-        return { ok: false, text: 'the row never reached the API (network error)' };
+        return { ok: false, text: `the ${WRITE_NOUN} never reached the API (network error)` };
     }
 }
 
 // Input: transaction — the approved transaction that was written.
-// Output: the sentence the page shows once every row is written, ending with the way on to the
-//   home page.
+// Output: the sentence the page shows once every row has been taken, ending with the way on to the
+//   flow's own hub.
 // Action: names the label, every student it was written for, what the row was filed under —
-//   dropping the type when it already opens with the label, which is the Other page's case alone
-//   — and, for a pick of several, that one row was written per student.
-// Role: the success sentence of both approving pages, shared so the reason pages and the Other
-//   page word a recording alike, and built from the same object the question named.
+//   dropping the type when it already opens with the label, which is the Other page's case alone —
+//   and, for a pick of several, that one row was written per student; on a student's own page it
+//   says instead that the row is a submission waiting to be approved, since that is what
+//   POST /add-transaction-submit leaves behind.
+// Role: the success sentence of both approving pages and of a student's own, shared so the reason
+//   pages, the Other page and the student's pages word a write alike, and built from the same object
+//   the question named.
 function recordedMessage(transaction) {
     const students = transaction.students;
     const forStudent = students.length ? ` for ${nameList(students)}` : '';
+
+    // A student's own page hands the row over rather than writing it into the table, so its sentence
+    // says what the row is now — a submission — and where it is: on the approvals page's list, where
+    // an admin answers it. None of the admin's own words about a row that is already in the table
+    // belong here.
+    if (STUDENT_FLOW) {
+        return `${WRITE_VERB} "${transaction.label}"${forStudent} — the backend took the submission`
+            + ` (POST /add-transaction-submit), and it is waiting for an admin to approve it on the`
+            + ` approvals page. Taking you to the student home page…`;
+    }
+
     // What the row was filed under is named - unless the type opens with the label that
     // was just quoted, which is the Other page's case alone: there the row's type is the
     // broad reason itself with its points, so naming it again says the same words twice.
@@ -3337,6 +3621,12 @@ openReasonPage();
 // the reason being the row's type already.
 // Nothing about the amount is signed here, unlike the reason pages: the admin's sign is
 // their own, so a minus in the box takes points away and a plain number gives them.
+//
+// transaction_student_other.html is the same card for the student flow — the same three boxes and
+// the same date box, and every line above holds for it. What differs is only the two things the
+// whole student flow differs by: the student is the account GET /current-student names for the
+// session cookie rather than a pick, and the row is handed to POST /add-transaction-submit instead
+// of being recorded by POST /transaction-record (see the student flow section above).
 const otherForm = document.getElementById('otherform');
 const otherAmount = document.getElementById('otheramount');
 const otherReason = document.getElementById('otherreason');
@@ -3411,21 +3701,25 @@ function otherMemoValue() {
 // Input: none — it reads the page's own boxes and button, sessionStorage and the session cookie.
 // Output: none — the Next button is left live or grey, and the one status line says what the
 //   checks answered, naming the students the transaction would be for.
-// Action: refuses to go on with no student confirmed on transaction1.html; otherwise asks the
-//   backend for admin powers (checkAdminPermission) and, once they were granted, invites the
-//   admin to type the amount, the broad reason and a memo — naming every student of the pick,
-//   because the row is written for each of them.
-// Role: the boot of transaction-other.html, the type with no list behind it — the same two checks
-//   the reason pages make as they load, and what stops this type being opened straight from the
-//   URL with nobody behind it.
+// Action: refuses to go on with no student confirmed on transaction1.html — on the admin's pages
+//   alone; otherwise asks the flow's own gate (flowPermission: the student read on a student's own
+//   page, the admin probe on every other) and, once it was granted, invites the transaction to be
+//   typed in — naming the account it is for, the whole pick on the admin's pages and the one
+//   student behind the session cookie on their own.
+// Role: the boot of the six Other pages (transaction-other.html and its
+//   transaction_student_other.html twin), the type with no list behind it — the same two checks the
+//   reason pages make as they load, and what stops this type being opened straight from the URL with
+//   nobody behind it. On a student's own page there is no stored pick to look for: the read the gate
+//   makes is the check, because it both names the account and proves the session.
 async function openOtherPage() {
     if (!otherAmount) return; // every other page loads app.js for its own form only
 
-    // A transaction is only ever for a student confirmed on transaction1.html, so
-    // without one the boxes and the Next button stay switched off and the status line
-    // says where to go. This is what stops this type being opened straight from the URL
-    // with nobody behind it.
-    if (!sessionStorage.getItem(STUDENT_KEY)) {
+    // A transaction on the admin's pages is only ever for a student confirmed on transaction1.html,
+    // so without one the boxes and the Next button stay switched off and the status line says where
+    // to go. This is what stops this type being opened straight from the URL with nobody behind it.
+    // A student's own page has no such pick to look for: the gate below is asked instead, and it is
+    // the read that names the account.
+    if (!STUDENT_FLOW && !sessionStorage.getItem(STUDENT_KEY)) {
         setOtherEnabled(false);
         showOtherMessage('No student was confirmed by the backend — go back to the transaction page and enter a username that exists.', true);
         return;
@@ -3433,12 +3727,13 @@ async function openOtherPage() {
 
     setOtherEnabled(false);
 
-    const check = await checkAdminPermission();
+    const check = await flowPermission();
     setOtherEnabled(check.granted);
 
     // Who the transaction is for is the one thing neither box can say, so the line
-    // names the students transaction1.html confirmed along with the invitation - all of
-    // them, because the row is written for every student of the pick.
+    // names the account along with the invitation - every student transaction1.html
+    // confirmed, because the row is written for each of them, and the one student the
+    // backend named for this browser on a student's own page, where the row is theirs.
     const students = selectedStudents();
     const forStudents = students.length ? ` for ${nameList(students)}` : '';
     const each = students.length > 1 ? ` — one row each` : '';
@@ -3473,13 +3768,15 @@ async function approveOther() {
 //   sessionStorage.
 // Output: none — the row is written, or the status line (and Next's state) says why it was not.
 // Action: refuses an empty reason and an amount that is not a whole number of points; refuses a
-//   date box holding no whole day; re-asks the backend for admin powers; builds the row — type
-//   the broad reason with its figure (amountLabel), the admin's own sign on the amount, the memo
-//   box or null — asks the Y/N question about that object, and on Y sends it (sendTransaction),
-//   greying Next once it is recorded and handing the browser back to the home page.
-// Role: the approval itself, behind approveOther() — split out so the one-at-a-time flag covers
-//   every way out of it: recorded, refused, unanswered or off the network. This is the one type
-//   with no list behind it: the amount, the reason and the memo are all typed.
+//   date box holding no whole day; re-asks the flow's own gate (flowPermission); builds the row —
+//   type the broad reason with its figure (amountLabel), the sign the box holds, the memo box or
+//   null, and the flow's own students (selectedStudents) — asks the Y/N question about that object,
+//   and on Y sends it (sendTransaction), greying Next once it is written and handing the browser back
+//   to the flow's own hub (FLOW_HOME_URL).
+// Role: the approval itself, behind approveOther() — split out so the one-at-a-time flag covers every
+//   way out of it: written, refused, unanswered or off the network. This is the one type with no list
+//   behind it: the amount, the reason and the memo are all typed. It is the same function on an
+//   admin's page and on a student's own, like the reason pages' runApproval().
 async function runOtherApproval() {
     const reason = otherReason?.value?.trim() ?? '';
     const amountText = otherAmount?.value?.trim() ?? '';
@@ -3511,7 +3808,7 @@ async function runOtherApproval() {
     }
 
     setOtherEnabled(false);
-    const check = await checkAdminPermission();
+    const check = await flowPermission();
 
     if (!check.granted) {
         showOtherMessage(check.text, true);
@@ -3543,18 +3840,18 @@ async function runOtherApproval() {
 
     if (!confirmed) {
         const forStudent = transaction.students.length ? ` for ${nameList(transaction.students)}` : '';
-        showOtherMessage(`Nothing was recorded — the "${transaction.label}" transaction${forStudent} was not confirmed with Y.`, true);
+        showOtherMessage(`Nothing was ${WRITE_WORD} — the "${transaction.label}" transaction${forStudent} was not confirmed with Y.`, true);
         return;
     }
 
     const sent = await sendTransaction(transaction);
 
     if (sent.ok) {
-        // Recorded once is recorded: Next goes grey until a box changes, so a second
+        // Written once is written: Next goes grey until a box changes, so a second
         // Enter or click cannot write the same transaction twice.
         setOtherEnabled(false);
         showOtherMessage(recordedMessage(transaction), false);
-        redirectHomeAfter(REDIRECT_DELAY_MS);
+        redirectHomeAfter(REDIRECT_DELAY_MS, FLOW_HOME_URL);
         return;
     }
 

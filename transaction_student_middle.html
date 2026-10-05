@@ -1,0 +1,73 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Bonura bank</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Comfortaa:wght@300..700&display=swap">
+    <link rel="stylesheet" href="styles.css?v=25">
+    <script src="apibase.js?v=1" defer></script>
+    <script src="app.js?v=29" defer></script>
+</head>
+<!-- The student's own type menu: transaction-middle.html to the letter — the same card, the same
+     line above the same four doors — with two words of its own. data-flow="student" on the <body>
+     is what tells app.js this is the student flow rather than the admin's (the same way the two
+     history pages say data-history), and there are two things it changes here and behind the
+     doors:
+
+         the student is not a pick. Nothing about this flow is written into sessionStorage: who
+         the line above the doors names is the account behind the session cookie, read from the
+         backend as the page opens —
+             GET /current-student
+         — and a browser with no student behind it is told so on that same line, with the four
+         doors switched off. transaction-middle.html reads the same line out of the pick
+         transaction1.html stored, which is what sessionstorage.js is for and why this page loads
+         app.js instead.
+
+         the row is submitted, not recorded. Behind each door is this student's own copy of the
+         admin's type page, and its write goes to POST /add-transaction-submit — the route the
+         backend has yet to answer — where the admin's pages write through POST /transaction-record.
+
+     The doors open the student flow's four pages, not the admin's, so a student never walks out of
+     their own flow and into one that would write for somebody else. -->
+<body data-flow="student">
+    <div class="page">
+        <main class="card">
+            <header class="bar">
+                <h1 class="card__title">Bonura bank</h1>
+                <a class="tag" href="/student-home.html">&#8592; Home</a>
+            </header>
+
+            <!-- The line transaction-middle.html carries too, holding the student this
+                 transaction would be for. app.js fills it as the page opens
+                 (openStudentTypeMenu): the name GET /current-student answered with, or, with
+                 nobody behind the browser, the sentence that says so — which is also what
+                 switches the four doors below off. It starts as the dots the markup draws, the
+                 way the pick's own line does, so an empty line is never left standing under a
+                 read that has not answered yet. -->
+            <p class="card__hint"><strong>Transaction type.</strong> Student: <strong id="transactionstudent">&hellip;</strong></p>
+
+            <!-- The four types are doors, not buttons: the same pale boxes the hub's five
+                 doors are, because they are four equal choices between ways further in —
+                 none of them is the one button that commits anything. Each one opens the
+                 student flow's own page for that type. The hrefs are what app.js takes away
+                 when the backend names no student for this browser, so the menu cannot be
+                 walked through by nobody. -->
+            <nav class="actions" aria-label="Transaction types">
+                <a class="btn btn--door" href="/transaction_student_bonus.html">Bonus</a>
+                <a class="btn btn--door" href="/transaction_student_fines.html">Fine</a>
+                <a class="btn btn--door" href="/transaction_student_other.html">Others</a>
+                <a class="btn btn--door" href="/transaction_student_spending.html">Expense</a>
+            </nav>
+
+            <!-- The way out of the flow, and the only link app.js leaves alone when it switches
+                 the doors off: it leads back to the student's own hub, where Sign out is, for a
+                 browser that is signed in as a student it should not be — the student's answer
+                 to the admin menu's "Wrong student? Back". -->
+            <p class="footnote">Wrong account? <a class="tag" href="/student-home.html">&#8592; Home</a></p>
+        </main>
+    </div>
+</body>
+</html>
