@@ -9,7 +9,7 @@
     <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Comfortaa:wght@300..700&display=swap">
     <link rel="stylesheet" href="styles.css?v=26">
     <script src="apibase.js?v=1" defer></script>
-    <script src="app.js?v=29" defer></script>
+    <script src="app.js?v=30" defer></script>
 </head>
 <body>
     <!-- The page behind the hub's "Approve transactions" door, and the whole of it is one box of
@@ -27,9 +27,9 @@
          session, and the backend refuses the request as well. Every other page leaves the empty
          <ul> and the hidden list exactly as they are.
 
-         The read is the one route the backend has yet to answer (GET /getsubmittransaction is
-         not in the API's openapi.json, and answers 404 today), so the line above the box is
-         where that is said in the API's own words until it is there. -->
+         The read is live: GET /getsubmittransaction is in the API's openapi.json and answers
+         the submissions themselves, so the line above the box draws the rows it sends — and
+         says whatever the backend answers, in the API's own words, when it refuses. -->
     <div class="page">
         <main class="card">
             <header class="bar">

@@ -1948,8 +1948,8 @@ async function jobSalaries() {
 //     not in https://api.rongrongwu.com/openapi.json and the API answers
 //     404 {"detail": "Not Found"} to it (checked live). So what a student's page writes is a
 //     submission — what the approvals page (approve_transactions.html) then lists — and the 404
-//     is said in the API's own words with the route named, the way that page reads its own
-//     GET /getsubmittransaction, rather than dressed up as something the page did wrong.
+//     is said in the API's own words with the route named, rather than dressed up as something
+//     the page did wrong.
 //
 // Which flow a page is on, the page says about itself, the way the two history pages say
 // data-history: a student's own page carries data-flow="student" on its <body> and the admin's
@@ -3483,9 +3483,9 @@ async function writeTransaction(body) {
 
         console.error('Transaction write error:', response.status, url, result);
 
-        // A student's route is one the backend has yet to answer, so its 404 is read the way the
-        // approvals page reads GET /getsubmittransaction's: the API's own words, with the route
-        // named, rather than dressed up as something the page did wrong.
+        // A student's route is one the backend has yet to answer, so its 404 is said in the API's
+        // own words, with the route named, rather than dressed up as something the page did
+        // wrong.
         const missing = STUDENT_FLOW && response.status === 404
             ? ' — the page asks POST /add-transaction-submit for it, which is the route the API has not been given yet, so there is nothing to submit until it answers.'
             : '';
@@ -3913,14 +3913,14 @@ openRemovePage();
 // submission to the newest.
 //
 // Three routes stand behind the page:
-//   GET  /getsubmittransaction     -> every transaction waiting to be approved. It is the
-//                                     route the backend has yet to answer: it is not in
-//                                     https://api.rongrongwu.com/openapi.json and the API
-//                                     answers 404 {"detail": "Not Found"} to it (checked
-//                                     live), which is the sentence this page's status line
-//                                     writes until it is there. Its reply is read the way
-//                                     every other untyped route in this project is read
-//                                     (see SUBMITTED_STUDENT_KEYS below).
+//   GET  /getsubmittransaction     -> every transaction waiting to be approved. The route is
+//                                     live: it is in
+//                                     https://api.rongrongwu.com/openapi.json, and a browser
+//                                     with no session is answered 401 {"detail": "Not logged
+//                                     in"} (checked live). Its reply is a list of records no
+//                                     schema names the fields of, so it is read the way every
+//                                     other untyped route in this project is read (see
+//                                     SUBMITTED_STUDENT_KEYS below).
 //   POST /removesubmittransaction  -> takes one submission off that list, named by its id,
 //                                     which is the one field POST /remove is written with
 //                                     ({"id": 5}, read off openapi.json). The name is this
@@ -3941,9 +3941,10 @@ const SUBMITTED_URL = `${API_ORIGIN}/getsubmittransaction`;
 const SUBMITTED_DECLINE_URL = `${API_ORIGIN}/removesubmittransaction`;
 
 // The names a submitted transaction is likely to carry its own fields under, most likely
-// first. The read is untyped — no schema for it exists yet — so each field is asked for by
-// every name it could plausibly wear rather than trusted to one, the way the students page
-// reads an account and the history page reads a transaction. The student comes first because
+// first. The read is untyped — the route answers a list of records and no schema names the
+// fields of one — so each field is asked for by every name it could plausibly wear rather
+// than trusted to one, the way the students page reads an account and the history page reads
+// a transaction. The student comes first because
 // the row's first value is the student; the balance is the backend's own figure for the
 // account the row would end on, drawn as it came and never sent back (a change does not send
 // it either — it is the backend's to work out).
@@ -4340,16 +4341,16 @@ function stampSubmissions() {
 // Output: none — the rows are drawn, or the list is emptied and the status line says what came
 //   back.
 // Action: GETs /getsubmittransaction with the session cookie; on a failure it drops the rows and
-//   says what the backend answered, naming the route when the answer is the API's 404 and saying
-//   where to log in on a 401; on an empty list it says there is nothing waiting; otherwise it
+//   says what the backend answered, with the route named and, on a 401, where to log in; on an
+//   empty list it says there is nothing waiting; otherwise it
 //   reads every record once (submissionFields), orders them oldest first (rankSubmissionRows) and
 //   draws them (drawSubmissions).
 // Role: the approvals page's own read, started as the page opens, by Refresh, and when the tab
 //   comes back to the front. It is the students page's read one route shorter — one read at a
 //   time, a line while it is on its way, and a sentence that says what came back — and it asks
-//   the backend as it stands: GET /getsubmittransaction is a route the API does not answer yet,
-//   and its 404 is said in the API's own words, with what the page asked for, rather than dressed
-//   up as something the page did wrong.
+//   the backend's own route, GET /getsubmittransaction, saying whatever it answers in the API's
+//   own words, with what the page asked for, rather than dressed up as something the page did
+//   wrong.
 async function readSubmissions() {
     if (!approvalsList) return; // every other page loads app.js for its own form
     if (submissionsReadRunning) return;
@@ -4385,9 +4386,7 @@ async function readSubmissions() {
 
             showApprovalsMessage(
                 `The backend could not list the transactions waiting to be approved (${response.status}): ${describeError(result)}`
-                + (response.status === 404
-                    ? ' — the page asks GET /getsubmittransaction for them, which is the route the API has not been given yet, so there is nothing to approve until it answers.'
-                    : ''),
+                + ' — the page asks GET /getsubmittransaction for them.',
                 true
             );
             return;
