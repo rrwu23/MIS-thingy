@@ -87,7 +87,18 @@
     (`POST /pay-salary` vs. `POST /pay-rent`) and the noun/verb of their sentences.
 
 ### 2. Session handling
-- The session lives **only** in the backend's `session_id` cookie — never in a page.
+- The session lives **only** in cookies, never in a page — and in **two** cookies, so one
+  browser can be signed in as an admin and as a student at the same time:
+  - `session_id` — the **admin's** session, set by `POST /login`.
+  - `student_session_id` — the **student's** session. The API sets this one as `session_id`
+    too, but the `/api` Function (`functions/api/[[path]].js`) renames it on the way past:
+    a student call's cookie is sent to the API under `session_id`, and the API's `Set-Cookie`
+    is written back to the browser as `student_session_id`.
+- Which cookie a call carries is decided by that Function, by route: the student-flow routes
+  (`student-login`, `current-student`, `add-transaction-submit`, `transaction-student-history`)
+  use the student's cookie and every other route the admin's. The one route both flows post,
+  `/logout`, cannot be told apart by name, so the student hub sends `X-Session-Role: student`
+  and the Function ends only the named session.
 - Every authenticated request sends `credentials: "include"`.
 - The admin the session belongs to is read with `GET /current-admin`; the student with
   `GET /current-student`.

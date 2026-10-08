@@ -1,5 +1,35 @@
 # Active Context — Bonura bank
 
+## Current focus (this session) — the student's session keeps its own name
+One browser can now be signed in as **an admin and a student at the same time**. The API names
+its one session cookie `session_id` on **both** doors (`POST /login` and `POST /student-login`),
+so until now the second sign-in silently overwrote the first — the two front doors shared one
+cookie. The fix is **frontend-only**, in the `/api` Function (`functions/api/[[path]].js`), which
+the browser already reaches every API call through:
+- The Function keeps the student's session in the browser under a **second name**,
+  `student_session_id` (`ADMIN_SESSION_COOKIE = 'session_id'` stays the admin's).
+- A call's **role** is decided by route — the student-flow routes `student-login`,
+  `current-student`, `add-transaction-submit`, `transaction-student-history` are the student's,
+  everything else the admin's — or, for the one route both doors post, `/logout`, by an
+  `X-Session-Role` header the page sends.
+- On the way **to** the API the Function writes the chosen session back under the API's own
+  `session_id` and drops the other (`sessionCookieHeader`); on the way **back** it renames the
+  API's `session_id` `Set-Cookie` to `student_session_id` for a student call
+  (`namedSessionCookie`), so a sign-in stores the right cookie and a sign-out clears the right one
+  (including the `Max-Age=0` form). The `X-Session-Role` hint is stripped before the call
+  travels on.
+- `studenthome.js` (now `?v=6` in `student-home.html`) sends `X-Session-Role: student` on its
+  Sign out, so the student's sign-out leaves the admin's `session_id` standing, and the admin
+  hub's plain `POST /logout` leaves the student's standing.
+
+The API itself is untouched. Verified with `node --check` on both edited scripts and an
+end-to-end test that imports the Function and stubs its outbound `fetch`: student and admin
+login, a student read and an admin read, a student logout and an admin logout — all twelve
+assertions pass (right Cookie handed to the API, right `Set-Cookie` handed back). See
+`systemPatterns.md` §2 and `apiRoutes.md`.
+
+## Current focus (as of last session)
+
 ## Current focus (as of last session)
 The **approvals** page's **columns are fully aligned and verified**: the head row's five names and
 the values under them are laid out in **one shared six-track grid** (`--approvals-columns` set once

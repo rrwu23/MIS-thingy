@@ -56,7 +56,7 @@ Current versions (as of last update — verify with `grep -rho '?v=[0-9]*' *.htm
 - `studentpicker.js?v=6`
 - `jobrotation.js?v=5`
 - `payroll.js?v=5`
-- `studenthome.js?v=5`
+- `studenthome.js?v=6`
 
 ## Development setup
 - **Serve locally with the Function:** `wrangler pages dev .` in the repo root — this runs
@@ -74,6 +74,13 @@ Current versions (as of last update — verify with `grep -rho '?v=[0-9]*' *.htm
   is host-only for `api.rongrongwu.com`. A page on a *different site* (e.g.
   `bonurabank.ca`) cannot receive or send it — hence the `/api` proxy (see
   `systemPatterns.md`).
+- The API's one session cookie, `session_id`, is handed out by **both** doors. So the `/api`
+  Function keeps the student's session in the browser under a **second name**,
+  `student_session_id`, apart from the admin's `session_id` — one browser can hold both at
+  once. Each call is handed to the API under `session_id` (the student's cookie for the
+  student-flow routes, the admin's otherwise), and the API's `Set-Cookie` is renamed back to
+  `student_session_id` for the student's calls. Do not merge this back into one cookie, or the
+  two sign-ins collide again.
 - The proxy enforces a **15-second** API timeout (`API_TIMEOUT_MS`) and answers with a
   JSON `{"detail": ...}` on failure (504 on timeout, 502 on unreachable).
 - `fetch` calls that need a session always send `credentials: "include"`.

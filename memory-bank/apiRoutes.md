@@ -10,8 +10,8 @@ Backend base: `https://api.rongrongwu.com` (FastAPI; errors are `{"detail": "...
 | Method | Route | Used by | Purpose |
 | --- | --- | --- | --- |
 | POST | `/login` | `index.html` (admin sign in), `login_admin` refs | Admin login; sets `session_id`. Reads `admin_name`, `password`. |
-| POST | `/student-login` | `index.html` (Student sign in) | Student login; reads the same two boxes as the student's username/password. |
-| POST | `/logout` | home hub, student hub | Clears `session_id` (Max-Age=0). Answers 200 even with no session. |
+| POST | `/student-login` | `index.html` (Student sign in) | Student login; reads the same two boxes as the student's username/password. Its session is kept in the browser as `student_session_id` (the `/api` Function renames the API's `session_id`), so it does not overwrite the admin's. |
+| POST | `/logout` | home hub, student hub | Ends a session. The student hub sends `X-Session-Role: student`, so the `/api` Function ends the student's `student_session_id` and leaves the admin's `session_id` standing (and the other way round for the admin hub). |
 | POST | `/add-admin` | add-admin page | Creates an admin (not linked from the hub). |
 | POST | `/adduser` | `addaccount.html`; **also the empty-body permission probe** for every protected flow | Creates a student account (`name`, `birthday`, `initialbalance`, `password`). Empty body reveals session validity without side effects. |
 | GET | `/current-admin` | hub greeting, students page, pickers, payroll, job rotation, etc. | Names the admin behind the session cookie. |
@@ -37,6 +37,12 @@ Backend base: `https://api.rongrongwu.com` (FastAPI; errors are `{"detail": "...
 - Route strings live as `const *_URL` constants in each script (see `systemPatterns.md`
   §4 — copies are intentional). To audit the live set run:
   `grep -rho 'API_ORIGIN}/[a-z-]*' *.js | sort -u`
+- **Two sessions can be held at once.** The API names its one cookie `session_id` on both
+  doors; the `/api` Function (`functions/api/[[path]].js`) keeps the student's under a second
+  browser-side name, `student_session_id`, so an admin and a student can be signed in in the
+  same browser. The student-flow routes are `student-login`, `current-student`,
+  `add-transaction-submit`, `transaction-student-history`; the shared `/logout` is told which
+  session by the `X-Session-Role: student` header the student hub sends.
 - The `?student=` / `?supervisor=` query shape is used consistently for the per-account
   reads.
 - The API has an `openapi.json` (several comments reference it); a redirect on `/docs` is

@@ -9,7 +9,7 @@
     <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Comfortaa:wght@300..700&display=swap">
     <link rel="stylesheet" href="styles.css?v=29">
     <script src="apibase.js?v=1" defer></script>
-    <script src="studenthome.js?v=5" defer></script>
+    <script src="studenthome.js?v=6" defer></script>
 </head>
 <body>
     <!-- The page behind the front door's student door, and the whole of it is the sketch's
@@ -76,8 +76,9 @@
                  row of its own, pushed to the right, so it is never mistaken for a way
                  further in. There is nothing else that ends a session — the session lives in
                  the backend's cookie and not in a page — so the button posts POST /logout,
-                 which empties that cookie whichever of the front door's two doors opened it,
-                 and studenthome.js hands the browser back to the sign-in card. -->
+                 which empties the student's own session cookie (student_session_id, the name
+                 the /api Function keeps it under and apart from the admin's), and
+                 studenthome.js hands the browser back to the sign-in card. -->
             <div class="hub__foot">
                 <button type="button" id="signout" class="btn btn--door">Sign out</button>
             </div>

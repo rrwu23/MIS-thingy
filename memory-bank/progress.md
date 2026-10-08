@@ -3,9 +3,19 @@
 ## Current status
 The app is **feature-complete for the flows it was built for** and is deployed on
 Cloudflare Pages against the live API. Both flows (admin and student) are wired end to
-end. The latest work (approvals) is finished and committed.
+end. The latest work (approvals, then the two-session change that lets one browser hold an admin
+and a student session at once) is finished and committed.
 
 ## What works
+### Sessions
+- **Admin and student signed in at once.** The API sets its one cookie, `session_id`, on both
+  doors; the `/api` Function (`functions/api/[[path]].js`) keeps the student's in the browser
+  under a second name, `student_session_id`, hands each call to the API under `session_id` with
+  only the cookie that call is about, and renames the API's `Set-Cookie` back for the student's
+  calls. Sign-out ends only the caller's own session — the student hub hints
+  `X-Session-Role: student`. Verified with a stubbed-`fetch` test of the Function; see
+  `systemPatterns.md` §2.
+
 ### Admin flow
 - **Sign in** on the landing card → admin hub with greeting (`GET /current-admin`) and
   **Sign out** (`POST /logout`).

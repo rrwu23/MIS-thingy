@@ -27,11 +27,12 @@
 //
 // Sign out is the other route this card knows, and it is the same one the admin's hub
 // posts: POST /logout. Its summary in openapi.json says Logoutadmin, but the cookie it
-// empties is session_id — the one cookie GET /current-student,
-// GET /transaction-student-history and every other protected route read — and checked live
-// with curl it answers 200 with that cookie emptied even when no session was sent, so there
-// is no student session for it to turn away. There is therefore no student logout of its
-// own to wait for.
+// empties is the student's own session — kept in the browser as student_session_id, a name
+// of its own that the Cloudflare Pages Function functions/api/[[path]].js gives the backend's
+// one session_id for the student's door, so a browser can be signed in as an admin and as a
+// student at the same time — and checked live with curl it answers 200 with that cookie
+// emptied even when no session was sent, so there is no student session for it to turn away.
+// There is therefore no student logout of its own to wait for.
 //
 // This file is the page's own script, so the readers it needs are kept here rather than
 // shared: studentpicker.js, jobrotation.js, transactionview.js and sessionstorage.js do
@@ -66,6 +67,14 @@ const BALANCE_KEYS = ['ending_balance', 'balance_after', 'end_balance', 'balance
 // sync by hand with LOGOUT_URL in app.js — one route, written out in the two files that
 // post it, the way the session keys are.
 const LOGOUT_URL = `${API_ORIGIN}/logout`;
+
+// The header that tells the Cloudflare Pages Function (functions/api/[[path]].js) which session
+// this POST /logout is giving up, since the route's name is the same for the admin's hub and the
+// student's: 'student' hands the call the student's own student_session_id and leaves the admin's
+// session_id — which the same browser may also hold — standing. Kept in sync by hand with
+// SESSION_ROLE_HEADER in that Function, the way the routes above are.
+const SESSION_ROLE_HEADER = 'X-Session-Role';
+const SESSION_ROLE_STUDENT = 'student';
 
 // The front door, index.html — the sign-in card. That is where a browser that has just
 // given up its session belongs, since the card holds nothing but the signing in; kept in
@@ -290,13 +299,15 @@ async function showStudentBalance(student) {
 }
 
 // Sign out: POST /logout — the route the admin's own hub posts (app.js, LOGOUT_URL), and the
-// one route that ends a session, whichever of the front door's two doors opened it: both
-// logins are held in the same session_id cookie, and that is the cookie this route empties.
-// The username the student door stored is given up here as well, so the hub behind the
-// sign-in card cannot open on a student who has just left. The confirmed student of the
-// transaction flow (STUDENT_USERNAME_KEY, sessionstorage.js) is deliberately left alone: that
-// is an admin's choice about whose transaction is being filled in, and not this page's to
-// clear.
+// one route that ends a session, whichever of the front door's two doors opened it. The student's
+// session is its own cookie in the browser — student_session_id, the name the Cloudflare Pages
+// Function functions/api/[[path]].js keeps it under (see the note at the head of this file) — so
+// the request says SESSION_ROLE_HEADER: student, and the Function hands this call the student's
+// cookie and not the admin's, whose own session_id stays standing. The username the student door
+// stored is given up here as well, so the hub behind the sign-in card cannot open on a student who
+// has just left. The confirmed student of the transaction flow (STUDENT_USERNAME_KEY,
+// sessionstorage.js) is deliberately left alone: that is an admin's choice about whose transaction
+// is being filled in, and not this page's to clear.
 signOutButton?.addEventListener('click', async function () {
     // One sign-out at a time: the button goes grey and unclickable for the round trip, the
     // same .btn[aria-disabled="true"] state the two forms are put in while they wait.
@@ -306,7 +317,12 @@ signOutButton?.addEventListener('click', async function () {
     try {
         const response = await fetch(LOGOUT_URL, {
             method: 'POST',
-            credentials: 'include' // carry the session cookie out with it
+            credentials: 'include', // carry the session cookie out with it
+            // This one route is shared with the admin's hub, so its name alone cannot say whose
+            // session is being ended; this header tells the Function to end the student's own
+            // student_session_id and to leave the admin's session_id — if this browser holds one —
+            // standing.
+            headers: { [SESSION_ROLE_HEADER]: SESSION_ROLE_STUDENT }
         });
 
         if (!response.ok) {

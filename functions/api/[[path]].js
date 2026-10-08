@@ -70,6 +70,126 @@ function cookiesIn(headers) {
     return typeof headers.getSetCookie === 'function' ? headers.getSetCookie() : [];
 }
 
+// The session cookie the API hands out, and the two names this app keeps in the browser so that
+// one browser can be signed in as an admin and as a student at the same time.
+//
+// The API names its one session cookie `session_id` on both doors: POST /login (the admin's) and
+// POST /student-login (the student's) each answer with
+//     set-cookie: session_id=...; HttpOnly; SameSite=lax; Secure
+// Because it is one name, the second sign-in overwrote the first — a browser signed in as an
+// admin and then as a student held only the student's session and every admin page fell back to
+// 401 Not logged in, and the other way round. So this Function, which already stands on every
+// call the pages make, keeps the student's session under a name of its own: `student_session_id`,
+// apart from the admin's `session_id`, and hands each one back to the API under the one name it
+// knows. A browser can then hold both at once and each flow finds the session it belongs to.
+//
+// Which of the two a call is about is decided by the route: the routes below are the student
+// flow's own and everything else is the admin's. The one route both flows post — /logout — cannot
+// be told apart by its name, so a page may say which session it means with SESSION_ROLE_HEADER
+// below; the student hub's Sign out sends it, and every other sign-out is the admin's.
+const ADMIN_SESSION_COOKIE = 'session_id';
+const STUDENT_SESSION_COOKIE = 'student_session_id';
+
+// The API routes the student flow asks for and no admin page does. A call to one of these is
+// answered with the student's session; every other route is answered with the admin's.
+const STUDENT_ROUTES = new Set([
+    'student-login',
+    'current-student',
+    'add-transaction-submit',
+    'transaction-student-history'
+]);
+
+// The request header a page uses to say which session a call is about when the route cannot:
+// `student` means the student's, anything else (or no header at all) means the admin's. It only
+// ever says what the route already says, except on the shared /logout, and it never reaches the
+// API — like the hop-by-hop headers above, it describes the one hop into this Function and is
+// taken off before the call is passed on.
+const SESSION_ROLE_HEADER = 'X-Session-Role';
+
+// Input: route — the API path this call is for, as this Function built it (no leading slash:
+//   'logout', 'student-login', 'reasons/bonus-bucks'); request — the browser's own request, read
+//   only for the SESSION_ROLE_HEADER hint.
+// Output: 'student' when this call belongs to the student flow, 'admin' otherwise.
+// Action: answers 'student' for a route in STUDENT_ROUTES, or for any route a request marks as
+//   the student's with SESSION_ROLE_HEADER; everything else is 'admin'.
+// Role: the one decision the two session cookies hang on — which cookie is handed to the API for
+//   this call, and which of the two a Set-Cookie the API answers with is written back as.
+function sessionRole(route, request) {
+    if (STUDENT_ROUTES.has(route)) {
+        return 'student';
+    }
+
+    const hint = (request.headers.get(SESSION_ROLE_HEADER) || '').trim().toLowerCase();
+
+    return hint === 'student' ? 'student' : 'admin';
+}
+
+// Input: cookieHeader — the browser's Cookie header as it arrived; role — 'student' or 'admin',
+//   from sessionRole().
+// Output: the Cookie header to send on to the API: the same cookies, with whichever of the two
+//   session cookies belongs to this call renamed to the API's own `session_id`, and the other
+//   left out.
+// Action: splits the header into name=value pairs, keeps every cookie but the two session ones,
+//   and appends the session named by role under the name session_id when the browser holds it.
+// Role: this is what lets the one API keep reading `session_id` unchanged — a student route
+//   arrives with the student's cookie, an admin route with the admin's, and the API never learns
+//   that the browser was keeping two.
+function sessionCookieHeader(cookieHeader, role) {
+    const wanted = role === 'student' ? STUDENT_SESSION_COOKIE : ADMIN_SESSION_COOKIE;
+    const kept = [];
+    let sessionValue = null;
+
+    for (const part of cookieHeader.split(';')) {
+        const pair = part.trim();
+
+        if (!pair) {
+            continue;
+        }
+
+        const cut = pair.indexOf('=');
+
+        if (cut === -1) {
+            continue;
+        }
+
+        const name = pair.slice(0, cut).trim();
+
+        if (name === STUDENT_SESSION_COOKIE || name === ADMIN_SESSION_COOKIE) {
+            if (name === wanted) {
+                sessionValue = pair.slice(cut + 1).trim();
+            }
+
+            continue;
+        }
+
+        kept.push(pair);
+    }
+
+    if (sessionValue !== null) {
+        kept.push(`${ADMIN_SESSION_COOKIE}=${sessionValue}`);
+    }
+
+    return kept.join('; ');
+}
+
+// Input: setCookie — one Set-Cookie line from the API's answer; role — 'student' or 'admin'.
+// Output: the same line, with the cookie's own name changed to the one the browser is keeping:
+//   the student's `student_session_id` for a student call, or the API's own `session_id`
+//   unchanged for an admin call.
+// Action: renames the leading `session_id=` to the student cookie's name when role is 'student',
+//   and answers the line as it stands otherwise — so a sign-in's Set-Cookie stores the student
+//   session under its own name, and a sign-out's Max-Age=0 line clears that same one.
+// Role: the other half of sessionCookieHeader() — the API answers in `session_id` and the browser
+//   is told it in the name it is keeping, so the two sessions stay apart in the browser while
+//   never being anything but one name to the API.
+function namedSessionCookie(setCookie, role) {
+    if (role !== 'student') {
+        return setCookie;
+    }
+
+    return setCookie.replace(/^\s*session_id\s*=/, `${STUDENT_SESSION_COOKIE}=`);
+}
+
 // How long the API is given to answer — the first byte of its answer, headers and all —
 // before the call is given up on. A hung backend is the one failure that would otherwise
 // hang the page with it, since the browser waits on this Function exactly as long as the
@@ -99,6 +219,31 @@ export async function onRequest(context) {
 
     for (const name of HOP_BY_HOP_HEADERS) {
         headers.delete(name);
+    }
+
+    // Which of the browser's two sessions this call is about, decided by the route and, where the
+    // route cannot say (the shared /logout), by the page's own SESSION_ROLE_HEADER hint.
+    const role = sessionRole(route, request);
+
+    // The hint describes this one hop and never travels: like the headers above it is taken off
+    // before the call is passed on.
+    headers.delete(SESSION_ROLE_HEADER);
+
+    // The browser keeps the admin's session and the student's under two names; the API knows only
+    // its own `session_id`. So whichever of the two this call is about is handed to the API under
+    // that name and the other is left out — the student's pages never carry the admin's session
+    // and the admin's never carry the student's. A call with neither (an admin route before anyone
+    // has signed in, say) is sent on with no Cookie header at all, exactly as before.
+    const sentCookies = headers.get('Cookie');
+
+    if (sentCookies !== null) {
+        const sessionCookies = sessionCookieHeader(sentCookies, role);
+
+        if (sessionCookies) {
+            headers.set('Cookie', sessionCookies);
+        } else {
+            headers.delete('Cookie');
+        }
     }
 
     const call = {
@@ -152,8 +297,13 @@ export async function onRequest(context) {
         }
     }
 
+    // Each Set-Cookie the API answered with is written back under the name the browser keeps it
+    // as: the student's own `student_session_id` for a call this Function decided was the
+    // student's (a sign-in stores it there, a sign-out clears it there), and the API's own
+    // `session_id` for the admin's — so the two sessions never collide in the browser even though
+    // the API only ever named one.
     for (const cookie of cookiesIn(answer.headers)) {
-        answerHeaders.append('Set-Cookie', cookie);
+        answerHeaders.append('Set-Cookie', namedSessionCookie(cookie, role));
     }
 
     // The body is passed on as the stream it arrived as, untouched, so nothing here decodes
