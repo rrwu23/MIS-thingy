@@ -28,6 +28,16 @@ login, a student read and an admin read, a student logout and an admin logout �
 assertions pass (right Cookie handed to the API, right `Set-Cookie` handed back). See
 `systemPatterns.md` §2 and `apiRoutes.md`.
 
+**Checked since — nothing else in the student flow needs routing.** `GET /reasons/{slug}`, which the
+student type pages (`transaction_student_bonus/middle/fines/spending.html`) also fetch, was probed
+live and answers **200 with no cookie** — it is public, so whichever session (or none) rides along
+makes no difference and it must **not** be added to `STUDENT_ROUTES`. `POST /adduser` (the
+admin-session probe `transactionview.js` makes before a change) is only reached from `deleteRecord`
+and `writeRecord`, which return early on the student's own history page (`!CAN_CHANGE_ROWS`), so it
+is never sent there. The full set of protected routes the student flow asks is therefore exactly
+`STUDENT_ROUTES` (`current-student`, `add-transaction-submit`, `transaction-student-history`,
+`student-login`) plus the hinted `/logout`.
+
 ## Current focus (as of last session)
 
 ## Current focus (as of last session)
